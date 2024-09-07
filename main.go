@@ -6,24 +6,43 @@ import (
 )
 
 var (
-	lang string
+	langFlag      = flag.String("lang", "go", "programming language")
+	listLangsFlag = flag.Bool("list", false, "list all support languages")
 )
 
 //go:embed templates
 var templates embed.FS
 
-func initFlags() {
-	flag.StringVar(&lang, "lang", "go", "programming language")
+func listLangs() {
+	langs, err := templates.ReadDir("templates")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, lang := range langs {
+		println(lang.Name())
+	}
 }
 
-func main() {
-	initFlags()
-
-	langTemplateDir, err := templates.ReadDir("templates/" + lang)
+func createProject() {
+	langTemplateDir, err := templates.ReadDir("templates")
 	if err != nil {
 		panic(err)
 	}
 	for _, file := range langTemplateDir {
 		println(file.Name())
 	}
+}
+
+func run() {
+	flag.Parse()
+
+	if *listLangsFlag {
+		listLangs()
+		return
+	}
+}
+
+func main() {
+	run()
 }

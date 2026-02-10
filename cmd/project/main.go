@@ -1,12 +1,9 @@
 package main
 
 import (
-	"embed"
+	"github.com/JackDrogon/project/pkg/templates"
 )
 
-//go:embed templates
-var templates embed.FS
-
 func main() {
-	Execute()
+	Execute(templates.FS)
 }

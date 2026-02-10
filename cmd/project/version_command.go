@@ -8,14 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "show version",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version.GitTagSha)
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
+// newVersionCmd creates the "version" subcommand that prints the build version.
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "show version",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(version.GitTagSha)
+		},
+	}
 }

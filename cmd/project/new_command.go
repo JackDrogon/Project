@@ -3,93 +3,87 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
 
-var (
-	lang string
+// newNewCmd creates the "new" subcommand that scaffolds a project from templates.
+func newNewCmd(templateFS embed.FS) *cobra.Command {
+	var lang string
 
-	newCmd = &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "new [project_name]",
 		Short: "Create new project",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			createProject(lang, args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return createProject(templateFS, lang, args[0])
 		},
 	}
-)
 
-func init() {
-	rootCmd.AddCommand(newCmd)
-	newCmd.Flags().StringVarP(&lang, "lang", "l", "", "Programming language for the project")
-	newCmd.MarkFlagRequired("lang")
+	cmd.Flags().StringVarP(&lang, "lang", "l", "", "Programming language for the project")
+	_ = cmd.MarkFlagRequired("lang")
+
+	return cmd
 }
 
-// createProject creates a new project with the given language
-func createProject(lang string, projectName string) {
+// createProject creates a new project with the given language template.
+func createProject(templateFS embed.FS, lang, projectName string) error {
 	fmt.Printf("Creating project with language: %s, project name: %s\n", lang, projectName)
 
-	// Step 1: Check if the language is supported
-	langTemplateDir := fmt.Sprintf("templates/%s", lang)
-	if _, err := templates.ReadDir(langTemplateDir); err != nil {
-		fmt.Printf("Unsupported language: %s\n", lang)
-		os.Exit(1)
+	// Check if the language is supported
+	langTemplateDir := lang
+	if _, err := fs.ReadDir(templateFS, langTemplateDir); err != nil {
+		return fmt.Errorf("unsupported language: %s", lang)
 	}
 
-	// Step 2: Create the project by copying the template files
-	if err := copyEmbedDir(templates, langTemplateDir, projectName); err != nil {
-		fmt.Printf("Failed to copy template files: %v\n", err)
-		os.Exit(1)
+	// Copy the template files into the project directory
+	if err := copyEmbedDir(templateFS, langTemplateDir, projectName); err != nil {
+		return fmt.Errorf("failed to copy template files: %w", err)
 	}
 
-	// Step 3: git init
-	cmd := exec.Command("git", "init")
-	cmd.Dir = projectName
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to git init: %v\n", err)
-		os.Exit(1)
+	// Initialize git repository
+	gitCmds := [][]string{
+		{"init"},
+		{"add", "."},
+		{"commit", "-s", "-m", "Initial commit"},
+	}
+	for _, gitArgs := range gitCmds {
+		if err := runGit(projectName, gitArgs...); err != nil {
+			return fmt.Errorf("failed to run git %s: %w", gitArgs[0], err)
+		}
 	}
 
-	// Step 4: git add .
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = projectName
-	err = cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to git add: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Step 5: git commit
-	cmd = exec.Command("git", "commit", "-s", "-m", "Initial commit")
-	cmd.Dir = projectName
-	err = cmd.Run()
-	if err != nil {
-		fmt.Printf("Failed to git commit: %v\n", err)
-		os.Exit(1)
-	}
 	fmt.Println("Project created successfully")
+	return nil
 }
 
-// add different languages hooks
+// runGit executes a git command in the given directory.
+func runGit(dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	return cmd.Run()
+}
 
-// copyEmbedDir recursively copies a directory from embed.FS to the local filesystem
-func copyEmbedDir(fsys embed.FS, srcDir, destDir string) error {
+// copyEmbedDir recursively copies a directory from an embedded filesystem
+// to the local filesystem.
+func copyEmbedDir(fsys fs.FS, srcDir, destDir string) error {
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
-	entries, err := fsys.ReadDir(srcDir)
+	entries, err := fs.ReadDir(fsys, srcDir)
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
-		srcPath := filepath.Join(srcDir, entry.Name())
+		// embed.FS always uses forward slashes
+		srcPath := path.Join(srcDir, entry.Name())
 		destPath := filepath.Join(destDir, entry.Name())
 		fmt.Println(entry.Name())
 
@@ -100,7 +94,7 @@ func copyEmbedDir(fsys embed.FS, srcDir, destDir string) error {
 			continue
 		}
 
-		content, err := fsys.ReadFile(srcPath)
+		content, err := fs.ReadFile(fsys, srcPath)
 		if err != nil {
 			return err
 		}

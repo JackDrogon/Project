@@ -43,7 +43,7 @@ fmt:
 .PHONY: test
 ## test : Run test
 test:
-	$(V)go test (shell go list ./...) | grep -F -v '[no test files]'
+	$(V)go test $(shell go list ./...) | grep -F -v '[no test files]' || true
 
 .PHONY: cloc
 ## cloc : Count lines of code

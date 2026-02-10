@@ -1,11 +1,11 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
-
-	"github.com/JackDrogon/project/pkg/utils"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -35,34 +35,21 @@ func createProject(lang string, projectName string) {
 
 	// Step 1: Check if the language is supported
 	langTemplateDir := fmt.Sprintf("templates/%s", lang)
-	files, err := templates.ReadDir(langTemplateDir)
-	if err != nil {
+	if _, err := templates.ReadDir(langTemplateDir); err != nil {
 		fmt.Printf("Unsupported language: %s\n", lang)
 		os.Exit(1)
 	}
 
 	// Step 2: Create the project by copying the template files
-	os.Mkdir(projectName, 0755)
-	for _, file := range files {
-		fmt.Println(file.Name())
-		srcPath := fmt.Sprintf("%s/%s", langTemplateDir, file.Name())
-		destPath := fmt.Sprintf("%s/%s", projectName, file.Name())
-		err := utils.CopyFile(srcPath, destPath)
-		if err != nil {
-			fmt.Printf("Failed to copy file: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	// Step 3: git init
-	err = os.Chdir(projectName)
-	if err != nil {
-		fmt.Printf("Failed to switch to project directory: %v\n", err)
+	if err := copyEmbedDir(templates, langTemplateDir, projectName); err != nil {
+		fmt.Printf("Failed to copy template files: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Step 3: git init
 	cmd := exec.Command("git", "init")
-	err = cmd.Run()
+	cmd.Dir = projectName
+	err := cmd.Run()
 	if err != nil {
 		fmt.Printf("Failed to git init: %v\n", err)
 		os.Exit(1)
@@ -70,6 +57,7 @@ func createProject(lang string, projectName string) {
 
 	// Step 4: git add .
 	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = projectName
 	err = cmd.Run()
 	if err != nil {
 		fmt.Printf("Failed to git add: %v\n", err)
@@ -77,7 +65,8 @@ func createProject(lang string, projectName string) {
 	}
 
 	// Step 5: git commit
-	cmd = exec.Command("git", "commit", "-m", "-s", "Initial commit")
+	cmd = exec.Command("git", "commit", "-s", "-m", "Initial commit")
+	cmd.Dir = projectName
 	err = cmd.Run()
 	if err != nil {
 		fmt.Printf("Failed to git commit: %v\n", err)
@@ -87,3 +76,37 @@ func createProject(lang string, projectName string) {
 }
 
 // add different languages hooks
+
+// copyEmbedDir recursively copies a directory from embed.FS to the local filesystem
+func copyEmbedDir(fsys embed.FS, srcDir, destDir string) error {
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	entries, err := fsys.ReadDir(srcDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		destPath := filepath.Join(destDir, entry.Name())
+		fmt.Println(entry.Name())
+
+		if entry.IsDir() {
+			if err := copyEmbedDir(fsys, srcPath, destPath); err != nil {
+				return err
+			}
+			continue
+		}
+
+		content, err := fsys.ReadFile(srcPath)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
+			return err
+		}
+	}
+	return nil
+}

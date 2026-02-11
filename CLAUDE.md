@@ -9,22 +9,51 @@ A CLI scaffolding tool (`project`) that creates new projects from embedded templ
 ## Build & Development Commands
 
 ```bash
-just build          # Build binary to bin/project
-just lint           # Run golangci-lint
+just build          # Build binary to bin/project (with version ldflags)
+just lint           # Run golangci-lint (default config, no .golangci.yml)
 just fmt            # Format all Go code
-just test           # Run tests
+just test           # Run all tests
+just test ./cmd/project/...  # Run tests for a specific package
+just test-v         # Run tests with verbose output
+just cover          # Generate coverage.html report
+just pre-commit     # fmt → lint → test (run before committing)
+just run <args>     # Build and run with arguments
+just tidy           # go mod tidy
 ```
 
 Version info is injected at build time via `-ldflags` into `pkg/version.GitTagSha`.
 
 ## Architecture
 
-- `cmd/project/main.go` — Entry point; embeds `templates/` directory via `//go:embed`
-- `cmd/project/root_command.go` — Cobra root command definition
-- `cmd/project/new_command.go` — `project new -l <lang> <name>`: creates a project from embedded templates, then runs `git init/add/commit` in the new directory
-- `cmd/project/list_command.go` — `project list`: lists available template languages by reading the embedded `templates/` directory
-- `cmd/project/version_command.go` — `project version`: prints git tag/sha
-- `cmd/project/templates/` — Embedded template files organized by language (`cpp/`, `go/`)
-- `pkg/version/version.go` — `GitTagSha` variable, set via ldflags at build time
+### Dependency injection pattern for embed.FS
 
-Key pattern: templates are embedded into the binary via `embed.FS` in `main.go` and accessed as a package-level `templates` variable across all command files in the `main` package.
+Templates are embedded in `pkg/templates/embed.go` via `//go:embed all:cpp all:go`. The `embed.FS` is passed through the command tree via explicit constructor parameters — not global state:
+
+```
+main.go → Execute(templates.FS) → newRootCmd(fs) → newNewCmd(fs), newListCmd(fs)
+```
+
+### Command files (all in `cmd/project/`, package `main`)
+
+- `main.go` — Entry point; calls `Execute(templates.FS)`
+- `root_command.go` — Cobra root command; wires subcommands
+- `new_command.go` — `project new -l <lang> <name>`: copies embedded template to new directory, renders `.tmpl` files, runs `git init/add/commit`
+- `list_command.go` — `project list`: lists available template languages
+- `version_command.go` — `project version`: prints git tag/sha
+- `template_vars.go` — `TemplateVars` struct (ProjectName, ModulePath, Author, Year) used in template rendering
+- `validate.go` — Project name validation (must start with letter, `[a-zA-Z0-9._-]`, max 255 chars)
+
+### Template system
+
+- Templates live in `pkg/templates/` organized by language (`cpp/`, `go/`)
+- Files ending in `.tmpl` are rendered with `text/template` and have the suffix stripped (e.g., `go.mod.tmpl` → `go.mod`)
+- Non-`.tmpl` files and files with invalid template syntax are copied as-is
+- Available template variables: `{{.ProjectName}}`, `{{.ModulePath}}`, `{{.Author}}`, `{{.Year}}`
+
+### Flags for `project new`
+
+`-l/--lang` (required), `-m/--module`, `--force`, `--signoff`, `-n/--dry-run`
+
+### Testing approach
+
+Tests use `testing/fstest.MapFS` to mock the embedded filesystem and `t.TempDir()` for temporary directories. Table-driven test pattern throughout.

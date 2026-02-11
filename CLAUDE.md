@@ -9,11 +9,10 @@ A CLI scaffolding tool (`project`) that creates new projects from embedded templ
 ## Build & Development Commands
 
 ```bash
-make build          # Build binary to bin/project
-make lint           # Run golangci-lint
-make fmt            # Format all Go code
-make test           # Run tests
-make VERBOSE=1 ...  # Show command output
+just build          # Build binary to bin/project
+just lint           # Run golangci-lint
+just fmt            # Format all Go code
+just test           # Run tests
 ```
 
 Version info is injected at build time via `-ldflags` into `pkg/version.GitTagSha`.

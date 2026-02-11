@@ -1,0 +1,39 @@
+#!/usr/bin/env -S just --justfile
+
+# Justfile for {{.ProjectName}}
+# Run `just` or `just --list` to see available recipes
+
+# ─────────────────────────────────────────────────────────────────────
+# Aliases
+# ─────────────────────────────────────────────────────────────────────
+
+alias b := build
+alias r := run
+
+# Show all available recipes
+[private]
+default:
+    @just --list --unsorted
+
+# ═════════════════════════════════════════════════════════════════════
+#  Build
+# ═════════════════════════════════════════════════════════════════════
+
+# Build project using CMake
+[group('build')]
+build:
+    @mkdir -p build && cd build && cmake .. && make
+
+# Remove build artifacts
+[group('build')]
+clean:
+    rm -rf build
+
+# ═════════════════════════════════════════════════════════════════════
+#  Run
+# ═════════════════════════════════════════════════════════════════════
+
+# Build and run the project
+[group('run')]
+run: build
+    @./build/{{.ProjectName}}

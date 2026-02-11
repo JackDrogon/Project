@@ -89,6 +89,55 @@ Templates (`.tmpl` files) support the following variables via Go's `text/templat
 
 Files ending in `.tmpl` have the suffix stripped after rendering (e.g., `go.mod.tmpl` → `go.mod`). Files that are not valid Go templates are copied as-is.
 
+## Shell Completion
+
+Generate shell completion scripts with `project completion <shell>`:
+
+### Bash
+
+```bash
+# Current session
+source <(project completion bash)
+
+# Persistent (Linux)
+project completion bash > /etc/bash_completion.d/project
+
+# Persistent (macOS with Homebrew)
+project completion bash > $(brew --prefix)/etc/bash_completion.d/project
+```
+
+### Zsh
+
+```bash
+# Enable completion if not already
+echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+# Install completion
+project completion zsh > "${fpath[1]}/_project"
+
+# Start a new shell to take effect
+```
+
+### Fish
+
+```bash
+# Current session
+project completion fish | source
+
+# Persistent
+project completion fish > ~/.config/fish/completions/project.fish
+```
+
+### PowerShell
+
+```powershell
+# Current session
+project completion powershell | Out-String | Invoke-Expression
+
+# Persistent — add to your PowerShell profile
+project completion powershell > project.ps1
+```
+
 ## Development
 
 ```bash

@@ -19,6 +19,7 @@ func newRootCmd(templateFS embed.FS) *cobra.Command {
 		newNewCmd(templateFS),
 		newListCmd(templateFS),
 		newVersionCmd(),
+		newCompletionCmd(),
 	)
 
 	return rootCmd

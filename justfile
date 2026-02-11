@@ -3,10 +3,8 @@
 # Justfile for project — CLI scaffolding tool
 # Run `just` or `just --list` to see available recipes
 
-tag := `git describe --abbrev=0 --always --dirty --tags`
-sha := `git rev-parse --short HEAD`
-git_tag_sha := tag + ":" + sha
-ldflags := "-X 'github.com/JackDrogon/project/pkg/version.GitTagSha=" + git_tag_sha + "'"
+tag := `git describe --abbrev=0 --always --tags`
+ldflags := "-X 'github.com/JackDrogon/project/pkg/version.Tag=" + tag + "'"
 
 # ─────────────────────────────────────────────────────────────────────
 # Aliases (shortcuts for frequent tasks)
@@ -37,6 +35,11 @@ default:
 build:
     @mkdir -p bin
     go build -ldflags "{{ldflags}}" -o bin/project ./cmd/project
+
+# Install binary to $GOPATH/bin (or $GOBIN)
+[group('build')]
+install:
+    go install -ldflags "{{ldflags}}" ./cmd/project
 
 # Build with coverage instrumentation
 [group('build')]

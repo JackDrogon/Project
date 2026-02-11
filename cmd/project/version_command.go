@@ -10,11 +10,20 @@ import (
 
 // newVersionCmd creates the "version" subcommand that prints the build version.
 func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
+	var verbose bool
+
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "show version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(version.GitTagSha)
+			if verbose {
+				fmt.Println(version.Verbose())
+			} else {
+				fmt.Println(version.Info())
+			}
 		},
 	}
+
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed version info")
+	return cmd
 }

@@ -10,6 +10,7 @@ A CLI scaffolding tool (`project`) that creates new projects from embedded templ
 
 ```bash
 just build          # Build binary to bin/project (with version ldflags)
+just install        # Install binary to $GOPATH/bin
 just lint           # Run golangci-lint (default config, no .golangci.yml)
 just fmt            # Format all Go code
 just test           # Run all tests

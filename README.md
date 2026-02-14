@@ -4,8 +4,8 @@ A CLI scaffolding tool that creates new projects from embedded templates. All te
 
 ## Supported Languages
 
-- **Go** — `go.mod`, `main.go`, `.gitignore`, `README.md`, `Makefile`
-- **C++** — `CMakeLists.txt`, `Makefile`, `src/main.cc`, `include/`, `dev-tools/` (cpplint, formatting scripts)
+- **Go** — `go.mod`, `main.go`, `.gitignore`, `README.md`, `justfile`
+- **C++** — `CMakeLists.txt`, `src/main.cc`, `include/`, `dev-tools/`, `justfile`
 
 Run `project list` to see all available languages.
 
@@ -45,7 +45,7 @@ project new -l cpp myapp
 This will:
 1. Copy template files into the `myapp/` directory
 2. Render template variables (e.g., project name, module path) in `.tmpl` files
-3. Run `git init && git add . && git commit -m "Initial commit"` (unless `--no-git` is set)
+3. Run git setup based on `--git` mode (default `init+commit`)
 
 ### Flags
 
@@ -54,9 +54,10 @@ This will:
 | `--lang` | `-l` | Programming language (required) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name) |
 | `--force` | | Remove and recreate existing project directory |
+| `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
-| `--no-git` | | Skip git init/add/commit |
+| `--no-git` | | Compatibility alias for `--git none` |
 
 ### Examples
 
@@ -70,11 +71,20 @@ project new -l go myapp -n
 # Create files without initializing git
 project new -l go myapp --no-git
 
+# Initialize git repo without creating an initial commit
+project new -l go myapp --git init-only
+
 # Overwrite an existing directory
 project new -l go myapp --force
 
 # List available languages
 project list
+
+# List with metadata
+project list --detail
+
+# Inspect one language template
+project inspect go
 
 # Show version
 project version
@@ -92,6 +102,13 @@ Templates (`.tmpl` files) support the following variables via Go's `text/templat
 | `{{.Year}}` | Current year | — |
 
 Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go.mod.tmpl` → `go.mod`). Non-`.tmpl` files are copied as-is. Invalid `.tmpl` syntax returns an error.
+
+## Template Discovery
+
+- `project list` prints available language names.
+- `project list --detail` prints file count, template count, and template variables per language.
+- `project list --json` prints machine-readable output.
+- `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
 
 ## Shell Completion
 

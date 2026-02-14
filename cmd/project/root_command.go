@@ -18,6 +18,7 @@ func newRootCmd(creator *scaffold.Creator) *cobra.Command {
 	rootCmd.AddCommand(
 		newNewCmd(creator),
 		newListCmd(creator),
+		newInspectCmd(creator),
 		newVersionCmd(),
 		newCompletionCmd(),
 	)

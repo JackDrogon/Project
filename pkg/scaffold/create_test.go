@@ -174,3 +174,118 @@ func TestCreate_GitErrorIsReturned(t *testing.T) {
 		t.Fatalf("Create() error = %v, want commit failure", err)
 	}
 }
+
+func TestCreate_GitModeInitOnlyRunsInitOnly(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	withTempWorkingDir(t)
+
+	var calls [][]string
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		calls = append(calls, append([]string(nil), args...))
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", GitMode: GitModeInitOnly})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if len(calls) != 1 {
+		t.Fatalf("git call count = %d, want %d", len(calls), 1)
+	}
+	if !reflect.DeepEqual(calls[0], []string{"init"}) {
+		t.Fatalf("git call = %v, want %v", calls[0], []string{"init"})
+	}
+}
+
+func TestCreate_GitModeNoneSkipsGit(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	withTempWorkingDir(t)
+
+	called := false
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		called = true
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", GitMode: GitModeNone})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if called {
+		t.Fatal("git runner should not be called for GitModeNone")
+	}
+}
+
+func TestCreate_InvalidGitModeReturnsError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	tmp := withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", GitMode: GitMode("invalid")})
+	if err == nil {
+		t.Fatal("Create() expected invalid git mode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid git mode") {
+		t.Fatalf("Create() error = %v, want invalid git mode message", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(tmp, "demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("demo directory should not be created for invalid options, stat err = %v", statErr)
+	}
+}
+
+func TestCreate_ConflictingNoGitAndGitModeReturnsError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	tmp := withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", NoGit: true, GitMode: GitModeInitOnly})
+	if err == nil {
+		t.Fatal("Create() expected conflict error, got nil")
+	}
+	if !strings.Contains(err.Error(), "conflicting git options") {
+		t.Fatalf("Create() error = %v, want conflict message", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(tmp, "demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("demo directory should not be created for invalid options, stat err = %v", statErr)
+	}
+}
+
+func TestCreate_SignoffRequiresCommitMode(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	tmp := withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", GitMode: GitModeInitOnly, Signoff: true})
+	if err == nil {
+		t.Fatal("Create() expected signoff mode error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--signoff") {
+		t.Fatalf("Create() error = %v, want --signoff message", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(tmp, "demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("demo directory should not be created for invalid options, stat err = %v", statErr)
+	}
+}

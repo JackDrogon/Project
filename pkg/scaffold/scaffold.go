@@ -41,7 +41,17 @@ type Options struct {
 	Signoff     bool
 	DryRun      bool
 	NoGit       bool
+	GitMode     GitMode
 }
+
+// GitMode controls how git is initialized for new projects.
+type GitMode string
+
+const (
+	GitModeNone       GitMode = "none"
+	GitModeInitOnly   GitMode = "init-only"
+	GitModeInitCommit GitMode = "init+commit"
+)
 
 // pipeline chains fallible steps, short-circuiting on the first error.
 type pipeline struct {
@@ -64,7 +74,7 @@ func (p *pipeline) Err() error { return p.err }
 
 // Create scaffolds a new project based on the given options.
 func (c *Creator) Create(opts Options) error {
-	p := newPipeline(opts).step(c.validate).step(c.checkLang)
+	p := newPipeline(opts).step(c.validate).step(c.checkLang).step(c.validateGitOptions)
 	if p.Err() != nil {
 		return p.Err()
 	}
@@ -92,6 +102,19 @@ func (c *Creator) checkLang(opts Options) error {
 	if _, err := fs.ReadDir(c.fsys, opts.Lang); err != nil {
 		return fmt.Errorf("unsupported language: %s", opts.Lang)
 	}
+	return nil
+}
+
+func (c *Creator) validateGitOptions(opts Options) error {
+	mode, err := resolveGitMode(opts)
+	if err != nil {
+		return err
+	}
+
+	if opts.Signoff && mode != GitModeInitCommit {
+		return fmt.Errorf("--signoff requires --git=%s", GitModeInitCommit)
+	}
+
 	return nil
 }
 
@@ -141,12 +164,43 @@ func (c *Creator) initGitRepo(opts Options) error {
 }
 
 func (c *Creator) maybeInitGitRepo(opts Options) error {
-	if opts.NoGit {
-		_, _ = fmt.Fprintln(c.w, "Skipping git initialization (--no-git)")
-		return nil
+	mode, err := resolveGitMode(opts)
+	if err != nil {
+		return err
 	}
 
-	return c.initGitRepo(opts)
+	switch mode {
+	case GitModeNone:
+		_, _ = fmt.Fprintln(c.w, "Skipping git initialization (--git none)")
+		return nil
+	case GitModeInitOnly:
+		_, _ = fmt.Fprintln(c.w, "Initializing git repository (--git init-only)")
+		return c.runGit(opts.ProjectName, "init")
+	case GitModeInitCommit:
+		return c.initGitRepo(opts)
+	default:
+		return fmt.Errorf("unsupported git mode: %q", mode)
+	}
+}
+
+func resolveGitMode(opts Options) (GitMode, error) {
+	if opts.NoGit {
+		if opts.GitMode != "" && opts.GitMode != GitModeNone {
+			return "", fmt.Errorf("conflicting git options: --no-git cannot be combined with --git=%s", opts.GitMode)
+		}
+		return GitModeNone, nil
+	}
+
+	if opts.GitMode == "" {
+		return GitModeInitCommit, nil
+	}
+
+	switch opts.GitMode {
+	case GitModeNone, GitModeInitOnly, GitModeInitCommit:
+		return opts.GitMode, nil
+	default:
+		return "", fmt.Errorf("invalid git mode %q: must be one of %s, %s, %s", opts.GitMode, GitModeNone, GitModeInitOnly, GitModeInitCommit)
+	}
 }
 
 // ListLangs returns the available template language names.

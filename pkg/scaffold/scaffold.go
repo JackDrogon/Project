@@ -12,14 +12,24 @@ import (
 
 // Creator scaffolds new projects from embedded templates.
 type Creator struct {
-	fsys fs.FS
-	w    io.Writer
+	fsys   fs.FS
+	w      io.Writer
+	runGit func(dir string, args ...string) error
 }
 
 // NewCreator returns a Creator that reads templates from fsys and writes
 // progress output to w.
 func NewCreator(fsys fs.FS, w io.Writer) *Creator {
-	return &Creator{fsys: fsys, w: w}
+	return NewCreatorWithGitRunner(fsys, w, git.Run)
+}
+
+// NewCreatorWithGitRunner returns a Creator with an injected git runner.
+func NewCreatorWithGitRunner(fsys fs.FS, w io.Writer, runGit func(dir string, args ...string) error) *Creator {
+	if runGit == nil {
+		runGit = git.Run
+	}
+
+	return &Creator{fsys: fsys, w: w, runGit: runGit}
 }
 
 // Options holds all parameters for project creation.
@@ -30,6 +40,7 @@ type Options struct {
 	Force       bool
 	Signoff     bool
 	DryRun      bool
+	NoGit       bool
 }
 
 // pipeline chains fallible steps, short-circuiting on the first error.
@@ -65,7 +76,7 @@ func (c *Creator) Create(opts Options) error {
 		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.ProjectName)
 	}
 
-	if err := p.step(c.checkDestDir).step(c.copyTemplates).step(c.initGitRepo).Err(); err != nil {
+	if err := p.step(c.checkDestDir).step(c.copyTemplates).step(c.maybeInitGitRepo).Err(); err != nil {
 		return err
 	}
 
@@ -121,12 +132,21 @@ func (c *Creator) initGitRepo(opts Options) error {
 	}
 
 	for _, args := range [][]string{{"init"}, {"add", "."}, commitArgs} {
-		if err := git.Run(opts.ProjectName, args...); err != nil {
+		if err := c.runGit(opts.ProjectName, args...); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (c *Creator) maybeInitGitRepo(opts Options) error {
+	if opts.NoGit {
+		_, _ = fmt.Fprintln(c.w, "Skipping git initialization (--no-git)")
+		return nil
+	}
+
+	return c.initGitRepo(opts)
 }
 
 // ListLangs returns the available template language names.

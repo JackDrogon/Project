@@ -15,12 +15,14 @@ func newVersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "show version",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if verbose {
-				fmt.Println(version.Verbose())
-			} else {
-				fmt.Println(version.Info())
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), version.Verbose())
+				return err
 			}
+
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), version.Info())
+			return err
 		},
 	}
 

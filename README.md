@@ -45,7 +45,7 @@ project new -l cpp myapp
 This will:
 1. Copy template files into the `myapp/` directory
 2. Render template variables (e.g., project name, module path) in `.tmpl` files
-3. Run `git init && git add . && git commit -m "Initial commit"`
+3. Run `git init && git add . && git commit -m "Initial commit"` (unless `--no-git` is set)
 
 ### Flags
 
@@ -56,6 +56,7 @@ This will:
 | `--force` | | Remove and recreate existing project directory |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
+| `--no-git` | | Skip git init/add/commit |
 
 ### Examples
 
@@ -65,6 +66,9 @@ project new -l go myapp -m github.com/myorg/myapp
 
 # Preview what files would be created
 project new -l go myapp -n
+
+# Create files without initializing git
+project new -l go myapp --no-git
 
 # Overwrite an existing directory
 project new -l go myapp --force
@@ -87,7 +91,7 @@ Templates (`.tmpl` files) support the following variables via Go's `text/templat
 | `{{.Author}}` | System username | `"author"` |
 | `{{.Year}}` | Current year | — |
 
-Files ending in `.tmpl` have the suffix stripped after rendering (e.g., `go.mod.tmpl` → `go.mod`). Files that are not valid Go templates are copied as-is.
+Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go.mod.tmpl` → `go.mod`). Non-`.tmpl` files are copied as-is. Invalid `.tmpl` syntax returns an error.
 
 ## Shell Completion
 

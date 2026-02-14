@@ -12,6 +12,7 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	var force bool
 	var signoff bool
 	var dryRun bool
+	var noGit bool
 
 	cmd := &cobra.Command{
 		Use:   "new [project_name]",
@@ -25,6 +26,7 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 				Force:       force,
 				Signoff:     signoff,
 				DryRun:      dryRun,
+				NoGit:       noGit,
 			})
 		},
 	}
@@ -35,6 +37,7 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "Remove existing project directory before scaffolding")
 	cmd.Flags().BoolVar(&signoff, "signoff", false, "Add Signed-off-by trailer to the initial commit")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview files without creating them")
+	cmd.Flags().BoolVar(&noGit, "no-git", false, "Skip git init/add/commit after scaffolding")
 
 	return cmd
 }

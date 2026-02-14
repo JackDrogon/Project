@@ -18,7 +18,9 @@ func newListCmd(creator *scaffold.Creator) *cobra.Command {
 				return err
 			}
 			for _, lang := range langs {
-				fmt.Println(lang)
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), lang); err != nil {
+					return err
+				}
 			}
 			return nil
 		},

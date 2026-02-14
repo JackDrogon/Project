@@ -53,7 +53,7 @@ This will:
 |------|-------|-------------|
 | `--lang` | `-l` | Programming language (required) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name) |
-| `--force` | | Overwrite existing project directory |
+| `--force` | | Remove and recreate existing project directory |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
 

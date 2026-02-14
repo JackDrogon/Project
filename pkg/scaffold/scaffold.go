@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -85,15 +86,26 @@ func (c *Creator) checkLang(opts Options) error {
 
 func (c *Creator) checkDestDir(opts Options) error {
 	info, err := os.Stat(opts.ProjectName)
-	if err != nil || !info.IsDir() {
-		return nil
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to inspect destination %q: %w", opts.ProjectName, err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("destination %q already exists and is not a directory", opts.ProjectName)
 	}
 
 	if !opts.Force {
 		return fmt.Errorf("directory %q already exists; use --force to overwrite", opts.ProjectName)
 	}
 
-	_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, overwriting due to --force\n", opts.ProjectName)
+	_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, removing due to --force\n", opts.ProjectName)
+	if err := os.RemoveAll(opts.ProjectName); err != nil {
+		return fmt.Errorf("failed to remove existing directory %q: %w", opts.ProjectName, err)
+	}
+
 	return nil
 }
 

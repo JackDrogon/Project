@@ -15,17 +15,15 @@ import (
 const tmplSuffix = ".tmpl"
 
 // RenderTemplate applies TemplateVars to content using text/template.
-// If parsing fails (e.g. the file is not a Go template), the original
-// content is returned unchanged.
+// It returns an error when template syntax is invalid or references unknown keys.
 func RenderTemplate(content []byte, vars TemplateVars) ([]byte, error) {
-	tmpl, err := template.New("").Option("missingkey=zero").Parse(string(content))
+	tmpl, err := template.New("").Option("missingkey=error").Parse(string(content))
 	if err != nil {
-		// Not a valid template — return as-is
-		return content, nil
+		return nil, err
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, vars); err != nil {
-		return content, nil
+		return nil, err
 	}
 	return buf.Bytes(), nil
 }
@@ -62,12 +60,22 @@ func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Template
 			return err
 		}
 
-		rendered, err := RenderTemplate(content, vars)
-		if err != nil {
-			return fmt.Errorf("failed to render template %s: %w", srcPath, err)
+		rendered := content
+		if strings.HasSuffix(entry.Name(), tmplSuffix) {
+			rendered, err = RenderTemplate(content, vars)
+			if err != nil {
+				return fmt.Errorf("failed to render template %s: %w", srcPath, err)
+			}
 		}
 
-		if err := os.WriteFile(destPath, rendered, 0644); err != nil {
+		mode := fs.FileMode(0644)
+		if info, err := entry.Info(); err == nil {
+			if perm := info.Mode().Perm(); perm != 0 {
+				mode = perm
+			}
+		}
+
+		if err := os.WriteFile(destPath, rendered, mode); err != nil {
 			return err
 		}
 	}

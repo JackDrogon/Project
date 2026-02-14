@@ -32,7 +32,7 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	cmd.Flags().StringVarP(&lang, "lang", "l", "", "Programming language for the project")
 	_ = cmd.MarkFlagRequired("lang")
 	cmd.Flags().StringVarP(&module, "module", "m", "", "Module path (e.g. github.com/user/project)")
-	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing project directory")
+	cmd.Flags().BoolVar(&force, "force", false, "Remove existing project directory before scaffolding")
 	cmd.Flags().BoolVar(&signoff, "signoff", false, "Add Signed-off-by trailer to the initial commit")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview files without creating them")
 

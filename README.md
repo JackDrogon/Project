@@ -57,7 +57,7 @@ This will:
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
-| `--no-git` | | Compatibility alias for `--git none` |
+| `--no-git` | | Deprecated alias for `--git none` |
 
 ### Examples
 
@@ -83,8 +83,14 @@ project list
 # List with metadata
 project list --detail
 
+# List in YAML
+project list --detail --yaml
+
 # Inspect one language template
 project inspect go
+
+# Inspect only rendered files
+project inspect go --mode render
 
 # Show version
 project version
@@ -108,7 +114,10 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 - `project list` prints available language names.
 - `project list --detail` prints file count, template count, and template variables per language.
 - `project list --json` prints machine-readable output.
+- `project list --yaml` prints machine-readable YAML output.
 - `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
+- `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
+- `project inspect <lang> --json|--yaml` prints structured output.
 
 ## Shell Completion
 

@@ -40,7 +40,8 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	cmd.Flags().BoolVar(&signoff, "signoff", false, "Add Signed-off-by trailer to the initial commit")
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview files without creating them")
 	cmd.Flags().BoolVar(&noGit, "no-git", false, "Skip git init/add/commit after scaffolding")
-	cmd.Flags().StringVar(&gitMode, "git", string(scaffold.GitModeInitCommit), "Git workflow: none, init-only, init+commit")
+	cmd.Flags().StringVar(&gitMode, "git", "", "Git workflow: none, init-only, init+commit (default: init+commit)")
+	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 
 	return cmd
 }

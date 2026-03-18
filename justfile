@@ -16,6 +16,7 @@ alias l := lint
 alias f := fmt
 alias c := cover
 alias r := run
+alias i := install
 
 # ─────────────────────────────────────────────────────────────────────
 # Help

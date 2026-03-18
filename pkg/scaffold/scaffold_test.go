@@ -39,7 +39,7 @@ func TestCheckDestDir(t *testing.T) {
 
 	t.Run("missing destination is allowed", func(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "newproj")
-		if err := c.checkDestDir(Options{ProjectName: dest}); err != nil {
+		if err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest}); err != nil {
 			t.Fatalf("checkDestDir() error = %v", err)
 		}
 	})
@@ -51,7 +51,7 @@ func TestCheckDestDir(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := c.checkDestDir(Options{ProjectName: dest})
+		err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest})
 		if err == nil {
 			t.Fatal("checkDestDir() expected error, got nil")
 		}
@@ -60,18 +60,47 @@ func TestCheckDestDir(t *testing.T) {
 		}
 	})
 
-	t.Run("existing directory without force is rejected", func(t *testing.T) {
+	t.Run("existing empty directory without allow is rejected", func(t *testing.T) {
 		dest := filepath.Join(t.TempDir(), "existing")
 		if err := os.Mkdir(dest, 0755); err != nil {
 			t.Fatal(err)
 		}
 
-		err := c.checkDestDir(Options{ProjectName: dest})
+		err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest})
 		if err == nil {
 			t.Fatal("checkDestDir() expected error, got nil")
 		}
 		if !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("checkDestDir() error = %v, want contains %q", err, "already exists")
+		}
+	})
+
+	t.Run("existing empty directory can be reused when allowed", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "existing")
+		if err := os.Mkdir(dest, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest, AllowExistingEmptyDir: true}); err != nil {
+			t.Fatalf("checkDestDir() error = %v", err)
+		}
+	})
+
+	t.Run("existing non-empty directory is rejected when only empty reuse is allowed", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "existing")
+		if err := os.Mkdir(dest, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dest, "old.txt"), []byte("old"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest, AllowExistingEmptyDir: true})
+		if err == nil {
+			t.Fatal("checkDestDir() expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "not empty") {
+			t.Fatalf("checkDestDir() error = %v, want contains %q", err, "not empty")
 		}
 	})
 
@@ -84,12 +113,27 @@ func TestCheckDestDir(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := c.checkDestDir(Options{ProjectName: dest, Force: true}); err != nil {
+		if err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: dest, Force: true}); err != nil {
 			t.Fatalf("checkDestDir() error = %v", err)
 		}
 
 		if _, err := os.Stat(dest); !os.IsNotExist(err) {
 			t.Fatalf("destination should be removed, stat err = %v", err)
+		}
+	})
+
+	t.Run("force refuses to remove current directory", func(t *testing.T) {
+		cwd := withTempWorkingDir(t)
+		if err := os.WriteFile(filepath.Join(cwd, "old.txt"), []byte("old"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		err := c.checkDestDir(Options{ProjectName: "demo", TargetDir: ".", Force: true})
+		if err == nil {
+			t.Fatal("checkDestDir() expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "refusing to remove current directory") {
+			t.Fatalf("checkDestDir() error = %v, want contains %q", err, "refusing to remove current directory")
 		}
 	})
 }

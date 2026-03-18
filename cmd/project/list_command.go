@@ -63,17 +63,7 @@ func newListCmd(creator *scaffold.Creator) *cobra.Command {
 					return writeYAMLSummaries(out, summaries)
 				}
 
-				for _, summary := range summaries {
-					vars := "(none)"
-					if len(summary.Variables) > 0 {
-						vars = strings.Join(summary.Variables, ", ")
-					}
-
-					if _, err := fmt.Fprintf(out, "%s\tfiles=%d\ttemplates=%d\tvars=[%s]\n", summary.Name, summary.FileCount, summary.TemplateCount, vars); err != nil {
-						return err
-					}
-				}
-				return nil
+				return writeTextSummaries(out, summaries)
 			}
 
 			langs, err := creator.ListLangs()
@@ -90,12 +80,7 @@ func newListCmd(creator *scaffold.Creator) *cobra.Command {
 				return writeYAMLLangs(out, langs)
 			}
 
-			for _, lang := range langs {
-				if _, err := fmt.Fprintln(out, lang); err != nil {
-					return err
-				}
-			}
-			return nil
+			return writeTextLangs(out, langs)
 		},
 	}
 
@@ -141,41 +126,7 @@ func newInspectCmd(creator *scaffold.Creator) *cobra.Command {
 				return writeYAMLInspectOutput(out, output)
 			}
 
-			vars := "(none)"
-			if len(output.Variables) > 0 {
-				vars = strings.Join(output.Variables, ", ")
-			}
-
-			if _, err := fmt.Fprintf(out, "name: %s\n", output.Name); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(out, "files: %d\n", output.FileCount); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(out, "templates: %d\n", output.TemplateCount); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(out, "variables: %s\n", vars); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(out, "mode: %s\n", output.Mode); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(out, "shown: %d\n", output.ShownCount); err != nil {
-				return err
-			}
-
-			for _, file := range output.Files {
-				mode := "copy"
-				if file.IsTemplate {
-					mode = "render"
-				}
-				if _, err := fmt.Fprintf(out, "- %s -> %s (%s)\n", file.Source, file.Output, mode); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return writeTextInspectOutput(out, output)
 		},
 	}
 
@@ -236,99 +187,116 @@ func buildInspectOutput(details scaffold.TemplateDetails, mode string) (inspectO
 }
 
 func writeYAMLLangs(w io.Writer, langs []string) error {
+	var b strings.Builder
 	for _, lang := range langs {
-		if _, err := fmt.Fprintf(w, "- %s\n", yamlQuote(lang)); err != nil {
-			return err
-		}
+		fmt.Fprintf(&b, "- %s\n", yamlQuote(lang))
 	}
-	return nil
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 func writeYAMLSummaries(w io.Writer, summaries []scaffold.TemplateSummary) error {
+	var b strings.Builder
 	for _, summary := range summaries {
-		if _, err := fmt.Fprintf(w, "- name: %s\n", yamlQuote(summary.Name)); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  file_count: %d\n", summary.FileCount); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "  template_count: %d\n", summary.TemplateCount); err != nil {
-			return err
-		}
+		fmt.Fprintf(&b, "- name: %s\n", yamlQuote(summary.Name))
+		fmt.Fprintf(&b, "  file_count: %d\n", summary.FileCount)
+		fmt.Fprintf(&b, "  template_count: %d\n", summary.TemplateCount)
 
 		if len(summary.Variables) == 0 {
-			if _, err := fmt.Fprintln(w, "  variables: []"); err != nil {
-				return err
-			}
+			fmt.Fprintln(&b, "  variables: []")
 			continue
 		}
 
-		if _, err := fmt.Fprintln(w, "  variables:"); err != nil {
-			return err
-		}
+		fmt.Fprintln(&b, "  variables:")
 		for _, v := range summary.Variables {
-			if _, err := fmt.Fprintf(w, "    - %s\n", yamlQuote(v)); err != nil {
-				return err
-			}
+			fmt.Fprintf(&b, "    - %s\n", yamlQuote(v))
 		}
 	}
-	return nil
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 func writeYAMLInspectOutput(w io.Writer, output inspectOutput) error {
-	if _, err := fmt.Fprintf(w, "name: %s\n", yamlQuote(output.Name)); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "file_count: %d\n", output.FileCount); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "template_count: %d\n", output.TemplateCount); err != nil {
-		return err
-	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "name: %s\n", yamlQuote(output.Name))
+	fmt.Fprintf(&b, "file_count: %d\n", output.FileCount)
+	fmt.Fprintf(&b, "template_count: %d\n", output.TemplateCount)
 
 	if len(output.Variables) == 0 {
-		if _, err := fmt.Fprintln(w, "variables: []"); err != nil {
-			return err
-		}
+		fmt.Fprintln(&b, "variables: []")
 	} else {
-		if _, err := fmt.Fprintln(w, "variables:"); err != nil {
-			return err
-		}
+		fmt.Fprintln(&b, "variables:")
 		for _, v := range output.Variables {
-			if _, err := fmt.Fprintf(w, "  - %s\n", yamlQuote(v)); err != nil {
-				return err
-			}
+			fmt.Fprintf(&b, "  - %s\n", yamlQuote(v))
 		}
 	}
 
-	if _, err := fmt.Fprintf(w, "mode: %s\n", yamlQuote(output.Mode)); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "shown_count: %d\n", output.ShownCount); err != nil {
-		return err
-	}
+	fmt.Fprintf(&b, "mode: %s\n", yamlQuote(output.Mode))
+	fmt.Fprintf(&b, "shown_count: %d\n", output.ShownCount)
 
 	if len(output.Files) == 0 {
-		_, err := fmt.Fprintln(w, "files: []")
+		fmt.Fprintln(&b, "files: []")
+		_, err := io.WriteString(w, b.String())
 		return err
 	}
 
-	if _, err := fmt.Fprintln(w, "files:"); err != nil {
-		return err
-	}
+	fmt.Fprintln(&b, "files:")
 	for _, file := range output.Files {
-		if _, err := fmt.Fprintf(w, "  - source: %s\n", yamlQuote(file.Source)); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "    output: %s\n", yamlQuote(file.Output)); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(w, "    is_template: %t\n", file.IsTemplate); err != nil {
-			return err
-		}
+		fmt.Fprintf(&b, "  - source: %s\n", yamlQuote(file.Source))
+		fmt.Fprintf(&b, "    output: %s\n", yamlQuote(file.Output))
+		fmt.Fprintf(&b, "    is_template: %t\n", file.IsTemplate)
 	}
 
-	return nil
+	_, err := io.WriteString(w, b.String())
+	return err
+}
+
+func writeTextLangs(w io.Writer, langs []string) error {
+	var b strings.Builder
+	for _, lang := range langs {
+		fmt.Fprintln(&b, lang)
+	}
+	_, err := io.WriteString(w, b.String())
+	return err
+}
+
+func writeTextSummaries(w io.Writer, summaries []scaffold.TemplateSummary) error {
+	var b strings.Builder
+	for _, summary := range summaries {
+		vars := "(none)"
+		if len(summary.Variables) > 0 {
+			vars = strings.Join(summary.Variables, ", ")
+		}
+		fmt.Fprintf(&b, "%s\tfiles=%d\ttemplates=%d\tvars=[%s]\n", summary.Name, summary.FileCount, summary.TemplateCount, vars)
+	}
+	_, err := io.WriteString(w, b.String())
+	return err
+}
+
+func writeTextInspectOutput(w io.Writer, output inspectOutput) error {
+	var b strings.Builder
+	vars := "(none)"
+	if len(output.Variables) > 0 {
+		vars = strings.Join(output.Variables, ", ")
+	}
+
+	fmt.Fprintf(&b, "name: %s\n", output.Name)
+	fmt.Fprintf(&b, "files: %d\n", output.FileCount)
+	fmt.Fprintf(&b, "templates: %d\n", output.TemplateCount)
+	fmt.Fprintf(&b, "variables: %s\n", vars)
+	fmt.Fprintf(&b, "mode: %s\n", output.Mode)
+	fmt.Fprintf(&b, "shown: %d\n", output.ShownCount)
+
+	for _, file := range output.Files {
+		mode := "copy"
+		if file.IsTemplate {
+			mode = "render"
+		}
+		fmt.Fprintf(&b, "- %s -> %s (%s)\n", file.Source, file.Output, mode)
+	}
+
+	_, err := io.WriteString(w, b.String())
+	return err
 }
 
 func yamlQuote(s string) string {

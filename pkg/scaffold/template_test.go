@@ -2,11 +2,83 @@ package scaffold
 
 import (
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
+
+type openErrorFS struct {
+	fstest.MapFS
+	err error
+}
+
+func (f openErrorFS) Open(name string) (fs.File, error) {
+	return f.MapFS.Open(name)
+}
+
+func (f openErrorFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == "lang/sub" {
+		return nil, f.err
+	}
+	return fs.ReadDir(f.MapFS, name)
+}
+
+func (f openErrorFS) ReadFile(name string) ([]byte, error) {
+	if name == "lang/bad.txt" {
+		return nil, f.err
+	}
+	return fs.ReadFile(f.MapFS, name)
+}
+
+type stubDirEntry struct {
+	name    string
+	mode    fs.FileMode
+	infoErr error
+}
+
+func (d stubDirEntry) Name() string      { return d.name }
+func (d stubDirEntry) IsDir() bool       { return d.mode.IsDir() }
+func (d stubDirEntry) Type() fs.FileMode { return d.mode }
+func (d stubDirEntry) Info() (fs.FileInfo, error) {
+	return stubFileInfo{name: d.name, mode: d.mode}, d.infoErr
+}
+
+type stubFileInfo struct {
+	name string
+	mode fs.FileMode
+}
+
+func (i stubFileInfo) Name() string       { return i.name }
+func (i stubFileInfo) Size() int64        { return 0 }
+func (i stubFileInfo) Mode() fs.FileMode  { return i.mode }
+func (i stubFileInfo) ModTime() time.Time { return time.Unix(0, 0) }
+func (i stubFileInfo) IsDir() bool        { return i.mode.IsDir() }
+func (i stubFileInfo) Sys() any           { return nil }
+
+type infoErrorFS struct {
+	err error
+}
+
+func (f infoErrorFS) Open(name string) (fs.File, error) { return nil, f.err }
+func (f infoErrorFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return []fs.DirEntry{stubDirEntry{name: "file.txt", mode: 0, infoErr: f.err}}, nil
+}
+func (f infoErrorFS) ReadFile(name string) ([]byte, error) { return []byte("content"), nil }
+
+func stubTemplateOSFuncs(t *testing.T) {
+	t.Helper()
+	oldMkdirAll := osMkdirAll
+	oldWriteFile := osWriteFile
+	t.Cleanup(func() {
+		osMkdirAll = oldMkdirAll
+		osWriteFile = oldWriteFile
+	})
+}
 
 func TestRenderTemplate(t *testing.T) {
 	vars := TemplateVars{
@@ -221,4 +293,111 @@ func TestCopyEmbedDir_PreservesExecutableBit(t *testing.T) {
 	if info.Mode().Perm() != 0755 {
 		t.Errorf("script.sh mode = %o, want %o", info.Mode().Perm(), 0755)
 	}
+}
+
+func TestPreviewEmbedDir(t *testing.T) {
+	fsys := fstest.MapFS{
+		"lang/plain.txt":           {Data: []byte("plain")},
+		"lang/sub/nested.txt.tmpl": {Data: []byte("hello {{.ProjectName}}")},
+	}
+
+	var buf bytes.Buffer
+	if err := PreviewEmbedDir(&buf, fsys, "lang", "demo"); err != nil {
+		t.Fatalf("PreviewEmbedDir() error = %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "create demo/plain.txt") || !strings.Contains(got, "create demo/sub/") || !strings.Contains(got, "create demo/sub/nested.txt") {
+		t.Fatalf("PreviewEmbedDir() output = %q", got)
+	}
+}
+
+func TestPreviewEmbedDir_ReadDirError(t *testing.T) {
+	err := PreviewEmbedDir(&bytes.Buffer{}, failingReadDirFS{err: os.ErrPermission}, "lang", "demo")
+	if err == nil {
+		t.Fatal("PreviewEmbedDir() expected error, got nil")
+	}
+}
+
+func TestPreviewEmbedDir_NestedReadDirError(t *testing.T) {
+	fsys := openErrorFS{
+		MapFS: fstest.MapFS{
+			"lang/sub/nested.txt": {Data: []byte("hello")},
+		},
+		err: errors.New("nested read failed"),
+	}
+	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo")
+	if err == nil {
+		t.Fatal("PreviewEmbedDir() expected nested error, got nil")
+	}
+}
+
+func TestCopyEmbedDir_Errors(t *testing.T) {
+	vars := TemplateVars{ProjectName: "demo"}
+
+	t.Run("mkdir all failure", func(t *testing.T) {
+		fsys := fstest.MapFS{"lang/file.txt": {Data: []byte("content")}}
+		dest := filepath.Join(t.TempDir(), "existing")
+		if err := os.WriteFile(dest, []byte("x"), 0644); err != nil {
+			t.Fatalf("WriteFile() error = %v", err)
+		}
+
+		if err := CopyEmbedDir(&bytes.Buffer{}, fsys, "lang", dest, vars); err == nil {
+			t.Fatal("CopyEmbedDir() expected mkdir error, got nil")
+		}
+	})
+
+	t.Run("read dir failure", func(t *testing.T) {
+		if err := CopyEmbedDir(&bytes.Buffer{}, failingReadDirFS{err: os.ErrPermission}, "lang", filepath.Join(t.TempDir(), "out"), vars); err == nil {
+			t.Fatal("CopyEmbedDir() expected read dir error, got nil")
+		}
+	})
+
+	t.Run("read file failure", func(t *testing.T) {
+		fsys := openErrorFS{
+			MapFS: fstest.MapFS{"lang/bad.txt": {Data: []byte("content")}},
+			err:   errors.New("read file failed"),
+		}
+		if err := CopyEmbedDir(&bytes.Buffer{}, fsys, "lang", filepath.Join(t.TempDir(), "out"), vars); err == nil {
+			t.Fatal("CopyEmbedDir() expected read file error, got nil")
+		}
+	})
+
+	t.Run("write file failure", func(t *testing.T) {
+		stubTemplateOSFuncs(t)
+		fsys := fstest.MapFS{"lang/file.txt": {Data: []byte("content")}}
+		osWriteFile = func(name string, data []byte, perm os.FileMode) error {
+			return errors.New("write failed")
+		}
+
+		if err := CopyEmbedDir(&bytes.Buffer{}, fsys, "lang", filepath.Join(t.TempDir(), "out"), vars); err == nil {
+			t.Fatal("CopyEmbedDir() expected write error, got nil")
+		}
+	})
+
+	t.Run("entry info error falls back to default mode", func(t *testing.T) {
+		dest := filepath.Join(t.TempDir(), "out")
+		if err := CopyEmbedDir(&bytes.Buffer{}, infoErrorFS{err: errors.New("info failed")}, "lang", dest, vars); err != nil {
+			t.Fatalf("CopyEmbedDir() error = %v", err)
+		}
+		info, err := os.Stat(filepath.Join(dest, "file.txt"))
+		if err != nil {
+			t.Fatalf("Stat(file.txt) error = %v", err)
+		}
+		if info.Mode().Perm() != 0644 {
+			t.Fatalf("file.txt mode = %o, want %o", info.Mode().Perm(), 0644)
+		}
+	})
+
+	t.Run("nested directory recursion error", func(t *testing.T) {
+		fsys := openErrorFS{
+			MapFS: fstest.MapFS{
+				"lang/sub/file.txt": {Data: []byte("content")},
+			},
+			err: errors.New("nested copy failed"),
+		}
+		if err := CopyEmbedDir(&bytes.Buffer{}, fsys, "lang", filepath.Join(t.TempDir(), "out"), vars); err == nil {
+			t.Fatal("CopyEmbedDir() expected nested recursion error, got nil")
+		}
+	})
 }

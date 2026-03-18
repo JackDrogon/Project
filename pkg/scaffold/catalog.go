@@ -171,24 +171,42 @@ func collectTemplateVars(node parse.Node, vars map[string]struct{}) {
 
 	switch n := node.(type) {
 	case *parse.ListNode:
+		if n == nil {
+			return
+		}
 		for _, child := range n.Nodes {
 			collectTemplateVars(child, vars)
 		}
 	case *parse.ActionNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n.Pipe, vars)
 	case *parse.IfNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n.Pipe, vars)
 		collectTemplateVars(n.List, vars)
 		collectTemplateVars(n.ElseList, vars)
 	case *parse.RangeNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n.Pipe, vars)
 		collectTemplateVars(n.List, vars)
 		collectTemplateVars(n.ElseList, vars)
 	case *parse.WithNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n.Pipe, vars)
 		collectTemplateVars(n.List, vars)
 		collectTemplateVars(n.ElseList, vars)
 	case *parse.TemplateNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n.Pipe, vars)
 	}
 }
@@ -212,10 +230,16 @@ func collectArgVars(node parse.Node, vars map[string]struct{}) {
 
 	switch n := node.(type) {
 	case *parse.FieldNode:
+		if n == nil {
+			return
+		}
 		if len(n.Ident) > 0 {
 			vars[n.Ident[0]] = struct{}{}
 		}
 	case *parse.ChainNode:
+		if n == nil {
+			return
+		}
 		if len(n.Field) > 0 {
 			if _, ok := n.Node.(*parse.DotNode); ok {
 				vars[n.Field[0]] = struct{}{}
@@ -223,8 +247,14 @@ func collectArgVars(node parse.Node, vars map[string]struct{}) {
 		}
 		collectArgVars(n.Node, vars)
 	case *parse.PipeNode:
+		if n == nil {
+			return
+		}
 		collectPipeVars(n, vars)
 	case *parse.CommandNode:
+		if n == nil {
+			return
+		}
 		for _, arg := range n.Args {
 			collectArgVars(arg, vars)
 		}

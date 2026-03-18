@@ -123,6 +123,58 @@ func TestCreate_SignoffUsesSignedCommit(t *testing.T) {
 	}
 }
 
+func TestCreate_TargetDirControlsOutputAndTemplateVars(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+	}
+	var out bytes.Buffer
+
+	creator := NewCreatorWithGitRunner(fsys, &out, func(dir string, args ...string) error {
+		return nil
+	})
+
+	tmp := withTempWorkingDir(t)
+	targetDir := filepath.Join("workspace", "output")
+	if err := creator.Create(Options{Lang: "go", ProjectName: "logical-name", TargetDir: targetDir, NoGit: true}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(tmp, targetDir, "main.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(main.go) error = %v", err)
+	}
+	if !strings.Contains(string(got), `const Name = "logical-name"`) {
+		t.Fatalf("main.go content = %q, want rendered logical project name", string(got))
+	}
+}
+
+func TestCreate_TargetDirIsUsedForGitOperations(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	withTempWorkingDir(t)
+
+	var dirs []string
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		dirs = append(dirs, dir)
+		return nil
+	})
+
+	targetDir := filepath.Join("workspace", "output")
+	if err := creator.Create(Options{Lang: "go", ProjectName: "logical-name", TargetDir: targetDir}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if len(dirs) != 3 {
+		t.Fatalf("git dir count = %d, want %d", len(dirs), 3)
+	}
+	for i, dir := range dirs {
+		if dir != targetDir {
+			t.Fatalf("git dir[%d] = %q, want %q", i, dir, targetDir)
+		}
+	}
+}
+
 func TestCreate_DryRunSkipsWritesAndGit(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/main.go.tmpl": {Data: []byte("package main\n")},

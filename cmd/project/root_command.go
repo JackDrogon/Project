@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/JackDrogon/project/pkg/scaffold"
 	"github.com/spf13/cobra"
 )
+
+var exitFunc = os.Exit
+var stderrWriter io.Writer = os.Stderr
 
 // newRootCmd builds the command tree with all subcommands registered explicitly.
 func newRootCmd(creator *scaffold.Creator) *cobra.Command {
@@ -17,6 +21,7 @@ func newRootCmd(creator *scaffold.Creator) *cobra.Command {
 
 	rootCmd.AddCommand(
 		newNewCmd(creator),
+		newInitCmd(creator),
 		newListCmd(creator),
 		newInspectCmd(creator),
 		newVersionCmd(),
@@ -31,7 +36,7 @@ func newRootCmd(creator *scaffold.Creator) *cobra.Command {
 // and exits the program with status code 1.
 func Execute(creator *scaffold.Creator) {
 	if err := newRootCmd(creator).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Fprintln(stderrWriter, err)
+		exitFunc(1)
 	}
 }

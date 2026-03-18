@@ -6,8 +6,17 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/JackDrogon/project/pkg/git"
+)
+
+var (
+	osStat      = os.Stat
+	osReadDir   = os.ReadDir
+	osRemoveAll = os.RemoveAll
+	osGetwd     = os.Getwd
+	filepathAbs = filepath.Abs
 )
 
 // Creator scaffolds new projects from embedded templates.
@@ -34,14 +43,16 @@ func NewCreatorWithGitRunner(fsys fs.FS, w io.Writer, runGit func(dir string, ar
 
 // Options holds all parameters for project creation.
 type Options struct {
-	Lang        string
-	ProjectName string
-	ModulePath  string
-	Force       bool
-	Signoff     bool
-	DryRun      bool
-	NoGit       bool
-	GitMode     GitMode
+	Lang                  string
+	ProjectName           string
+	TargetDir             string
+	ModulePath            string
+	Force                 bool
+	AllowExistingEmptyDir bool
+	Signoff               bool
+	DryRun                bool
+	NoGit                 bool
+	GitMode               GitMode
 }
 
 // GitMode controls how git is initialized for new projects.
@@ -72,6 +83,14 @@ func (p *pipeline) step(fn func(Options) error) *pipeline {
 
 func (p *pipeline) Err() error { return p.err }
 
+func (opts Options) destinationDir() string {
+	if opts.TargetDir != "" {
+		return opts.TargetDir
+	}
+
+	return opts.ProjectName
+}
+
 // Create scaffolds a new project based on the given options.
 func (c *Creator) Create(opts Options) error {
 	p := newPipeline(opts).step(c.validate).step(c.checkLang).step(c.validateGitOptions)
@@ -82,8 +101,11 @@ func (c *Creator) Create(opts Options) error {
 	_, _ = fmt.Fprintf(c.w, "Creating project with language: %s, project name: %s\n", opts.Lang, opts.ProjectName)
 
 	if opts.DryRun {
+		if err := c.preflightDestDir(opts); err != nil {
+			return err
+		}
 		_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
-		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.ProjectName)
+		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir())
 	}
 
 	if err := p.step(c.checkDestDir).step(c.copyTemplates).step(c.maybeInitGitRepo).Err(); err != nil {
@@ -119,33 +141,66 @@ func (c *Creator) validateGitOptions(opts Options) error {
 }
 
 func (c *Creator) checkDestDir(opts Options) error {
-	info, err := os.Stat(opts.ProjectName)
+	return c.inspectDestDir(opts, false)
+}
+
+func (c *Creator) preflightDestDir(opts Options) error {
+	return c.inspectDestDir(opts, true)
+}
+
+func (c *Creator) inspectDestDir(opts Options, previewOnly bool) error {
+	targetDir := opts.destinationDir()
+	info, err := osStat(targetDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("failed to inspect destination %q: %w", opts.ProjectName, err)
+		return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
 	}
 
 	if !info.IsDir() {
-		return fmt.Errorf("destination %q already exists and is not a directory", opts.ProjectName)
+		return fmt.Errorf("destination %q already exists and is not a directory", targetDir)
 	}
 
-	if !opts.Force {
-		return fmt.Errorf("directory %q already exists; use --force to overwrite", opts.ProjectName)
+	if opts.Force {
+		currentDir, err := isCurrentDir(targetDir)
+		if err != nil {
+			return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
+		}
+		if currentDir {
+			return fmt.Errorf("refusing to remove current directory %q with --force", targetDir)
+		}
+		if previewOnly {
+			return nil
+		}
+
+		_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, removing due to --force\n", targetDir)
+		if err := osRemoveAll(targetDir); err != nil {
+			return fmt.Errorf("failed to remove existing directory %q: %w", targetDir, err)
+		}
+
+		return nil
 	}
 
-	_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, removing due to --force\n", opts.ProjectName)
-	if err := os.RemoveAll(opts.ProjectName); err != nil {
-		return fmt.Errorf("failed to remove existing directory %q: %w", opts.ProjectName, err)
+	empty, err := isEmptyDir(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
 	}
 
-	return nil
+	if empty && opts.AllowExistingEmptyDir {
+		return nil
+	}
+
+	if empty {
+		return fmt.Errorf("directory %q already exists; use --force to overwrite", targetDir)
+	}
+
+	return fmt.Errorf("directory %q already exists and is not empty", targetDir)
 }
 
 func (c *Creator) copyTemplates(opts Options) error {
 	vars := NewTemplateVars(opts.ProjectName, opts.ModulePath)
-	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.ProjectName, vars)
+	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), vars)
 }
 
 func (c *Creator) initGitRepo(opts Options) error {
@@ -155,7 +210,7 @@ func (c *Creator) initGitRepo(opts Options) error {
 	}
 
 	for _, args := range [][]string{{"init"}, {"add", "."}, commitArgs} {
-		if err := c.runGit(opts.ProjectName, args...); err != nil {
+		if err := c.runGit(opts.destinationDir(), args...); err != nil {
 			return err
 		}
 	}
@@ -169,18 +224,40 @@ func (c *Creator) maybeInitGitRepo(opts Options) error {
 		return err
 	}
 
-	switch mode {
-	case GitModeNone:
+	if mode == GitModeNone {
 		_, _ = fmt.Fprintln(c.w, "Skipping git initialization (--git none)")
 		return nil
-	case GitModeInitOnly:
-		_, _ = fmt.Fprintln(c.w, "Initializing git repository (--git init-only)")
-		return c.runGit(opts.ProjectName, "init")
-	case GitModeInitCommit:
-		return c.initGitRepo(opts)
-	default:
-		return fmt.Errorf("unsupported git mode: %q", mode)
 	}
+
+	if mode == GitModeInitOnly {
+		_, _ = fmt.Fprintln(c.w, "Initializing git repository (--git init-only)")
+		return c.runGit(opts.destinationDir(), "init")
+	}
+
+	return c.initGitRepo(opts)
+}
+
+func isEmptyDir(dir string) (bool, error) {
+	entries, err := osReadDir(dir)
+	if err != nil {
+		return false, err
+	}
+
+	return len(entries) == 0, nil
+}
+
+func isCurrentDir(targetDir string) (bool, error) {
+	absTarget, err := filepathAbs(targetDir)
+	if err != nil {
+		return false, err
+	}
+
+	cwd, err := osGetwd()
+	if err != nil {
+		return false, err
+	}
+
+	return absTarget == cwd, nil
 }
 
 func resolveGitMode(opts Options) (GitMode, error) {

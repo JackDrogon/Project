@@ -12,6 +12,11 @@ import (
 	"text/template"
 )
 
+var (
+	osMkdirAll  = os.MkdirAll
+	osWriteFile = os.WriteFile
+)
+
 const tmplSuffix = ".tmpl"
 
 // RenderTemplate applies TemplateVars to content using text/template.
@@ -31,7 +36,7 @@ func RenderTemplate(content []byte, vars TemplateVars) ([]byte, error) {
 // CopyEmbedDir recursively copies a directory from an embedded filesystem
 // to the local filesystem, rendering template variables in file contents.
 func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars TemplateVars) error {
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := osMkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
@@ -75,7 +80,7 @@ func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Template
 			}
 		}
 
-		if err := os.WriteFile(destPath, rendered, mode); err != nil {
+		if err := osWriteFile(destPath, rendered, mode); err != nil {
 			return err
 		}
 	}

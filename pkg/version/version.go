@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var readBuildInfo = debug.ReadBuildInfo
+
 // Tag is set via -ldflags at build time (e.g., "v0.1.0").
 var Tag = "dev"
 
@@ -28,7 +30,7 @@ func Info() string {
 
 // vcsInfo extracts VCS revision and modified state from debug.BuildInfo.
 func vcsInfo() (revision string, modified bool) {
-	info, ok := debug.ReadBuildInfo()
+	info, ok := readBuildInfo()
 	if !ok {
 		return "", false
 	}

@@ -5,9 +5,11 @@ import (
 	"os/exec"
 )
 
+var execCommand = exec.Command
+
 // Run executes a git command in the given directory.
 func Run(dir string, args ...string) error {
-	cmd := exec.Command("git", args...)
+	cmd := execCommand("git", args...)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {

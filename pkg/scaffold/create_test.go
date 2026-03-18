@@ -273,6 +273,58 @@ func TestCreate_GitModeNoneSkipsGit(t *testing.T) {
 	}
 }
 
+func TestCreate_InvalidModulePathReturnsError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", ModulePath: "https://example.com/demo"})
+	if err == nil {
+		t.Fatal("Create() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "module path") {
+		t.Fatalf("Create() error = %v, want module path validation error", err)
+	}
+	if _, statErr := os.Stat("demo"); !os.IsNotExist(statErr) {
+		t.Fatalf("invalid module path should not create project directory, stat err = %v", statErr)
+	}
+}
+
+func TestCreate_DefaultGoModulePathIsValidated(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo.", NoGit: true})
+	if err == nil {
+		t.Fatal("Create() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "module path") {
+		t.Fatalf("Create() error = %v, want module path validation error", err)
+	}
+	if _, statErr := os.Stat("demo."); !os.IsNotExist(statErr) {
+		t.Fatalf("invalid default module path should not create project directory, stat err = %v", statErr)
+	}
+}
+
+func TestValidateModulePath_SkipsNonGoTemplates(t *testing.T) {
+	creator := NewCreatorWithGitRunner(fstest.MapFS{}, &bytes.Buffer{}, nil)
+	err := creator.validateModulePath(Options{Lang: "cpp", ModulePath: "https://example.com/demo"})
+	if err != nil {
+		t.Fatalf("validateModulePath() error = %v, want nil for non-go template", err)
+	}
+}
+
 func TestCreate_InvalidGitModeReturnsError(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/main.go.tmpl": {Data: []byte("package main\n")},

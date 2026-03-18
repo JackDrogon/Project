@@ -48,3 +48,39 @@ func TestValidateProjectName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateModulePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"empty is allowed", "", false},
+		{"simple path", "demo", false},
+		{"domain path", "example.com/demo", false},
+		{"nested path", "github.com/user/project", false},
+		{"mixed casing", "github.com/Azure/project", false},
+		{"tilde allowed", "example.com/lib~preview", false},
+
+		{"leading slash", "/demo", true},
+		{"trailing slash", "demo/", true},
+		{"double slash", "example.com//demo", true},
+		{"trailing dot in segment", "example.com/demo.", true},
+		{"leading dot in segment", "example.com/.demo", true},
+		{"space", "example.com/my project", true},
+		{"backslash", `example.com\\demo`, true},
+		{"scheme", "https://example.com/demo", true},
+		{"current segment", "example.com/./demo", true},
+		{"parent segment", "example.com/../demo", true},
+		{"quote", "example.com/o'connor/demo", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateModulePath(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateModulePath(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}

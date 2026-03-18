@@ -1,19 +1,32 @@
 # {{.ProjectName}}
 
-## Build
+A production-ready Go CLI starter with a small but maintainable project layout.
+
+## Project Layout
+
+```text
+cmd/app/              Program entrypoint
+internal/app/         CLI behavior and application logic
+internal/version/     Build-time version metadata
+```
+
+## Development
 
 ```bash
 just build
-```
-
-## Test
-
-```bash
+just run -- --name team
+just run -- --version
 just test
-```
-
-## Lint
-
-```bash
 just lint
+just cover
 ```
+
+## Module Path
+
+This project uses `{{.ModulePath}}` as its Go module path.
+
+## Notes
+
+- The binary is built to `bin/{{.ProjectName}}`.
+- Version information is injected through `-ldflags` during builds.
+- The default CLI supports `--name` and `--version` out of the box.

@@ -93,7 +93,7 @@ func (opts Options) destinationDir() string {
 
 // Create scaffolds a new project based on the given options.
 func (c *Creator) Create(opts Options) error {
-	p := newPipeline(opts).step(c.validate).step(c.checkLang).step(c.validateGitOptions)
+	p := newPipeline(opts).step(c.validate).step(c.checkLang).step(c.validateModulePath).step(c.validateGitOptions)
 	if p.Err() != nil {
 		return p.Err()
 	}
@@ -118,6 +118,19 @@ func (c *Creator) Create(opts Options) error {
 
 func (c *Creator) validate(opts Options) error {
 	return ValidateProjectName(opts.ProjectName)
+}
+
+func (c *Creator) validateModulePath(opts Options) error {
+	if opts.Lang != "go" {
+		return nil
+	}
+
+	modulePath := opts.ModulePath
+	if modulePath == "" {
+		modulePath = opts.ProjectName
+	}
+
+	return ValidateModulePath(modulePath)
 }
 
 func (c *Creator) checkLang(opts Options) error {

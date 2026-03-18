@@ -3,18 +3,20 @@
 # Justfile for {{.ProjectName}}
 # Run `just` or `just --list` to see available recipes
 
-tag := `git describe --abbrev=0 --always --tags`
-ldflags := "-X '{{.ModulePath}}/pkg/version.GitTagSha=" + tag + "'"
+tag := `root="$(git rev-parse --show-toplevel 2>/dev/null || true)"; current="$(pwd -P)"; if [ -n "$root" ] && [ "$root" = "$current" ]; then git describe --abbrev=0 --always --tags 2>/dev/null || echo dev; else echo dev; fi`
+ldflags := "-X '{{.ModulePath}}/internal/version.Version=" + tag + "'"
 
 # ─────────────────────────────────────────────────────────────────────
 # Aliases
 # ─────────────────────────────────────────────────────────────────────
 
 alias b := build
+alias c := cover
 alias t := test
 alias l := lint
 alias f := fmt
 alias r := run
+alias pc := pre-commit
 
 # Show all available recipes
 [private]
@@ -29,13 +31,12 @@ default:
 [group('build')]
 build:
     @mkdir -p bin
-    go build -ldflags "{{"{{ldflags}}"}}" -o bin/{{.ProjectName}} .
+    go build -ldflags "{{"{{ldflags}}"}}" -o bin/{{.ProjectName}} ./cmd/app
 
-# Build with coverage instrumentation
+# Install the CLI into GOPATH/bin
 [group('build')]
-build-cover:
-    @mkdir -p bin
-    go build -ldflags "{{"{{ldflags}}"}}" -cover -o bin/{{.ProjectName}} .
+install:
+    go install -ldflags "{{"{{ldflags}}"}}" ./cmd/app
 
 # Remove build artifacts
 [group('build')]
@@ -56,6 +57,11 @@ lint:
 fmt:
     go fmt ./...
 
+# Tidy module dependencies
+[group('quality')]
+tidy:
+    go mod tidy
+
 # ═════════════════════════════════════════════════════════════════════
 #  Test
 # ═════════════════════════════════════════════════════════════════════
@@ -69,6 +75,16 @@ test pkg='./...':
 [group('test')]
 test-v pkg='./...':
     go test -v {{"{{pkg}}"}}
+
+# Generate coverage report
+[group('test')]
+cover:
+    go test -coverprofile=coverage.out ./...
+    go tool cover -func=coverage.out
+
+# Run formatting, linting, and tests in sequence
+[group('test')]
+pre-commit: fmt lint test
 
 # ═════════════════════════════════════════════════════════════════════
 #  Run
@@ -92,3 +108,17 @@ loc:
 [group('maintenance')]
 todos:
     grep -rnw . -e "TODO" | grep -v '^./.git'
+
+# Show concise git log
+[group('maintenance')]
+log n='20':
+    git log --oneline --graph --decorate -n {{"{{n}}"}}
+
+# Show Go toolchain info
+[group('maintenance')]
+info:
+    @echo "── Go Toolchain ──"
+    go version
+    @echo ""
+    @echo "── Module ──"
+    head -1 go.mod

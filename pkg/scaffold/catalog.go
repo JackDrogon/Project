@@ -152,7 +152,7 @@ func extractTemplateVars(content []byte) ([]string, error) {
 
 	vars := map[string]struct{}{}
 	if tmpl.Tree != nil {
-		collectTemplateVars(tmpl.Tree.Root, vars)
+		collectTemplateVars(tmpl.Root, vars)
 	}
 
 	result := make([]string, 0, len(vars))

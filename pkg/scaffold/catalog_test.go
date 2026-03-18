@@ -209,7 +209,7 @@ func TestCollectTemplateHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("template.Parse() error = %v", err)
 	}
-	collectTemplateVars(tmpl.Tree.Root, vars)
+	collectTemplateVars(tmpl.Root, vars)
 
 	pipe := &parse.PipeNode{Cmds: []*parse.CommandNode{{Args: []parse.Node{
 		&parse.FieldNode{Ident: []string{"ProjectName"}},

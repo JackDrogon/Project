@@ -36,7 +36,7 @@ func newRootCmd(creator *scaffold.Creator) *cobra.Command {
 // and exits the program with status code 1.
 func Execute(creator *scaffold.Creator) {
 	if err := newRootCmd(creator).Execute(); err != nil {
-		fmt.Fprintln(stderrWriter, err)
+		_, _ = fmt.Fprintln(stderrWriter, err)
 		exitFunc(1)
 	}
 }

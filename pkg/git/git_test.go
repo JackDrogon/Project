@@ -53,12 +53,12 @@ func TestGitRunHelperProcess(t *testing.T) {
 	}
 
 	if cwd, err := os.Getwd(); err != nil || cwd != os.Getenv("GIT_EXPECTED_DIR") {
-		os.Stderr.WriteString("unexpected working directory")
+		_, _ = os.Stderr.WriteString("unexpected working directory")
 		os.Exit(1)
 	}
 
 	if os.Getenv("GIT_HELPER_MODE") == "fail" {
-		os.Stderr.WriteString("helper failure")
+		_, _ = os.Stderr.WriteString("helper failure")
 		os.Exit(1)
 	}
 

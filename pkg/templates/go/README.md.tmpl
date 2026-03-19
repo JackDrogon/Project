@@ -19,6 +19,7 @@ just run -- --version
 just test
 just lint
 just cover
+just release-snapshot
 ```
 
 ## Module Path
@@ -30,3 +31,5 @@ This project uses `{{.ModulePath}}` as its Go module path.
 - The binary is built to `bin/{{.ProjectName}}`.
 - Version information is injected through `-ldflags` during builds.
 - The default CLI supports `--name` and `--version` out of the box.
+- A GitHub Actions workflow runs build, test, and lint on pushes and pull requests.
+- A GoReleaser config is included for local snapshot builds and future tagged releases.

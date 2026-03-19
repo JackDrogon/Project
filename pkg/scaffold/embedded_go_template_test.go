@@ -20,11 +20,11 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("InspectLang() error = %v", err)
 	}
 
-	if details.FileCount != 10 {
-		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 10)
+	if details.FileCount != 12 {
+		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 12)
 	}
-	if details.TemplateCount != 8 {
-		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 8)
+	if details.TemplateCount != 9 {
+		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 9)
 	}
 
 	wantVars := []string{"ModulePath", "ProjectName"}
@@ -33,8 +33,10 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 	}
 
 	wantFiles := []TemplateFile{
+		{Source: ".github/workflows/ci.yml", Output: ".github/workflows/ci.yml", IsTemplate: false},
 		{Source: ".gitignore", Output: ".gitignore", IsTemplate: false},
 		{Source: ".golangci.yml", Output: ".golangci.yml", IsTemplate: false},
+		{Source: ".goreleaser.yml.tmpl", Output: ".goreleaser.yml", IsTemplate: true},
 		{Source: "README.md.tmpl", Output: "README.md", IsTemplate: true},
 		{Source: "cmd/app/main.go.tmpl", Output: "cmd/app/main.go", IsTemplate: true},
 		{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true},
@@ -67,8 +69,10 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		"internal/version/version.go":      "var Version = \"dev\"",
 		"internal/version/version_test.go": "func TestInfo",
 		"README.md":                        "production-ready Go CLI starter",
-		"justfile":                         "./cmd/app",
+		"justfile":                         "goreleaser release --snapshot --clean",
 		".golangci.yml":                    "staticcheck",
+		".github/workflows/ci.yml":         "go test ./...",
+		".goreleaser.yml":                  "main: ./cmd/app",
 	}
 
 	for relPath, want := range checks {

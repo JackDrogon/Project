@@ -17,6 +17,7 @@ alias l := lint
 alias f := fmt
 alias r := run
 alias pc := pre-commit
+alias rs := release-snapshot
 
 # Show all available recipes
 [private]
@@ -85,6 +86,11 @@ cover:
 # Run formatting, linting, and tests in sequence
 [group('test')]
 pre-commit: fmt lint test
+
+# Build release artifacts without publishing
+[group('test')]
+release-snapshot:
+    goreleaser release --snapshot --clean
 
 # ═════════════════════════════════════════════════════════════════════
 #  Run

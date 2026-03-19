@@ -13,6 +13,7 @@ bin/
 *.out
 coverage.out
 coverage.html
+dist/
 
 # Go workspace
 go.work

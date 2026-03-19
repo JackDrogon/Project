@@ -4,7 +4,7 @@ A CLI scaffolding tool that creates new projects from embedded templates. All te
 
 ## Supported Languages
 
-- **Go** — structured CLI scaffold with `cmd/app`, `internal/`, tests, `.golangci.yml`, GitHub Actions CI, GoReleaser config, `README.md`, and `justfile`
+- **Go** — structured CLI scaffold with `cmd/app`, `internal/`, tests, `.golangci.yml`, GitHub Actions CI, GoReleaser config, Codecov config, `README.md`, and `justfile`
 - **C++** — `CMakeLists.txt`, `src/main.cc`, `include/`, `dev-tools/`, `justfile`
 
 Run `project list` to see all available languages.

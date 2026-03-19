@@ -33,3 +33,5 @@ This project uses `{{.ModulePath}}` as its Go module path.
 - The default CLI supports `--name` and `--version` out of the box.
 - A GitHub Actions workflow runs build, test, and lint on pushes and pull requests.
 - A GoReleaser config is included for local snapshot builds and future tagged releases.
+- A lightweight Codecov config is included for coverage reporting from CI.
+- Private repositories usually need a `CODECOV_TOKEN`; the default CI upload is fail-open so missing coverage uploads do not block builds.

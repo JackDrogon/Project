@@ -24,8 +24,17 @@ jobs:
       - name: Build
         run: go build ./cmd/app
 
-      - name: Run tests
-        run: go test ./...
+      - name: Run tests with coverage
+        run: go test -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          disable_search: true
+          handle_no_reports_found: true
+          fail_ci_if_error: false
 
   lint:
     name: Lint

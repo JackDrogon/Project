@@ -20,8 +20,8 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("InspectLang() error = %v", err)
 	}
 
-	if details.FileCount != 12 {
-		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 12)
+	if details.FileCount != 13 {
+		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 13)
 	}
 	if details.TemplateCount != 9 {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 9)
@@ -39,6 +39,7 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		{Source: ".goreleaser.yml.tmpl", Output: ".goreleaser.yml", IsTemplate: true},
 		{Source: "README.md.tmpl", Output: "README.md", IsTemplate: true},
 		{Source: "cmd/app/main.go.tmpl", Output: "cmd/app/main.go", IsTemplate: true},
+		{Source: "codecov.yml", Output: "codecov.yml", IsTemplate: false},
 		{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true},
 		{Source: "internal/app/app.go.tmpl", Output: "internal/app/app.go", IsTemplate: true},
 		{Source: "internal/app/app_test.go.tmpl", Output: "internal/app/app_test.go", IsTemplate: true},
@@ -71,8 +72,9 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		"README.md":                        "production-ready Go CLI starter",
 		"justfile":                         "goreleaser release --snapshot --clean",
 		".golangci.yml":                    "staticcheck",
-		".github/workflows/ci.yml":         "go test ./...",
+		".github/workflows/ci.yml":         "codecov/codecov-action@v5",
 		".goreleaser.yml":                  "main: ./cmd/app",
+		"codecov.yml":                      "target: auto",
 	}
 
 	for relPath, want := range checks {
@@ -85,9 +87,98 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		}
 	}
 
+	ciContent, err := os.ReadFile(filepath.Join(tmp, "demo", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatalf("ReadFile(ci.yml) error = %v", err)
+	}
+	for _, want := range []string{
+		"go test -coverprofile=coverage.out ./...",
+		"codecov/codecov-action@v5",
+		"disable_search: true",
+		"handle_no_reports_found: true",
+		"fail_ci_if_error: false",
+	} {
+		if !strings.Contains(string(ciContent), want) {
+			t.Fatalf("ci.yml content = %q, want contains %q", string(ciContent), want)
+		}
+	}
+
+	codecovContent, err := os.ReadFile(filepath.Join(tmp, "demo", "codecov.yml"))
+	if err != nil {
+		t.Fatalf("ReadFile(codecov.yml) error = %v", err)
+	}
+	for _, want := range []string{
+		"target: auto",
+		"threshold: 1%",
+		"if_not_found: success",
+	} {
+		if !strings.Contains(string(codecovContent), want) {
+			t.Fatalf("codecov.yml content = %q, want contains %q", string(codecovContent), want)
+		}
+	}
+
+	codecovValues := parseSimpleYAMLScalars(t, string(codecovContent))
+	for key, want := range map[string]string{
+		"coverage.status.project.default.target":       "auto",
+		"coverage.status.project.default.threshold":    "1%",
+		"coverage.status.project.default.if_not_found": "success",
+		"coverage.status.patch.default.target":         "auto",
+		"coverage.status.patch.default.threshold":      "1%",
+		"coverage.status.patch.default.if_not_found":   "success",
+	} {
+		if got := codecovValues[key]; got != want {
+			t.Fatalf("codecov.yml %s = %q, want %q", key, got, want)
+		}
+	}
+
 	if !strings.Contains(out.String(), "Skipping git initialization") {
 		t.Fatalf("output = %q, want git skip message", out.String())
 	}
+}
+
+func parseSimpleYAMLScalars(t *testing.T, content string) map[string]string {
+	t.Helper()
+
+	values := make(map[string]string)
+	var path []string
+
+	for _, rawLine := range strings.Split(content, "\n") {
+		if strings.TrimSpace(rawLine) == "" || strings.HasPrefix(strings.TrimSpace(rawLine), "#") {
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(rawLine), "-") {
+			continue
+		}
+
+		indent := len(rawLine) - len(strings.TrimLeft(rawLine, " "))
+		level := indent / 2
+		line := strings.TrimSpace(rawLine)
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		for len(path) > level {
+			path = path[:len(path)-1]
+		}
+
+		if value == "" {
+			if len(path) == level {
+				path = append(path, key)
+			} else {
+				path[level] = key
+				path = path[:level+1]
+			}
+			continue
+		}
+
+		fullPath := append(append([]string{}, path...), key)
+		values[strings.Join(fullPath, ".")] = strings.Trim(value, `"'`)
+	}
+
+	return values
 }
 
 func TestEmbeddedGoTemplateJustfileWorksWithoutGit(t *testing.T) {

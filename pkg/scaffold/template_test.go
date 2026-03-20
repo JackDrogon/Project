@@ -212,7 +212,6 @@ func TestCopyEmbedDir(t *testing.T) {
 	if string(got) != "name: Demo" {
 		t.Errorf("config.yaml = %q, want %q", string(got), "name: Demo")
 	}
-
 	if _, err := os.Stat(filepath.Join(dest, "cmd", "demo", "main.go")); err != nil {
 		t.Fatalf("stat cmd/demo/main.go: %v", err)
 	}
@@ -279,6 +278,7 @@ func TestCopyEmbedDir_NonTemplateFileBypassesRendering(t *testing.T) {
 }
 
 func TestCopyEmbedDir_PreservesExecutableBit(t *testing.T) {
+	stubTemplateOSFuncs(t)
 	fsys := fstest.MapFS{
 		"lang/script.sh": {
 			Data: []byte("#!/bin/sh\necho hello\n"),
@@ -289,16 +289,16 @@ func TestCopyEmbedDir_PreservesExecutableBit(t *testing.T) {
 
 	dest := filepath.Join(t.TempDir(), "output")
 	var buf bytes.Buffer
+	var gotPerm os.FileMode
+	osWriteFile = func(name string, data []byte, perm os.FileMode) error {
+		gotPerm = perm
+		return os.WriteFile(name, data, perm)
+	}
 	if err := CopyEmbedDir(&buf, fsys, "lang", dest, vars); err != nil {
 		t.Fatalf("CopyEmbedDir() error = %v", err)
 	}
-
-	info, err := os.Stat(filepath.Join(dest, "script.sh"))
-	if err != nil {
-		t.Fatalf("stat script.sh: %v", err)
-	}
-	if info.Mode().Perm() != 0755 {
-		t.Errorf("script.sh mode = %o, want %o", info.Mode().Perm(), 0755)
+	if gotPerm != 0755 {
+		t.Fatalf("osWriteFile perm = %o, want %o", gotPerm, 0755)
 	}
 }
 
@@ -314,7 +314,7 @@ func TestPreviewEmbedDir(t *testing.T) {
 	}
 
 	got := buf.String()
-	if !strings.Contains(got, "create demo/plain.txt") || !strings.Contains(got, "create demo/sub/") || !strings.Contains(got, "create demo/sub/nested.txt") {
+	if !strings.Contains(got, "create "+filepath.Join("demo", "plain.txt")) || !strings.Contains(got, "create "+filepath.Join("demo", "sub")+string(filepath.Separator)) || !strings.Contains(got, "create "+filepath.Join("demo", "sub", "nested.txt")) {
 		t.Fatalf("PreviewEmbedDir() output = %q", got)
 	}
 }
@@ -416,16 +416,9 @@ func TestCopyEmbedDir_Errors(t *testing.T) {
 	})
 
 	t.Run("entry info error falls back to default mode", func(t *testing.T) {
-		dest := filepath.Join(t.TempDir(), "out")
-		if err := CopyEmbedDir(&bytes.Buffer{}, infoErrorFS{err: errors.New("info failed")}, "lang", dest, vars); err != nil {
-			t.Fatalf("CopyEmbedDir() error = %v", err)
-		}
-		info, err := os.Stat(filepath.Join(dest, "file.txt"))
-		if err != nil {
-			t.Fatalf("Stat(file.txt) error = %v", err)
-		}
-		if info.Mode().Perm() != 0644 {
-			t.Fatalf("file.txt mode = %o, want %o", info.Mode().Perm(), 0644)
+		entry := templateEntry{entry: stubDirEntry{name: "file.txt", infoErr: errors.New("info failed")}}
+		if got := templateEntryMode(entry); got != 0644 {
+			t.Fatalf("templateEntryMode() = %o, want %o", got, 0644)
 		}
 	})
 
@@ -440,4 +433,93 @@ func TestCopyEmbedDir_Errors(t *testing.T) {
 			t.Fatal("CopyEmbedDir() expected nested recursion error, got nil")
 		}
 	})
+}
+
+func TestRenderTemplatePathSegment(t *testing.T) {
+	tests := []struct {
+		name    string
+		segment string
+		vars    TemplateVars
+		want    string
+		wantErr string
+	}{
+		{
+			name:    "valid rendered segment",
+			segment: "{{.ProjectNameLower}}.txt",
+			vars:    TemplateVars{ProjectNameLower: "demo"},
+			want:    "demo.txt",
+		},
+		{
+			name:    "invalid template syntax is returned",
+			segment: "{{.ProjectName",
+			vars:    TemplateVars{ProjectName: "demo"},
+			wantErr: "unclosed action",
+		},
+		{
+			name:    "empty rendered segment is rejected",
+			segment: "{{if .ProjectName}}{{.ProjectName}}{{end}}",
+			vars:    TemplateVars{},
+			wantErr: "invalid rendered path segment",
+		},
+		{
+			name:    "dot segment is rejected",
+			segment: ".",
+			vars:    TemplateVars{},
+			wantErr: "invalid rendered path segment",
+		},
+		{
+			name:    "dot dot segment is rejected",
+			segment: "..",
+			vars:    TemplateVars{},
+			wantErr: "invalid rendered path segment",
+		},
+		{
+			name:    "slash in rendered segment is rejected",
+			segment: "{{.ModulePath}}",
+			vars:    TemplateVars{ModulePath: "acme/demo"},
+			wantErr: "must not contain path separators",
+		},
+		{
+			name:    "backslash in rendered segment is rejected",
+			segment: "{{.ProjectName}}",
+			vars:    TemplateVars{ProjectName: `demo\\nested`},
+			wantErr: "must not contain path separators",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := renderTemplatePathSegment(tt.segment, tt.vars)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("renderTemplatePathSegment() expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("renderTemplatePathSegment() error = %v, want contains %q", err, tt.wantErr)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("renderTemplatePathSegment() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("renderTemplatePathSegment() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPreviewEmbedDir_InvalidRenderedPathFails(t *testing.T) {
+	fsys := fstest.MapFS{
+		"lang/{{.ModulePath}}.txt": {Data: []byte("content")},
+	}
+
+	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo", TemplateVars{ModulePath: "acme/demo"})
+	if err == nil {
+		t.Fatal("PreviewEmbedDir() expected path rendering error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to render template path") {
+		t.Fatalf("PreviewEmbedDir() error = %v, want wrapped path rendering error", err)
+	}
 }

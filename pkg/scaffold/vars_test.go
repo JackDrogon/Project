@@ -1,8 +1,10 @@
 package scaffold
 
 import (
+	"errors"
 	"os"
 	"os/exec"
+	"os/user"
 	"testing"
 )
 
@@ -75,6 +77,48 @@ func TestNewTemplateVars(t *testing.T) {
 			t.Errorf("GoVersion = %q, want %q", vars.GoVersion, "1.23")
 		}
 	})
+
+	t.Run("falls back to default author when current user lookup fails", func(t *testing.T) {
+		stubTemplateVarFuncs(t)
+		currentUser = func() (*user.User, error) {
+			return nil, errors.New("lookup failed")
+		}
+		execGoCommand = func(name string, args ...string) *exec.Cmd {
+			return helperCommand(t, "printf", "go1.24.0")
+		}
+
+		vars := NewTemplateVars("myproj", "")
+		if vars.Author != "author" {
+			t.Fatalf("Author = %q, want %q", vars.Author, "author")
+		}
+	})
+
+	t.Run("falls back to default author when username is empty", func(t *testing.T) {
+		stubTemplateVarFuncs(t)
+		currentUser = func() (*user.User, error) {
+			return &user.User{}, nil
+		}
+		execGoCommand = func(name string, args ...string) *exec.Cmd {
+			return helperCommand(t, "printf", "go1.24.0")
+		}
+
+		vars := NewTemplateVars("myproj", "")
+		if vars.Author != "author" {
+			t.Fatalf("Author = %q, want %q", vars.Author, "author")
+		}
+	})
+}
+
+func TestDetectGoVersion_FallsBackToTrimmedRuntimeString(t *testing.T) {
+	stubTemplateVarFuncs(t)
+	execGoCommand = func(name string, args ...string) *exec.Cmd {
+		return helperCommand(t, "exit1")
+	}
+	runtimeVersion = func() string { return "  devel custom-build  " }
+
+	if got := detectGoVersion(); got != "devel custom-build" {
+		t.Fatalf("detectGoVersion() = %q, want %q", got, "devel custom-build")
+	}
 }
 
 func TestParseGoLanguageVersion(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"text/template"
@@ -89,9 +90,10 @@ func TestListTemplateSummaries(t *testing.T) {
 
 func TestInspectLang(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
-		"go/main.go.tmpl": {Data: []byte("// {{.ProjectName}}")},
-		"go/.gitignore":   {Data: []byte("bin/")},
+		"go/go.mod.tmpl":                       {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
+		"go/main.go.tmpl":                      {Data: []byte("// {{.ProjectName}}")},
+		"go/.gitignore":                        {Data: []byte("bin/")},
+		"go/cmd/{{.ProjectNameLower}}/main.go": {Data: []byte("package main\n")},
 	}
 
 	c := NewCreator(fsys, &bytes.Buffer{})
@@ -103,22 +105,23 @@ func TestInspectLang(t *testing.T) {
 	if details.Name != "go" {
 		t.Fatalf("details.Name = %q, want %q", details.Name, "go")
 	}
-	if details.FileCount != 3 {
-		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 3)
+	if details.FileCount != 4 {
+		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 4)
 	}
 	if details.TemplateCount != 2 {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 2)
 	}
-	if !reflect.DeepEqual(details.Variables, []string{"GoVersion", "ModulePath", "ProjectName"}) {
-		t.Fatalf("details.Variables = %v, want %v", details.Variables, []string{"GoVersion", "ModulePath", "ProjectName"})
+	if !reflect.DeepEqual(details.Variables, []string{"GoVersion", "ModulePath", "ProjectName", "ProjectNameLower"}) {
+		t.Fatalf("details.Variables = %v, want %v", details.Variables, []string{"GoVersion", "ModulePath", "ProjectName", "ProjectNameLower"})
 	}
 
-	if len(details.Files) != 3 {
-		t.Fatalf("len(details.Files) = %d, want %d", len(details.Files), 3)
+	if len(details.Files) != 4 {
+		t.Fatalf("len(details.Files) = %d, want %d", len(details.Files), 4)
 	}
 
 	wantFiles := []TemplateFile{
 		{Source: ".gitignore", Output: ".gitignore", IsTemplate: false},
+		{Source: "cmd/{{.ProjectNameLower}}/main.go", Output: "cmd/{{.ProjectNameLower}}/main.go", IsTemplate: false},
 		{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true},
 		{Source: "main.go.tmpl", Output: "main.go", IsTemplate: true},
 	}
@@ -136,6 +139,17 @@ func TestInspectLang_InvalidTemplateReturnsError(t *testing.T) {
 	c := NewCreator(fsys, &bytes.Buffer{})
 	if _, err := c.InspectLang("go"); err == nil {
 		t.Fatal("InspectLang() expected error for invalid template, got nil")
+	}
+}
+
+func TestInspectLang_InvalidTemplatePathReturnsError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/{{.ProjectName/file.txt.tmpl": {Data: []byte("{{.ProjectName}}")},
+	}
+
+	c := NewCreator(fsys, &bytes.Buffer{})
+	if _, err := c.InspectLang("go"); err == nil {
+		t.Fatal("InspectLang() expected error for invalid template path, got nil")
 	}
 }
 
@@ -259,5 +273,15 @@ func TestWalkTemplateFiles_NestedReadDirError(t *testing.T) {
 	c := NewCreator(fsys, &bytes.Buffer{})
 	if err := c.walkTemplateFiles("go", func(srcPath string, isTemplate bool) error { return nil }); err == nil {
 		t.Fatal("walkTemplateFiles() expected nested read error, got nil")
+	}
+}
+
+func TestCollectVarsFromTemplatePath_InvalidTemplatePath(t *testing.T) {
+	err := collectVarsFromTemplatePath("go/{{.ProjectName/file.txt", "{{.ProjectName/file.txt", map[string]struct{}{})
+	if err == nil {
+		t.Fatal("collectVarsFromTemplatePath() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to parse template path") {
+		t.Fatalf("collectVarsFromTemplatePath() error = %v, want wrapped template path error", err)
 	}
 }

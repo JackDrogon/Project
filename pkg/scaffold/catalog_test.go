@@ -38,7 +38,7 @@ func (f catalogErrorFS) ReadFile(name string) ([]byte, error) {
 
 func TestListTemplateSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/go.mod.tmpl":       {Data: []byte("module {{.ModulePath}}")},
+		"go/go.mod.tmpl":       {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
 		"go/main.go.tmpl":      {Data: []byte("package main\n")},
 		"go/.gitignore":        {Data: []byte("bin/")},
 		"cpp/src/main.cc.tmpl": {Data: []byte("// {{.ProjectName}}")},
@@ -66,7 +66,7 @@ func TestListTemplateSummaries(t *testing.T) {
 			Name:          "go",
 			FileCount:     3,
 			TemplateCount: 2,
-			Variables:     []string{"ModulePath"},
+			Variables:     []string{"GoVersion", "ModulePath"},
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestListTemplateSummaries(t *testing.T) {
 
 func TestInspectLang(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}")},
+		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
 		"go/main.go.tmpl": {Data: []byte("// {{.ProjectName}}")},
 		"go/.gitignore":   {Data: []byte("bin/")},
 	}
@@ -109,8 +109,8 @@ func TestInspectLang(t *testing.T) {
 	if details.TemplateCount != 2 {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 2)
 	}
-	if !reflect.DeepEqual(details.Variables, []string{"ModulePath", "ProjectName"}) {
-		t.Fatalf("details.Variables = %v, want %v", details.Variables, []string{"ModulePath", "ProjectName"})
+	if !reflect.DeepEqual(details.Variables, []string{"GoVersion", "ModulePath", "ProjectName"}) {
+		t.Fatalf("details.Variables = %v, want %v", details.Variables, []string{"GoVersion", "ModulePath", "ProjectName"})
 	}
 
 	if len(details.Files) != 3 {

@@ -27,7 +27,7 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 11)
 	}
 
-	wantVars := []string{"ModulePath", "ProjectName"}
+	wantVars := []string{"GoVersion", "ModulePath", "ProjectName"}
 	if !reflect.DeepEqual(details.Variables, wantVars) {
 		t.Fatalf("details.Variables = %v, want %v", details.Variables, wantVars)
 	}
@@ -89,6 +89,14 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		if !strings.Contains(string(content), want) {
 			t.Fatalf("%s content = %q, want contains %q", relPath, string(content), want)
 		}
+	}
+
+	goModContent, err := os.ReadFile(filepath.Join(tmp, "demo", "go.mod"))
+	if err != nil {
+		t.Fatalf("ReadFile(go.mod) error = %v", err)
+	}
+	if !strings.Contains(string(goModContent), "go "+detectGoVersion()) {
+		t.Fatalf("go.mod content = %q, want contains %q", string(goModContent), "go "+detectGoVersion())
 	}
 
 	ciContent, err := os.ReadFile(filepath.Join(tmp, "demo", ".github", "workflows", "ci.yml"))

@@ -39,8 +39,11 @@ just install
 
 ```bash
 project new -l go myapp
+project new -l go github.com/myorg/myapp
 project new -l cpp myapp
 ```
+
+For Go projects, you can pass either a local project name or a full module path as the positional argument. When you pass a module path directly, `project` derives the output directory from the repository name: `project new -l go github.com/myorg/myapp` creates `./myapp` with `module github.com/myorg/myapp`, and `project new -l go github.com/myorg/myapp/v2` still creates `./myapp` with `module github.com/myorg/myapp/v2`.
 
 This will:
 1. Copy template files into the `myapp/` directory
@@ -52,7 +55,7 @@ This will:
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--lang` | `-l` | Programming language (required) |
-| `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name) |
+| `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name, or to the positional Go module path when you pass one directly) |
 | `--force` | | Remove and recreate existing project directory |
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
@@ -64,6 +67,12 @@ This will:
 ```bash
 # Create a Go project with a custom module path
 project new -l go myapp -m github.com/myorg/myapp
+
+# Create a Go project by passing the module path directly
+project new -l go github.com/myorg/myapp
+
+# Create a Go project from a versioned module path
+project new -l go github.com/myorg/myapp/v2
 
 # Preview what files would be created
 project new -l go myapp -n
@@ -102,8 +111,8 @@ Templates (`.tmpl` files) support the following variables via Go's `text/templat
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `{{.ProjectName}}` | Name passed to `project new` | — |
-| `{{.ModulePath}}` | From `--module` flag | Same as ProjectName |
+| `{{.ProjectName}}` | Name passed to `project new`, or the derived directory name from a direct Go module path argument | — |
+| `{{.ModulePath}}` | From `--module` flag or a direct Go module path argument | Same as ProjectName |
 | `{{.Author}}` | System username | `"author"` |
 | `{{.Year}}` | Current year | — |
 

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"path"
+	"regexp"
+
 	"github.com/JackDrogon/project/pkg/scaffold"
 	"github.com/spf13/cobra"
 )
+
+var goMajorVersionSuffix = regexp.MustCompile(`^v[2-9][0-9]*$`)
 
 // newNewCmd creates the "new" subcommand that scaffolds a project from templates.
 func newNewCmd(creator *scaffold.Creator) *cobra.Command {
@@ -20,11 +25,16 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 		Short: "Create new project",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			projectName, targetDir, modulePath, err := resolveNewProjectArgs(lang, module, args[0])
+			if err != nil {
+				return err
+			}
+
 			return creator.Create(scaffold.Options{
 				Lang:        lang,
-				ProjectName: args[0],
-				TargetDir:   args[0],
-				ModulePath:  module,
+				ProjectName: projectName,
+				TargetDir:   targetDir,
+				ModulePath:  modulePath,
 				Force:       force,
 				Signoff:     signoff,
 				DryRun:      dryRun,
@@ -45,4 +55,35 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 
 	return cmd
+}
+
+func resolveNewProjectArgs(lang, module, arg string) (projectName string, targetDir string, modulePath string, err error) {
+	if lang == "go" && module == "" {
+		if projectErr := scaffold.ValidateProjectName(arg); projectErr != nil {
+			if moduleErr := scaffold.ValidateModulePath(arg); moduleErr == nil {
+				name := projectNameFromGoModulePath(arg)
+				if err := scaffold.ValidateProjectName(name); err != nil {
+					return "", "", "", err
+				}
+
+				return name, name, arg, nil
+			}
+		}
+	}
+
+	return arg, arg, module, nil
+}
+
+func projectNameFromGoModulePath(modulePath string) string {
+	name := path.Base(modulePath)
+	if !goMajorVersionSuffix.MatchString(name) {
+		return name
+	}
+
+	parent := path.Base(path.Dir(modulePath))
+	if parent == "." || parent == "/" || parent == "" {
+		return name
+	}
+
+	return parent
 }

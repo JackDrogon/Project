@@ -9,12 +9,7 @@ import (
 )
 
 func newInitCmd(creator *scaffold.Creator) *cobra.Command {
-	var lang string
-	var module string
-	var signoff bool
-	var dryRun bool
-	var noGit bool
-	var gitMode string
+	var shared createCommandFlags
 
 	cmd := &cobra.Command{
 		Use:   "init [target_dir]",
@@ -31,28 +26,13 @@ func newInitCmd(creator *scaffold.Creator) *cobra.Command {
 				return err
 			}
 
-			return creator.Create(scaffold.Options{
-				Lang:                  lang,
-				ProjectName:           projectName,
-				TargetDir:             targetDir,
-				ModulePath:            module,
-				AllowExistingEmptyDir: true,
-				Signoff:               signoff,
-				DryRun:                dryRun,
-				NoGit:                 noGit,
-				GitMode:               scaffold.GitMode(gitMode),
-			})
+			opts := shared.options(projectName, targetDir, shared.module)
+			opts.AllowExistingEmptyDir = true
+			return creator.Create(opts)
 		},
 	}
 
-	cmd.Flags().StringVarP(&lang, "lang", "l", "", "Programming language for the project")
-	_ = cmd.MarkFlagRequired("lang")
-	cmd.Flags().StringVarP(&module, "module", "m", "", "Module path (e.g. github.com/user/project)")
-	cmd.Flags().BoolVar(&signoff, "signoff", false, "Add Signed-off-by trailer to the initial commit")
-	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview files without creating them")
-	cmd.Flags().BoolVar(&noGit, "no-git", false, "Skip git init/add/commit after scaffolding")
-	cmd.Flags().StringVar(&gitMode, "git", "", "Git workflow: none, init-only, init+commit (default: init+commit)")
-	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
+	bindCreateCommandFlags(cmd, &shared)
 
 	return cmd
 }

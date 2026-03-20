@@ -19,6 +19,20 @@ var (
 	filepathAbs = filepath.Abs
 )
 
+const initialCommitMessage = "Initial commit"
+
+// This file owns the stateful scaffolding pipeline.
+//
+// The workflow is intentionally staged in a fixed order:
+//  1. Validate options before touching the filesystem.
+//  2. Announce the requested operation once inputs are known-good.
+//  3. For dry-run, inspect the destination and validate the rendered plan without writing it.
+//  4. For real creation, validate the destination, materialize files, then run git.
+//
+// Keeping git as the final phase preserves the existing resumability properties:
+// reruns only need to reason about generated files and destination checks, while git
+// side effects happen after templates have been written successfully.
+
 // Creator scaffolds new projects from embedded templates.
 type Creator struct {
 	fsys   fs.FS
@@ -93,27 +107,56 @@ func (opts Options) destinationDir() string {
 
 // Create scaffolds a new project based on the given options.
 func (c *Creator) Create(opts Options) error {
-	p := newPipeline(opts).step(c.validate).step(c.checkLang).step(c.validateModulePath).step(c.validateGitOptions)
-	if p.Err() != nil {
-		return p.Err()
+	if err := c.validateCreateOptions(opts); err != nil {
+		return err
 	}
 
-	_, _ = fmt.Fprintf(c.w, "Creating project with language: %s, project name: %s\n", opts.Lang, opts.ProjectName)
+	c.writeCreateStart(opts)
 
 	if opts.DryRun {
-		if err := c.preflightDestDir(opts); err != nil {
-			return err
-		}
-		_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
-		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), NewTemplateVars(opts.ProjectName, opts.ModulePath))
+		return c.previewCreate(opts)
 	}
 
-	if err := p.step(c.checkDestDir).step(c.copyTemplates).step(c.maybeInitGitRepo).Err(); err != nil {
+	if err := c.materializeCreate(opts); err != nil {
 		return err
 	}
 
 	_, _ = fmt.Fprintln(c.w, "Project created successfully")
 	return nil
+}
+
+func (c *Creator) validateCreateOptions(opts Options) error {
+	return newPipeline(opts).
+		step(c.validate).
+		step(c.checkLang).
+		step(c.validateModulePath).
+		step(c.validateGitOptions).
+		Err()
+}
+
+func (c *Creator) writeCreateStart(opts Options) {
+	_, _ = fmt.Fprintf(c.w, "Creating project with language: %s, project name: %s\n", opts.Lang, opts.ProjectName)
+}
+
+func (c *Creator) previewCreate(opts Options) error {
+	if err := c.preflightDestDir(opts); err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
+	return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), c.templateVars(opts))
+}
+
+func (c *Creator) materializeCreate(opts Options) error {
+	return newPipeline(opts).
+		step(c.checkDestDir).
+		step(c.copyTemplates).
+		step(c.maybeInitGitRepo).
+		Err()
+}
+
+func (c *Creator) templateVars(opts Options) TemplateVars {
+	return NewTemplateVars(opts.ProjectName, opts.ModulePath)
 }
 
 func (c *Creator) validate(opts Options) error {
@@ -125,12 +168,15 @@ func (c *Creator) validateModulePath(opts Options) error {
 		return nil
 	}
 
-	modulePath := opts.ModulePath
-	if modulePath == "" {
-		modulePath = opts.ProjectName
+	return ValidateModulePath(c.defaultModulePath(opts))
+}
+
+func (c *Creator) defaultModulePath(opts Options) string {
+	if opts.ModulePath != "" {
+		return opts.ModulePath
 	}
 
-	return ValidateModulePath(modulePath)
+	return opts.ProjectName
 }
 
 func (c *Creator) checkLang(opts Options) error {
@@ -176,31 +222,39 @@ func (c *Creator) inspectDestDir(opts Options, previewOnly bool) error {
 	}
 
 	if opts.Force {
-		currentDir, err := isCurrentDir(targetDir)
-		if err != nil {
-			return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
-		}
-		if currentDir {
-			return fmt.Errorf("refusing to remove current directory %q with --force", targetDir)
-		}
-		if previewOnly {
-			return nil
-		}
+		return c.handleForcedDestination(targetDir, previewOnly)
+	}
 
-		_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, removing due to --force\n", targetDir)
-		if err := osRemoveAll(targetDir); err != nil {
-			return fmt.Errorf("failed to remove existing directory %q: %w", targetDir, err)
-		}
+	return validateReusableDestination(targetDir, opts.AllowExistingEmptyDir)
+}
 
+func (c *Creator) handleForcedDestination(targetDir string, previewOnly bool) error {
+	currentDir, err := isCurrentDir(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
+	}
+	if currentDir {
+		return fmt.Errorf("refusing to remove current directory %q with --force", targetDir)
+	}
+	if previewOnly {
 		return nil
 	}
 
+	_, _ = fmt.Fprintf(c.w, "Warning: directory %q already exists, removing due to --force\n", targetDir)
+	if err := osRemoveAll(targetDir); err != nil {
+		return fmt.Errorf("failed to remove existing directory %q: %w", targetDir, err)
+	}
+
+	return nil
+}
+
+func validateReusableDestination(targetDir string, allowExistingEmptyDir bool) error {
 	empty, err := isEmptyDir(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to inspect destination %q: %w", targetDir, err)
 	}
 
-	if empty && opts.AllowExistingEmptyDir {
+	if empty && allowExistingEmptyDir {
 		return nil
 	}
 
@@ -212,14 +266,13 @@ func (c *Creator) inspectDestDir(opts Options, previewOnly bool) error {
 }
 
 func (c *Creator) copyTemplates(opts Options) error {
-	vars := NewTemplateVars(opts.ProjectName, opts.ModulePath)
-	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), vars)
+	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), c.templateVars(opts))
 }
 
 func (c *Creator) initGitRepo(opts Options) error {
-	commitArgs := []string{"commit", "-m", "Initial commit"}
+	commitArgs := []string{"commit", "-m", initialCommitMessage}
 	if opts.Signoff {
-		commitArgs = []string{"commit", "-s", "-m", "Initial commit"}
+		commitArgs = []string{"commit", "-s", "-m", initialCommitMessage}
 	}
 
 	for _, args := range [][]string{{"init"}, {"add", "."}, commitArgs} {

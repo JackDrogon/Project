@@ -10,6 +10,12 @@ import (
 	"text/template/parse"
 )
 
+// This file provides the read-only inspection path for embedded templates.
+//
+// Unlike CopyEmbedDir and PreviewEmbedDir, catalog inspection must never mutate
+// the destination filesystem. It walks the embedded tree, derives output names,
+// and parses template variables so CLI commands can explain what creation would do.
+
 // TemplateSummary describes a template language at a glance.
 type TemplateSummary struct {
 	Name          string   `json:"name"`
@@ -68,49 +74,7 @@ func (c *Creator) inspectLangDetails(lang string) (TemplateDetails, error) {
 	if err := c.walkTemplateFiles(lang, func(srcPath string, isTemplate bool) error {
 		fileCount++
 
-		relative := strings.TrimPrefix(srcPath, lang+"/")
-		output := strings.TrimSuffix(relative, tmplSuffix)
-		files = append(files, TemplateFile{
-			Source:     relative,
-			Output:     output,
-			IsTemplate: isTemplate,
-		})
-
-		if !isTemplate {
-			pathVars, err := extractTemplateVars([]byte(relative))
-			if err != nil {
-				return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
-			}
-			for _, name := range pathVars {
-				vars[name] = struct{}{}
-			}
-			return nil
-		}
-
-		templateCount++
-		pathVars, err := extractTemplateVars([]byte(relative))
-		if err != nil {
-			return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
-		}
-		for _, name := range pathVars {
-			vars[name] = struct{}{}
-		}
-
-		content, err := fs.ReadFile(c.fsys, srcPath)
-		if err != nil {
-			return err
-		}
-
-		templateVars, err := extractTemplateVars(content)
-		if err != nil {
-			return fmt.Errorf("failed to parse template %s: %w", srcPath, err)
-		}
-
-		for _, name := range templateVars {
-			vars[name] = struct{}{}
-		}
-
-		return nil
+		return c.recordTemplateDetails(lang, srcPath, isTemplate, &files, vars, &templateCount)
 	}); err != nil {
 		return TemplateDetails{}, err
 	}
@@ -134,6 +98,53 @@ func (c *Creator) inspectLangDetails(lang string) (TemplateDetails, error) {
 		},
 		Files: files,
 	}, nil
+}
+
+func (c *Creator) recordTemplateDetails(lang, srcPath string, isTemplate bool, files *[]TemplateFile, vars map[string]struct{}, templateCount *int) error {
+	relative := strings.TrimPrefix(srcPath, lang+"/")
+	*files = append(*files, TemplateFile{
+		Source:     relative,
+		Output:     strings.TrimSuffix(relative, tmplSuffix),
+		IsTemplate: isTemplate,
+	})
+
+	if err := collectVarsFromTemplatePath(srcPath, relative, vars); err != nil {
+		return err
+	}
+
+	if !isTemplate {
+		return nil
+	}
+
+	*templateCount++
+	content, err := fs.ReadFile(c.fsys, srcPath)
+	if err != nil {
+		return err
+	}
+
+	templateVars, err := extractTemplateVars(content)
+	if err != nil {
+		return fmt.Errorf("failed to parse template %s: %w", srcPath, err)
+	}
+
+	addTemplateVarNames(vars, templateVars)
+	return nil
+}
+
+func collectVarsFromTemplatePath(srcPath, relative string, vars map[string]struct{}) error {
+	pathVars, err := extractTemplateVars([]byte(relative))
+	if err != nil {
+		return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
+	}
+
+	addTemplateVarNames(vars, pathVars)
+	return nil
+}
+
+func addTemplateVarNames(dest map[string]struct{}, names []string) {
+	for _, name := range names {
+		dest[name] = struct{}{}
+	}
 }
 
 func (c *Creator) walkTemplateFiles(dir string, visit func(srcPath string, isTemplate bool) error) error {

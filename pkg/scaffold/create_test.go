@@ -205,6 +205,33 @@ func TestCreate_DryRunSkipsWritesAndGit(t *testing.T) {
 	}
 }
 
+func TestCreate_DryRunParsesTemplateContents(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/bad.txt.tmpl": {Data: []byte("{{.ProjectName")},
+	}
+	var out bytes.Buffer
+
+	creator := NewCreatorWithGitRunner(fsys, &out, func(dir string, args ...string) error {
+		t.Fatal("git runner should not be called during dry-run")
+		return nil
+	})
+
+	withTempWorkingDir(t)
+	err := creator.Create(Options{Lang: "go", ProjectName: "demo", DryRun: true})
+	if err == nil {
+		t.Fatal("Create() expected dry-run template parsing error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to render template") {
+		t.Fatalf("Create() error = %v, want rendered template failure", err)
+	}
+	if !strings.Contains(out.String(), "Dry-run mode") {
+		t.Fatalf("output = %q, want dry-run message", out.String())
+	}
+	if !strings.Contains(out.String(), "create demo/bad.txt") {
+		t.Fatalf("output = %q, want preview path before template failure", out.String())
+	}
+}
+
 func TestCreate_GitErrorIsReturned(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/main.go.tmpl": {Data: []byte("package main\n")},

@@ -19,6 +19,23 @@ var (
 
 const tmplSuffix = ".tmpl"
 
+// This file implements the template materialization pipeline used by both real
+// creation and dry-run preview.
+//
+// The key invariant is that path rendering happens before any file writes, using
+// the same traversal order for preview and copy. That keeps dry-run output aligned
+// with real execution and avoids subtle drift between the two code paths.
+
+type templateEntry struct {
+	srcPath     string
+	destPath    string
+	name        string
+	entry       fs.DirEntry
+	isDir       bool
+	isTemplate  bool
+	rawContents []byte
+}
+
 // RenderTemplate applies TemplateVars to content using text/template.
 // It returns an error when template syntax is invalid or references unknown keys.
 func RenderTemplate(content []byte, vars TemplateVars) ([]byte, error) {
@@ -56,6 +73,76 @@ func renderTemplatePathSegment(name string, vars TemplateVars) (string, error) {
 	return rendered, nil
 }
 
+func walkTemplateEntries(fsys fs.FS, srcDir, destDir string, vars TemplateVars, visit func(templateEntry) error) error {
+	entries, err := fs.ReadDir(fsys, srcDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := path.Join(srcDir, entry.Name())
+		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
+		if err != nil {
+			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
+		}
+
+		current := templateEntry{
+			srcPath:    srcPath,
+			destPath:   filepath.Join(destDir, destName),
+			name:       entry.Name(),
+			entry:      entry,
+			isDir:      entry.IsDir(),
+			isTemplate: strings.HasSuffix(entry.Name(), tmplSuffix),
+		}
+
+		if err := visit(current); err != nil {
+			return err
+		}
+
+		if current.isDir {
+			if err := walkTemplateEntries(fsys, srcPath, current.destPath, vars, visit); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func readTemplateEntry(fsys fs.FS, entry templateEntry) (templateEntry, error) {
+	content, err := fs.ReadFile(fsys, entry.srcPath)
+	if err != nil {
+		return templateEntry{}, err
+	}
+
+	entry.rawContents = content
+	return entry, nil
+}
+
+func renderTemplateEntry(entry templateEntry, vars TemplateVars) ([]byte, error) {
+	if !entry.isTemplate {
+		return entry.rawContents, nil
+	}
+
+	rendered, err := RenderTemplate(entry.rawContents, vars)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render template %s: %w", entry.srcPath, err)
+	}
+
+	return rendered, nil
+}
+
+func templateEntryMode(entry templateEntry) fs.FileMode {
+	mode := fs.FileMode(0644)
+	if info, err := entry.entry.Info(); err == nil {
+		if perm := info.Mode().Perm(); perm != 0 {
+			mode = perm
+		}
+	}
+
+	return mode
+}
+
 // CopyEmbedDir recursively copies a directory from an embedded filesystem
 // to the local filesystem, rendering template variables in file contents.
 func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars TemplateVars) error {
@@ -63,80 +150,46 @@ func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Template
 		return err
 	}
 
-	entries, err := fs.ReadDir(fsys, srcDir)
-	if err != nil {
-		return err
-	}
+	return walkTemplateEntries(fsys, srcDir, destDir, vars, func(entry templateEntry) error {
+		_, _ = fmt.Fprintf(w, "  create %s\n", entry.destPath)
 
-	for _, entry := range entries {
-		// embed.FS always uses forward slashes
-		srcPath := path.Join(srcDir, entry.Name())
-		// Strip .tmpl suffix so "go.mod.tmpl" becomes "go.mod"
-		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
-		if err != nil {
-			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
-		}
-		destPath := filepath.Join(destDir, destName)
-		_, _ = fmt.Fprintf(w, "  create %s\n", destPath)
-
-		if entry.IsDir() {
-			if err := CopyEmbedDir(w, fsys, srcPath, destPath, vars); err != nil {
-				return err
-			}
-			continue
+		if entry.isDir {
+			return osMkdirAll(entry.destPath, 0755)
 		}
 
-		content, err := fs.ReadFile(fsys, srcPath)
+		loaded, err := readTemplateEntry(fsys, entry)
 		if err != nil {
 			return err
 		}
 
-		rendered := content
-		if strings.HasSuffix(entry.Name(), tmplSuffix) {
-			rendered, err = RenderTemplate(content, vars)
-			if err != nil {
-				return fmt.Errorf("failed to render template %s: %w", srcPath, err)
-			}
-		}
-
-		mode := fs.FileMode(0644)
-		if info, err := entry.Info(); err == nil {
-			if perm := info.Mode().Perm(); perm != 0 {
-				mode = perm
-			}
-		}
-
-		if err := osWriteFile(destPath, rendered, mode); err != nil {
+		rendered, err := renderTemplateEntry(loaded, vars)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+
+		return osWriteFile(entry.destPath, rendered, templateEntryMode(entry))
+	})
 }
 
 // PreviewEmbedDir prints what files would be created without writing anything.
 func PreviewEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars TemplateVars) error {
-	entries, err := fs.ReadDir(fsys, srcDir)
-	if err != nil {
-		return err
-	}
+	return walkTemplateEntries(fsys, srcDir, destDir, vars, func(entry templateEntry) error {
+		if entry.isDir {
+			_, _ = fmt.Fprintf(w, "  create %s/\n", entry.destPath)
+			return nil
+		}
 
-	for _, entry := range entries {
-		srcPath := path.Join(srcDir, entry.Name())
-		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
+		_, _ = fmt.Fprintf(w, "  create %s\n", entry.destPath)
+		loaded, err := readTemplateEntry(fsys, entry)
 		if err != nil {
-			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
-		}
-		destPath := filepath.Join(destDir, destName)
-
-		if entry.IsDir() {
-			_, _ = fmt.Fprintf(w, "  create %s/\n", destPath)
-			if err := PreviewEmbedDir(w, fsys, srcPath, destPath, vars); err != nil {
-				return err
-			}
-			continue
+			return err
 		}
 
-		_, _ = fmt.Fprintf(w, "  create %s\n", destPath)
-	}
-	return nil
+		_, err = renderTemplateEntry(loaded, vars)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

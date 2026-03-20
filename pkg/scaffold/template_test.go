@@ -339,6 +339,39 @@ func TestPreviewEmbedDir_NestedReadDirError(t *testing.T) {
 	}
 }
 
+func TestPreviewEmbedDir_ReadFileError(t *testing.T) {
+	fsys := openErrorFS{
+		MapFS: fstest.MapFS{"lang/bad.txt": {Data: []byte("content")}},
+		err:   errors.New("read file failed"),
+	}
+
+	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo", TemplateVars{})
+	if err == nil {
+		t.Fatal("PreviewEmbedDir() expected read file error, got nil")
+	}
+}
+
+func TestPreviewEmbedDir_InvalidTemplateFails(t *testing.T) {
+	fsys := fstest.MapFS{
+		"lang/bad.txt.tmpl": {Data: []byte("{{.ProjectName")},
+	}
+
+	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo", TemplateVars{ProjectName: "demo"})
+	if err == nil {
+		t.Fatal("PreviewEmbedDir() expected error for invalid .tmpl file, got nil")
+	}
+}
+
+func TestPreviewEmbedDir_NonTemplateFileBypassesRendering(t *testing.T) {
+	fsys := fstest.MapFS{
+		"lang/raw.txt": {Data: []byte("{{.ProjectName")},
+	}
+
+	if err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo", TemplateVars{ProjectName: "demo"}); err != nil {
+		t.Fatalf("PreviewEmbedDir() error = %v", err)
+	}
+}
+
 func TestCopyEmbedDir_Errors(t *testing.T) {
 	vars := TemplateVars{ProjectName: "demo"}
 

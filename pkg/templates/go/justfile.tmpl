@@ -32,12 +32,12 @@ default:
 [group('build')]
 build:
     @mkdir -p bin
-    go build -ldflags "{{"{{ldflags}}"}}" -o bin/{{.ProjectName}} ./cmd/app
+    go build -ldflags "{{"{{ldflags}}"}}" -o bin/{{.ProjectName}} ./cmd/{{.ProjectNameLower}}
 
 # Install the CLI into GOPATH/bin
 [group('build')]
 install:
-    go install -ldflags "{{"{{ldflags}}"}}" ./cmd/app
+    go install -ldflags "{{"{{ldflags}}"}}" ./cmd/{{.ProjectNameLower}}
 
 # Remove build artifacts
 [group('build')]

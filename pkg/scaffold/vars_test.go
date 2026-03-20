@@ -34,6 +34,9 @@ func TestNewTemplateVars(t *testing.T) {
 		if vars.ModulePath != "github.com/user/myproj" {
 			t.Errorf("ModulePath = %q, want %q", vars.ModulePath, "github.com/user/myproj")
 		}
+		if vars.ProjectNameLower != "myproj" {
+			t.Errorf("ProjectNameLower = %q, want %q", vars.ProjectNameLower, "myproj")
+		}
 		if vars.GoVersion != "1.26" {
 			t.Errorf("GoVersion = %q, want %q", vars.GoVersion, "1.26")
 		}
@@ -51,6 +54,9 @@ func TestNewTemplateVars(t *testing.T) {
 		vars := NewTemplateVars("myproj", "")
 		if vars.ModulePath != "myproj" {
 			t.Errorf("ModulePath = %q, want %q", vars.ModulePath, "myproj")
+		}
+		if vars.ProjectNameLower != "myproj" {
+			t.Errorf("ProjectNameLower = %q, want %q", vars.ProjectNameLower, "myproj")
 		}
 		if vars.GoVersion != "1.24" {
 			t.Errorf("GoVersion = %q, want %q", vars.GoVersion, "1.24")

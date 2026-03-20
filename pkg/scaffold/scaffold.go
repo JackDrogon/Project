@@ -105,7 +105,7 @@ func (c *Creator) Create(opts Options) error {
 			return err
 		}
 		_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
-		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir())
+		return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), NewTemplateVars(opts.ProjectName, opts.ModulePath))
 	}
 
 	if err := p.step(c.checkDestDir).step(c.copyTemplates).step(c.maybeInitGitRepo).Err(); err != nil {

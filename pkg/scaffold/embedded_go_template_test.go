@@ -27,7 +27,7 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 11)
 	}
 
-	wantVars := []string{"GoVersion", "ModulePath", "ProjectName"}
+	wantVars := []string{"GoVersion", "ModulePath", "ProjectName", "ProjectNameLower"}
 	if !reflect.DeepEqual(details.Variables, wantVars) {
 		t.Fatalf("details.Variables = %v, want %v", details.Variables, wantVars)
 	}
@@ -40,7 +40,7 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		{Source: "CODE_OF_CONDUCT.md.tmpl", Output: "CODE_OF_CONDUCT.md", IsTemplate: true},
 		{Source: "CONTRIBUTING.md.tmpl", Output: "CONTRIBUTING.md", IsTemplate: true},
 		{Source: "README.md.tmpl", Output: "README.md", IsTemplate: true},
-		{Source: "cmd/app/main.go.tmpl", Output: "cmd/app/main.go", IsTemplate: true},
+		{Source: "cmd/{{.ProjectNameLower}}/main.go.tmpl", Output: "cmd/{{.ProjectNameLower}}/main.go", IsTemplate: true},
 		{Source: "codecov.yml", Output: "codecov.yml", IsTemplate: false},
 		{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true},
 		{Source: "internal/app/app.go.tmpl", Output: "internal/app/app.go", IsTemplate: true},
@@ -66,7 +66,7 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 
 	checks := map[string]string{
 		"go.mod":                           "module example.com/demo",
-		"cmd/app/main.go":                  "example.com/demo/internal/app",
+		"cmd/demo/main.go":                 "example.com/demo/internal/app",
 		"internal/app/app.go":              "flag.NewFlagSet(\"demo\"",
 		"internal/app/app_test.go":         "Run([]string{\"--version\"}",
 		"internal/version/version.go":      "var Version = \"dev\"",
@@ -75,7 +75,7 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		"justfile":                         "goreleaser release --snapshot --clean",
 		".golangci.yml":                    "staticcheck",
 		".github/workflows/ci.yml":         "codecov/codecov-action@v5",
-		".goreleaser.yml":                  "main: ./cmd/app",
+		".goreleaser.yml":                  "main: ./cmd/demo",
 		"codecov.yml":                      "target: auto",
 		"CONTRIBUTING.md":                  "just pre-commit",
 		"CODE_OF_CONDUCT.md":               "replace this section with a real reporting",

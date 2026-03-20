@@ -6,7 +6,7 @@ before:
 
 builds:
   - id: {{.ProjectName}}
-    main: ./cmd/app
+    main: ./cmd/{{.ProjectNameLower}}
     binary: {{.ProjectName}}
     env:
       - CGO_ENABLED=0

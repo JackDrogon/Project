@@ -19,11 +19,12 @@ var (
 
 // TemplateVars holds the variables available for template rendering.
 type TemplateVars struct {
-	ProjectName string
-	ModulePath  string
-	GoVersion   string
-	Author      string
-	Year        int
+	ProjectName      string
+	ProjectNameLower string
+	ModulePath       string
+	GoVersion        string
+	Author           string
+	Year             int
 }
 
 // NewTemplateVars creates a TemplateVars with sensible defaults.
@@ -38,11 +39,12 @@ func NewTemplateVars(projectName, modulePath string) TemplateVars {
 	}
 
 	return TemplateVars{
-		ProjectName: projectName,
-		ModulePath:  modulePath,
-		GoVersion:   detectGoVersion(),
-		Author:      author,
-		Year:        time.Now().Year(),
+		ProjectName:      projectName,
+		ProjectNameLower: strings.ToLower(projectName),
+		ModulePath:       modulePath,
+		GoVersion:        detectGoVersion(),
+		Author:           author,
+		Year:             time.Now().Year(),
 	}
 }
 

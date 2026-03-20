@@ -77,10 +77,25 @@ func (c *Creator) inspectLangDetails(lang string) (TemplateDetails, error) {
 		})
 
 		if !isTemplate {
+			pathVars, err := extractTemplateVars([]byte(relative))
+			if err != nil {
+				return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
+			}
+			for _, name := range pathVars {
+				vars[name] = struct{}{}
+			}
 			return nil
 		}
 
 		templateCount++
+		pathVars, err := extractTemplateVars([]byte(relative))
+		if err != nil {
+			return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
+		}
+		for _, name := range pathVars {
+			vars[name] = struct{}{}
+		}
+
 		content, err := fs.ReadFile(c.fsys, srcPath)
 		if err != nil {
 			return err

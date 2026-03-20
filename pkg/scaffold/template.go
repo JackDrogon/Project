@@ -22,15 +22,38 @@ const tmplSuffix = ".tmpl"
 // RenderTemplate applies TemplateVars to content using text/template.
 // It returns an error when template syntax is invalid or references unknown keys.
 func RenderTemplate(content []byte, vars TemplateVars) ([]byte, error) {
-	tmpl, err := template.New("").Option("missingkey=error").Parse(string(content))
+	rendered, err := renderTemplateString(string(content), vars)
 	if err != nil {
 		return nil, err
 	}
+	return []byte(rendered), nil
+}
+
+func renderTemplateString(content string, vars TemplateVars) (string, error) {
+	tmpl, err := template.New("").Option("missingkey=error").Parse(string(content))
+	if err != nil {
+		return "", err
+	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, vars); err != nil {
-		return nil, err
+		return "", err
 	}
-	return buf.Bytes(), nil
+	return buf.String(), nil
+}
+
+func renderTemplatePathSegment(name string, vars TemplateVars) (string, error) {
+	rendered, err := renderTemplateString(name, vars)
+	if err != nil {
+		return "", err
+	}
+	if rendered == "" || rendered == "." || rendered == ".." {
+		return "", fmt.Errorf("invalid rendered path segment %q", rendered)
+	}
+	if strings.Contains(rendered, "/") || strings.Contains(rendered, `\`) {
+		return "", fmt.Errorf("rendered path segment %q must not contain path separators", rendered)
+	}
+
+	return rendered, nil
 }
 
 // CopyEmbedDir recursively copies a directory from an embedded filesystem
@@ -49,7 +72,10 @@ func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Template
 		// embed.FS always uses forward slashes
 		srcPath := path.Join(srcDir, entry.Name())
 		// Strip .tmpl suffix so "go.mod.tmpl" becomes "go.mod"
-		destName := strings.TrimSuffix(entry.Name(), tmplSuffix)
+		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
+		if err != nil {
+			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
+		}
 		destPath := filepath.Join(destDir, destName)
 		_, _ = fmt.Fprintf(w, "  create %s\n", destPath)
 
@@ -88,7 +114,7 @@ func CopyEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Template
 }
 
 // PreviewEmbedDir prints what files would be created without writing anything.
-func PreviewEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string) error {
+func PreviewEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars TemplateVars) error {
 	entries, err := fs.ReadDir(fsys, srcDir)
 	if err != nil {
 		return err
@@ -96,12 +122,15 @@ func PreviewEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string) error {
 
 	for _, entry := range entries {
 		srcPath := path.Join(srcDir, entry.Name())
-		destName := strings.TrimSuffix(entry.Name(), tmplSuffix)
+		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
+		if err != nil {
+			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
+		}
 		destPath := filepath.Join(destDir, destName)
 
 		if entry.IsDir() {
 			_, _ = fmt.Fprintf(w, "  create %s/\n", destPath)
-			if err := PreviewEmbedDir(w, fsys, srcPath, destPath); err != nil {
+			if err := PreviewEmbedDir(w, fsys, srcPath, destPath, vars); err != nil {
 				return err
 			}
 			continue

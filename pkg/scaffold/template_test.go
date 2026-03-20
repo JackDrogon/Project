@@ -82,10 +82,11 @@ func stubTemplateOSFuncs(t *testing.T) {
 
 func TestRenderTemplate(t *testing.T) {
 	vars := TemplateVars{
-		ProjectName: "testproj",
-		ModulePath:  "github.com/user/testproj",
-		Author:      "testuser",
-		Year:        2025,
+		ProjectName:      "testproj",
+		ProjectNameLower: "testproj",
+		ModulePath:       "github.com/user/testproj",
+		Author:           "testuser",
+		Year:             2025,
 	}
 
 	tests := []struct {
@@ -154,16 +155,18 @@ func TestRenderTemplate(t *testing.T) {
 
 func TestCopyEmbedDir(t *testing.T) {
 	fsys := fstest.MapFS{
-		"lang/hello.txt.tmpl":      {Data: []byte("Hello, {{.ProjectName}}!")},
-		"lang/plain.txt":           {Data: []byte("no templates here")},
-		"lang/sub/nested.txt.tmpl": {Data: []byte("nested {{.Author}}")},
-		"lang/config.yaml.tmpl":    {Data: []byte("name: {{.ProjectName}}")},
+		"lang/hello.txt.tmpl":                    {Data: []byte("Hello, {{.ProjectName}}!")},
+		"lang/plain.txt":                         {Data: []byte("no templates here")},
+		"lang/sub/nested.txt.tmpl":               {Data: []byte("nested {{.Author}}")},
+		"lang/config.yaml.tmpl":                  {Data: []byte("name: {{.ProjectName}}")},
+		"lang/cmd/{{.ProjectNameLower}}/main.go": {Data: []byte("package main\n")},
 	}
 	vars := TemplateVars{
-		ProjectName: "demo",
-		ModulePath:  "github.com/user/demo",
-		Author:      "alice",
-		Year:        2025,
+		ProjectName:      "Demo",
+		ProjectNameLower: "demo",
+		ModulePath:       "github.com/user/demo",
+		Author:           "alice",
+		Year:             2025,
 	}
 
 	destDir := t.TempDir()
@@ -179,8 +182,8 @@ func TestCopyEmbedDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read hello.txt: %v", err)
 	}
-	if string(got) != "Hello, demo!" {
-		t.Errorf("hello.txt = %q, want %q", string(got), "Hello, demo!")
+	if string(got) != "Hello, Demo!" {
+		t.Errorf("hello.txt = %q, want %q", string(got), "Hello, Demo!")
 	}
 
 	// Verify plain file
@@ -206,8 +209,12 @@ func TestCopyEmbedDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read config.yaml: %v", err)
 	}
-	if string(got) != "name: demo" {
-		t.Errorf("config.yaml = %q, want %q", string(got), "name: demo")
+	if string(got) != "name: Demo" {
+		t.Errorf("config.yaml = %q, want %q", string(got), "name: Demo")
+	}
+
+	if _, err := os.Stat(filepath.Join(dest, "cmd", "demo", "main.go")); err != nil {
+		t.Fatalf("stat cmd/demo/main.go: %v", err)
 	}
 
 	// Verify .tmpl file does NOT exist
@@ -302,7 +309,7 @@ func TestPreviewEmbedDir(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := PreviewEmbedDir(&buf, fsys, "lang", "demo"); err != nil {
+	if err := PreviewEmbedDir(&buf, fsys, "lang", "demo", TemplateVars{ProjectName: "Demo", ProjectNameLower: "demo"}); err != nil {
 		t.Fatalf("PreviewEmbedDir() error = %v", err)
 	}
 
@@ -313,7 +320,7 @@ func TestPreviewEmbedDir(t *testing.T) {
 }
 
 func TestPreviewEmbedDir_ReadDirError(t *testing.T) {
-	err := PreviewEmbedDir(&bytes.Buffer{}, failingReadDirFS{err: os.ErrPermission}, "lang", "demo")
+	err := PreviewEmbedDir(&bytes.Buffer{}, failingReadDirFS{err: os.ErrPermission}, "lang", "demo", TemplateVars{})
 	if err == nil {
 		t.Fatal("PreviewEmbedDir() expected error, got nil")
 	}
@@ -326,7 +333,7 @@ func TestPreviewEmbedDir_NestedReadDirError(t *testing.T) {
 		},
 		err: errors.New("nested read failed"),
 	}
-	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo")
+	err := PreviewEmbedDir(&bytes.Buffer{}, fsys, "lang", "demo", TemplateVars{})
 	if err == nil {
 		t.Fatal("PreviewEmbedDir() expected nested error, got nil")
 	}

@@ -20,11 +20,11 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("InspectLang() error = %v", err)
 	}
 
-	if details.FileCount != 13 {
-		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 13)
+	if details.FileCount != 15 {
+		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 15)
 	}
-	if details.TemplateCount != 9 {
-		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 9)
+	if details.TemplateCount != 11 {
+		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 11)
 	}
 
 	wantVars := []string{"ModulePath", "ProjectName"}
@@ -37,6 +37,8 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		{Source: ".gitignore", Output: ".gitignore", IsTemplate: false},
 		{Source: ".golangci.yml", Output: ".golangci.yml", IsTemplate: false},
 		{Source: ".goreleaser.yml.tmpl", Output: ".goreleaser.yml", IsTemplate: true},
+		{Source: "CODE_OF_CONDUCT.md.tmpl", Output: "CODE_OF_CONDUCT.md", IsTemplate: true},
+		{Source: "CONTRIBUTING.md.tmpl", Output: "CONTRIBUTING.md", IsTemplate: true},
 		{Source: "README.md.tmpl", Output: "README.md", IsTemplate: true},
 		{Source: "cmd/app/main.go.tmpl", Output: "cmd/app/main.go", IsTemplate: true},
 		{Source: "codecov.yml", Output: "codecov.yml", IsTemplate: false},
@@ -75,6 +77,8 @@ func TestEmbeddedGoTemplateCreate(t *testing.T) {
 		".github/workflows/ci.yml":         "codecov/codecov-action@v5",
 		".goreleaser.yml":                  "main: ./cmd/app",
 		"codecov.yml":                      "target: auto",
+		"CONTRIBUTING.md":                  "just pre-commit",
+		"CODE_OF_CONDUCT.md":               "replace this section with a real reporting",
 	}
 
 	for relPath, want := range checks {

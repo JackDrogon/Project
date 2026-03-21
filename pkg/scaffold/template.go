@@ -80,6 +80,10 @@ func walkTemplateEntries(fsys fs.FS, srcDir, destDir string, vars TemplateVars, 
 	}
 
 	for _, entry := range entries {
+		if isReservedTemplateFile(entry.Name()) {
+			continue
+		}
+
 		srcPath := path.Join(srcDir, entry.Name())
 		destName, err := renderTemplatePathSegment(strings.TrimSuffix(entry.Name(), tmplSuffix), vars)
 		if err != nil {
@@ -192,4 +196,115 @@ func PreviewEmbedDir(w io.Writer, fsys fs.FS, srcDir, destDir string, vars Templ
 
 		return nil
 	})
+}
+
+func writeDryRunPlan(w io.Writer, plan DryRunPlan, opts Options) error {
+	mode, err := resolveGitMode(opts)
+	if err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintf(w, "template: %s\n", plan.Template)
+	_, _ = fmt.Fprintf(w, "description: %s\n", plan.Description)
+	_, _ = fmt.Fprintf(w, "target_dir: %s\n", plan.TargetDir)
+	_, _ = fmt.Fprintln(w, "resolved inputs:")
+	_, _ = fmt.Fprintf(w, "  project_name: %s\n", opts.ProjectName)
+
+	modulePath, includeModulePath := dryRunPlanModulePath(plan, opts)
+	if includeModulePath {
+		_, _ = fmt.Fprintf(w, "  module_path: %s\n", modulePath)
+	}
+
+	for _, input := range plan.ResolvedInputs {
+		if includeModulePath && input.TemplateVar == "ModulePath" {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "  %s: %s\n", input.Name, input.Value)
+	}
+	_, _ = fmt.Fprintf(w, "  git_mode: %s\n", mode)
+
+	_, _ = fmt.Fprintln(w, "explicit overrides:")
+	overrides := dryRunPlanOverrides(plan, opts, mode, modulePath, includeModulePath)
+	if len(overrides) == 0 {
+		_, _ = fmt.Fprintln(w, "  (none)")
+	} else {
+		for _, override := range overrides {
+			_, _ = fmt.Fprintf(w, "  %s: %s\n", override.name, override.value)
+		}
+	}
+
+	_, _ = fmt.Fprintln(w, "actions:")
+	for _, action := range plan.Actions {
+		_, _ = fmt.Fprintf(w, "  %s\n", formatDryRunAction(action))
+	}
+
+	return nil
+}
+
+type dryRunPlanOverride struct {
+	name  string
+	value string
+}
+
+func dryRunPlanModulePath(plan DryRunPlan, opts Options) (string, bool) {
+	if value, ok := dryRunPlanResolvedInputValue(plan, "ModulePath"); ok {
+		return value, true
+	}
+	if opts.Lang == "go" {
+		return effectiveModulePath(opts), true
+	}
+
+	return "", false
+}
+
+func dryRunPlanResolvedInputValue(plan DryRunPlan, templateVar string) (string, bool) {
+	for _, input := range plan.ResolvedInputs {
+		if input.TemplateVar == templateVar {
+			return input.Value, true
+		}
+	}
+
+	return "", false
+}
+
+func dryRunPlanOverrides(plan DryRunPlan, opts Options, mode GitMode, modulePath string, includeModulePath bool) []dryRunPlanOverride {
+	var overrides []dryRunPlanOverride
+	if includeModulePath && modulePath != opts.ProjectName {
+		overrides = append(overrides, dryRunPlanOverride{name: "module_path", value: modulePath})
+	}
+	for _, input := range plan.ResolvedInputs {
+		if input.TemplateVar == "ModulePath" {
+			continue
+		}
+
+		if value, ok := opts.TemplateInputValues[input.Name]; ok {
+			overrides = append(overrides, dryRunPlanOverride{name: input.Name, value: value})
+		}
+	}
+	if opts.NoGit || opts.GitMode != "" {
+		overrides = append(overrides, dryRunPlanOverride{name: "git_mode", value: string(mode)})
+	}
+
+	return overrides
+}
+
+func effectiveModulePath(opts Options) string {
+	if opts.ModulePath != "" {
+		return opts.ModulePath
+	}
+
+	return opts.ProjectName
+}
+
+func formatDryRunAction(action DryRunAction) string {
+	switch action.Kind {
+	case DryRunActionCreateDir:
+		return fmt.Sprintf("create %s%s", action.Target, string(filepath.Separator))
+	case DryRunActionRenderFile:
+		return fmt.Sprintf("render %s -> %s", action.Source, action.Target)
+	case DryRunActionCopyFile:
+		return fmt.Sprintf("copy %s -> %s", action.Source, action.Target)
+	default:
+		return fmt.Sprintf("create %s", action.Target)
+	}
 }

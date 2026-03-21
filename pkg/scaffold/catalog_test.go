@@ -39,11 +39,13 @@ func (f catalogErrorFS) ReadFile(name string) ([]byte, error) {
 
 func TestListTemplateSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/go.mod.tmpl":       {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
-		"go/main.go.tmpl":      {Data: []byte("package main\n")},
-		"go/.gitignore":        {Data: []byte("bin/")},
-		"cpp/src/main.cc.tmpl": {Data: []byte("// {{.ProjectName}}")},
-		"cpp/README.md.tmpl":   {Data: []byte("By {{.Author}}")},
+		"go/.project-template.json":  {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"cpp/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
+		"go/go.mod.tmpl":             {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
+		"go/main.go.tmpl":            {Data: []byte("package main\n")},
+		"go/.gitignore":              {Data: []byte("bin/")},
+		"cpp/src/main.cc.tmpl":       {Data: []byte("// {{.ProjectName}}")},
+		"cpp/README.md.tmpl":         {Data: []byte("By {{.Author}}")},
 	}
 
 	c := NewCreator(fsys, &bytes.Buffer{})
@@ -58,16 +60,22 @@ func TestListTemplateSummaries(t *testing.T) {
 
 	want := map[string]TemplateSummary{
 		"cpp": {
-			Name:          "cpp",
-			FileCount:     2,
-			TemplateCount: 2,
-			Variables:     []string{"Author", "ProjectName"},
+			Name:            "cpp",
+			Description:     "C++ starter",
+			ManifestVersion: 1,
+			InputNames:      []string{"author"},
+			FileCount:       2,
+			TemplateCount:   2,
+			Variables:       []string{"Author", "ProjectName"},
 		},
 		"go": {
-			Name:          "go",
-			FileCount:     3,
-			TemplateCount: 2,
-			Variables:     []string{"GoVersion", "ModulePath"},
+			Name:            "go",
+			Description:     "Go starter",
+			ManifestVersion: 1,
+			InputNames:      []string{"module_path", "go_version"},
+			FileCount:       3,
+			TemplateCount:   2,
+			Variables:       []string{"GoVersion", "ModulePath"},
 		},
 	}
 
@@ -78,6 +86,15 @@ func TestListTemplateSummaries(t *testing.T) {
 		}
 		if got.FileCount != expected.FileCount {
 			t.Fatalf("%s FileCount = %d, want %d", got.Name, got.FileCount, expected.FileCount)
+		}
+		if got.Description != expected.Description {
+			t.Fatalf("%s Description = %q, want %q", got.Name, got.Description, expected.Description)
+		}
+		if got.ManifestVersion != expected.ManifestVersion {
+			t.Fatalf("%s ManifestVersion = %d, want %d", got.Name, got.ManifestVersion, expected.ManifestVersion)
+		}
+		if !reflect.DeepEqual(got.InputNames, expected.InputNames) {
+			t.Fatalf("%s InputNames = %v, want %v", got.Name, got.InputNames, expected.InputNames)
 		}
 		if got.TemplateCount != expected.TemplateCount {
 			t.Fatalf("%s TemplateCount = %d, want %d", got.Name, got.TemplateCount, expected.TemplateCount)
@@ -90,6 +107,7 @@ func TestListTemplateSummaries(t *testing.T) {
 
 func TestInspectLang(t *testing.T) {
 	fsys := fstest.MapFS{
+		"go/.project-template.json":            {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
 		"go/go.mod.tmpl":                       {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
 		"go/main.go.tmpl":                      {Data: []byte("// {{.ProjectName}}")},
 		"go/.gitignore":                        {Data: []byte("bin/")},
@@ -104,6 +122,18 @@ func TestInspectLang(t *testing.T) {
 
 	if details.Name != "go" {
 		t.Fatalf("details.Name = %q, want %q", details.Name, "go")
+	}
+	if details.Description != "Go starter" {
+		t.Fatalf("details.Description = %q, want %q", details.Description, "Go starter")
+	}
+	if details.ManifestVersion != 1 {
+		t.Fatalf("details.ManifestVersion = %d, want %d", details.ManifestVersion, 1)
+	}
+	if !reflect.DeepEqual(details.InputNames, []string{"module_path", "go_version"}) {
+		t.Fatalf("details.InputNames = %v, want %v", details.InputNames, []string{"module_path", "go_version"})
+	}
+	if !reflect.DeepEqual(details.Inputs, []TemplateManifestInput{{Name: "module_path", TemplateVar: "ModulePath"}, {Name: "go_version", TemplateVar: "GoVersion"}}) {
+		t.Fatalf("details.Inputs = %#v, want ordered manifest inputs", details.Inputs)
 	}
 	if details.FileCount != 4 {
 		t.Fatalf("details.FileCount = %d, want %d", details.FileCount, 4)
@@ -128,6 +158,46 @@ func TestInspectLang(t *testing.T) {
 
 	if !reflect.DeepEqual(details.Files, wantFiles) {
 		t.Fatalf("details.Files = %#v, want %#v", details.Files, wantFiles)
+	}
+}
+
+func TestListTemplateSummaries_UsesManifestMetadata(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/go.mod.tmpl":            {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
+		"go/main.go.tmpl":           {Data: []byte("package main\n")},
+	}
+
+	c := NewCreator(fsys, &bytes.Buffer{})
+	summaries, err := c.ListTemplateSummaries()
+	if err != nil {
+		t.Fatalf("ListTemplateSummaries() error = %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("len(summaries) = %d, want 1", len(summaries))
+	}
+
+	got := summaries[0]
+	if got.Name != "go" {
+		t.Fatalf("Name = %q, want %q", got.Name, "go")
+	}
+	if got.Description != "Go starter" {
+		t.Fatalf("Description = %q, want %q", got.Description, "Go starter")
+	}
+	if got.ManifestVersion != 1 {
+		t.Fatalf("ManifestVersion = %d, want %d", got.ManifestVersion, 1)
+	}
+	if !reflect.DeepEqual(got.InputNames, []string{"module_path", "go_version"}) {
+		t.Fatalf("InputNames = %v, want %v", got.InputNames, []string{"module_path", "go_version"})
+	}
+	if got.FileCount != 2 {
+		t.Fatalf("FileCount = %d, want %d", got.FileCount, 2)
+	}
+	if got.TemplateCount != 2 {
+		t.Fatalf("TemplateCount = %d, want %d", got.TemplateCount, 2)
+	}
+	if !reflect.DeepEqual(got.Variables, []string{"GoVersion", "ModulePath"}) {
+		t.Fatalf("Variables = %v, want %v", got.Variables, []string{"GoVersion", "ModulePath"})
 	}
 }
 

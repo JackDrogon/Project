@@ -54,12 +54,15 @@ This will:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--lang` | `-l` | Programming language (required) |
+| `--lang` | `-l` | Programming language (required unless provided via `--replay`) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name, or to the positional Go module path when you pass one directly) |
 | `--force` | | Remove and recreate existing project directory |
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
+| `--replay` | | Load answers from a JSON replay file |
+| `--write-answers` | | Write resolved answers to a JSON file after success |
+| `--set` | | Set a template-specific input value (`--set key=value`) |
 | `--no-git` | | Deprecated alias for `--git none` |
 
 ### Examples
@@ -68,42 +71,71 @@ This will:
 # Create a Go project with a custom module path
 project new -l go myapp -m github.com/myorg/myapp
 
-# Create a Go project by passing the module path directly
-project new -l go github.com/myorg/myapp
+# Create a project using a replay file
+project new --replay .project-answers.json
 
-# Create a Go project from a versioned module path
-project new -l go github.com/myorg/myapp/v2
+# Override replay values with CLI flags
+project new --replay .project-answers.json --set go_version=1.22
+
+# Save resolved answers to a file
+project new -l go myapp --write-answers .project-answers.json
 
 # Preview what files would be created
 project new -l go myapp -n
-
-# Create files without initializing git
-project new -l go myapp --no-git
-
-# Initialize git repo without creating an initial commit
-project new -l go myapp --git init-only
-
-# Overwrite an existing directory
-project new -l go myapp --force
-
-# List available languages
-project list
-
-# List with metadata
-project list --detail
-
-# List in YAML
-project list --detail --yaml
-
-# Inspect one language template
-project inspect go
-
-# Inspect only rendered files
-project inspect go --mode render
-
-# Show version
-project version
 ```
+
+## Dry-run Execution Plan
+
+The `--dry-run` (`-n`) flag provides a detailed preview of the resolved inputs and the planned file operations:
+
+```text
+Creating project with language: go, project name: myapp
+Dry-run mode: no files will be created
+template: go
+description: Production-ready Go CLI starter
+target_dir: myapp
+resolved inputs:
+  project_name: myapp
+  module_path: myapp
+  go_version: 1.21
+  git_mode: init+commit
+explicit overrides:
+  (none)
+actions:
+  create myapp/.github/
+  copy go/.github/workflows/ci.yml -> myapp/.github/workflows/ci.yml
+  render go/README.md.tmpl -> myapp/README.md
+  ...
+```
+
+## Scaffolding Contracts
+
+### Template Manifest (`.project-template.json`)
+
+Templates may include a `.project-template.json` manifest at their root to define metadata and input variables. This is a reserved file and is never copied to the target project. The current schema version is `1`.
+
+Example manifest:
+```json
+{
+  "schema_version": 1,
+  "name": "go",
+  "description": "Production-ready Go CLI starter",
+  "inputs": [
+    {
+      "name": "go_version",
+      "template_var": "GoVersion"
+    }
+  ]
+}
+```
+
+### Answers File (`.project-answers.json`)
+
+Using `--write-answers` produces a JSON file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.
+
+**Contract Rules:**
+- **Precedence**: Explicit CLI flags and `--set` arguments always take precedence over values in a replay file.
+- **Derived Defaults**: Runtime-derived values (like the current `year` or system `author`) are not persisted in the answers file unless they were explicitly provided via CLI or replay.
 
 ## Template Variables
 

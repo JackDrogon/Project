@@ -3,6 +3,7 @@ package scaffold
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -316,6 +317,53 @@ func TestPreviewEmbedDir(t *testing.T) {
 	got := buf.String()
 	if !strings.Contains(got, "create "+filepath.Join("demo", "plain.txt")) || !strings.Contains(got, "create "+filepath.Join("demo", "sub")+string(filepath.Separator)) || !strings.Contains(got, "create "+filepath.Join("demo", "sub", "nested.txt")) {
 		t.Fatalf("PreviewEmbedDir() output = %q", got)
+	}
+}
+
+func TestWriteDryRunPlan(t *testing.T) {
+	plan := DryRunPlan{
+		Template:    "go",
+		Description: "Go starter",
+		TargetDir:   "demo",
+		ResolvedInputs: []DryRunResolvedInput{
+			{Name: "module_path", TemplateVar: "ModulePath", Value: "example.com/demo"},
+			{Name: "go_version", TemplateVar: "GoVersion", Value: "1.21"},
+			{Name: "author", TemplateVar: "Author", Value: "alice"},
+		},
+		Actions: []DryRunAction{
+			{Kind: DryRunActionCopyFile, Source: "go/README.md", Target: filepath.Join("demo", "README.md")},
+			{Kind: DryRunActionCreateDir, Target: filepath.Join("demo", "cmd")},
+			{Kind: DryRunActionRenderFile, Source: "go/go.mod.tmpl", Target: filepath.Join("demo", "go.mod")},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := writeDryRunPlan(&buf, plan, Options{Lang: "go", ProjectName: "demo", ModulePath: "example.com/demo", GitMode: GitModeNone})
+	if err != nil {
+		t.Fatalf("writeDryRunPlan() error = %v", err)
+	}
+
+	want := strings.Join([]string{
+		"template: go",
+		"description: Go starter",
+		"target_dir: demo",
+		"resolved inputs:",
+		"  project_name: demo",
+		"  module_path: example.com/demo",
+		"  go_version: 1.21",
+		"  author: alice",
+		"  git_mode: none",
+		"explicit overrides:",
+		"  module_path: example.com/demo",
+		"  git_mode: none",
+		"actions:",
+		"  copy go/README.md -> " + filepath.Join("demo", "README.md"),
+		fmt.Sprintf("  create %s%s", filepath.Join("demo", "cmd"), string(filepath.Separator)),
+		"  render go/go.mod.tmpl -> " + filepath.Join("demo", "go.mod"),
+	}, "\n") + "\n"
+
+	if buf.String() != want {
+		t.Fatalf("writeDryRunPlan() output = %q, want %q", buf.String(), want)
 	}
 }
 

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "name": "cpp",
+  "description": "CMake-based C++ starter",
+  "inputs": [
+    {
+      "name": "author",
+      "template_var": "Author"
+    }
+  ]
+}

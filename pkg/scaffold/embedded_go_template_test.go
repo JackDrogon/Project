@@ -27,6 +27,29 @@ func TestEmbeddedGoTemplateInspect(t *testing.T) {
 		t.Fatalf("details.TemplateCount = %d, want %d", details.TemplateCount, 11)
 	}
 
+	manifest, found, err := loadTemplateManifest(templates.FS, "go")
+	if err != nil {
+		t.Fatalf("loadTemplateManifest(go) error = %v", err)
+	}
+	if !found {
+		t.Fatal("loadTemplateManifest(go) found = false, want true")
+	}
+	if manifest.SchemaVersion != 1 {
+		t.Fatalf("manifest.SchemaVersion = %d, want %d", manifest.SchemaVersion, 1)
+	}
+	if manifest.Name != "go" {
+		t.Fatalf("manifest.Name = %q, want %q", manifest.Name, "go")
+	}
+	if manifest.Description != "Production-ready Go CLI starter" {
+		t.Fatalf("manifest.Description = %q, want %q", manifest.Description, "Production-ready Go CLI starter")
+	}
+	if !reflect.DeepEqual(manifest.Inputs, []TemplateManifestInput{
+		{Name: "module_path", TemplateVar: "ModulePath"},
+		{Name: "go_version", TemplateVar: "GoVersion"},
+	}) {
+		t.Fatalf("manifest.Inputs = %#v, want module_path->ModulePath and go_version->GoVersion", manifest.Inputs)
+	}
+
 	wantVars := []string{"GoVersion", "ModulePath", "ProjectName", "ProjectNameLower"}
 	if !reflect.DeepEqual(details.Variables, wantVars) {
 		t.Fatalf("details.Variables = %v, want %v", details.Variables, wantVars)

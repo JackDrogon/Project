@@ -6,6 +6,7 @@ import (
 	"os/user"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,6 +47,56 @@ func NewTemplateVars(projectName, modulePath string) TemplateVars {
 		Author:           author,
 		Year:             time.Now().Year(),
 	}
+}
+
+func resolveTemplateVars(manifest TemplateManifest, opts Options) (TemplateVars, error) {
+	vars := NewTemplateVars(opts.ProjectName, opts.ModulePath)
+	if len(opts.TemplateInputValues) == 0 {
+		return vars, nil
+	}
+
+	declaredInputs := make(map[string]TemplateManifestInput, len(manifest.Inputs))
+	for _, input := range manifest.Inputs {
+		declaredInputs[input.Name] = input
+	}
+
+	for name, value := range opts.TemplateInputValues {
+		if name == "module_path" {
+			return TemplateVars{}, fmt.Errorf("template input %q must be provided via module path options", name)
+		}
+
+		input, ok := declaredInputs[name]
+		if !ok {
+			return TemplateVars{}, fmt.Errorf("template input %q is not declared by template %q", name, manifest.Name)
+		}
+
+		if err := applyTemplateInputValue(&vars, input, value); err != nil {
+			return TemplateVars{}, err
+		}
+	}
+
+	return vars, nil
+}
+
+func applyTemplateInputValue(vars *TemplateVars, input TemplateManifestInput, value string) error {
+	switch input.TemplateVar {
+	case "ModulePath":
+		return fmt.Errorf("template input %q must be provided via module path options", input.Name)
+	case "GoVersion":
+		vars.GoVersion = value
+	case "Author":
+		vars.Author = value
+	case "Year":
+		year, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("template input %q must be a valid year: %w", input.Name, err)
+		}
+		vars.Year = year
+	default:
+		return fmt.Errorf("template input %q has unsupported template_var %q", input.Name, input.TemplateVar)
+	}
+
+	return nil
 }
 
 func detectGoVersion() string {

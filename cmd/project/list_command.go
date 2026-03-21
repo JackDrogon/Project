@@ -22,13 +22,16 @@ const (
 )
 
 type inspectOutput struct {
-	Name          string                  `json:"name"`
-	FileCount     int                     `json:"file_count"`
-	TemplateCount int                     `json:"template_count"`
-	Variables     []string                `json:"variables"`
-	Mode          string                  `json:"mode"`
-	ShownCount    int                     `json:"shown_count"`
-	Files         []scaffold.TemplateFile `json:"files"`
+	Name            string                           `json:"name"`
+	Description     string                           `json:"description"`
+	ManifestVersion int                              `json:"manifest_version"`
+	Inputs          []scaffold.TemplateManifestInput `json:"inputs"`
+	FileCount       int                              `json:"file_count"`
+	TemplateCount   int                              `json:"template_count"`
+	Variables       []string                         `json:"variables"`
+	Mode            string                           `json:"mode"`
+	ShownCount      int                              `json:"shown_count"`
+	Files           []scaffold.TemplateFile          `json:"files"`
 }
 
 // newListCmd creates the "list" subcommand that shows available template languages.
@@ -176,13 +179,16 @@ func buildInspectOutput(details scaffold.TemplateDetails, mode string) (inspectO
 	}
 
 	return inspectOutput{
-		Name:          details.Name,
-		FileCount:     details.FileCount,
-		TemplateCount: details.TemplateCount,
-		Variables:     details.Variables,
-		Mode:          normalized,
-		ShownCount:    len(filtered),
-		Files:         filtered,
+		Name:            details.Name,
+		Description:     details.Description,
+		ManifestVersion: details.ManifestVersion,
+		Inputs:          append([]scaffold.TemplateManifestInput(nil), details.Inputs...),
+		FileCount:       details.FileCount,
+		TemplateCount:   details.TemplateCount,
+		Variables:       details.Variables,
+		Mode:            normalized,
+		ShownCount:      len(filtered),
+		Files:           filtered,
 	}, nil
 }
 
@@ -199,6 +205,18 @@ func writeYAMLSummaries(w io.Writer, summaries []scaffold.TemplateSummary) error
 	var b strings.Builder
 	for _, summary := range summaries {
 		fmt.Fprintf(&b, "- name: %s\n", yamlQuote(summary.Name))
+		fmt.Fprintf(&b, "  description: %s\n", yamlQuote(summary.Description))
+		fmt.Fprintf(&b, "  manifest_version: %d\n", summary.ManifestVersion)
+
+		if len(summary.InputNames) == 0 {
+			fmt.Fprintln(&b, "  input_names: []")
+		} else {
+			fmt.Fprintln(&b, "  input_names:")
+			for _, name := range summary.InputNames {
+				fmt.Fprintf(&b, "    - %s\n", yamlQuote(name))
+			}
+		}
+
 		fmt.Fprintf(&b, "  file_count: %d\n", summary.FileCount)
 		fmt.Fprintf(&b, "  template_count: %d\n", summary.TemplateCount)
 
@@ -219,6 +237,19 @@ func writeYAMLSummaries(w io.Writer, summaries []scaffold.TemplateSummary) error
 func writeYAMLInspectOutput(w io.Writer, output inspectOutput) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "name: %s\n", yamlQuote(output.Name))
+	fmt.Fprintf(&b, "description: %s\n", yamlQuote(output.Description))
+	fmt.Fprintf(&b, "manifest_version: %d\n", output.ManifestVersion)
+
+	if len(output.Inputs) == 0 {
+		fmt.Fprintln(&b, "inputs: []")
+	} else {
+		fmt.Fprintln(&b, "inputs:")
+		for _, input := range output.Inputs {
+			fmt.Fprintf(&b, "  - name: %s\n", yamlQuote(input.Name))
+			fmt.Fprintf(&b, "    template_var: %s\n", yamlQuote(input.TemplateVar))
+		}
+	}
+
 	fmt.Fprintf(&b, "file_count: %d\n", output.FileCount)
 	fmt.Fprintf(&b, "template_count: %d\n", output.TemplateCount)
 
@@ -267,7 +298,18 @@ func writeTextSummaries(w io.Writer, summaries []scaffold.TemplateSummary) error
 		if len(summary.Variables) > 0 {
 			vars = strings.Join(summary.Variables, ", ")
 		}
-		fmt.Fprintf(&b, "%s\tfiles=%d\ttemplates=%d\tvars=[%s]\n", summary.Name, summary.FileCount, summary.TemplateCount, vars)
+
+		inputs := "(none)"
+		if len(summary.InputNames) > 0 {
+			inputs = strings.Join(summary.InputNames, ", ")
+		}
+
+		description := summary.Description
+		if description == "" {
+			description = "(none)"
+		}
+
+		fmt.Fprintf(&b, "%s\tdesc=%q\tmanifest=v%d\tinputs=[%s]\tfiles=%d\ttemplates=%d\tvars=[%s]\n", summary.Name, description, summary.ManifestVersion, inputs, summary.FileCount, summary.TemplateCount, vars)
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -279,8 +321,23 @@ func writeTextInspectOutput(w io.Writer, output inspectOutput) error {
 	if len(output.Variables) > 0 {
 		vars = strings.Join(output.Variables, ", ")
 	}
+	inputs := "(none)"
+	if len(output.Inputs) > 0 {
+		parts := make([]string, 0, len(output.Inputs))
+		for _, input := range output.Inputs {
+			parts = append(parts, fmt.Sprintf("%s->%s", input.Name, input.TemplateVar))
+		}
+		inputs = strings.Join(parts, ", ")
+	}
+	description := output.Description
+	if description == "" {
+		description = "(none)"
+	}
 
 	fmt.Fprintf(&b, "name: %s\n", output.Name)
+	fmt.Fprintf(&b, "description: %s\n", description)
+	fmt.Fprintf(&b, "manifest_version: %d\n", output.ManifestVersion)
+	fmt.Fprintf(&b, "inputs: %s\n", inputs)
 	fmt.Fprintf(&b, "files: %d\n", output.FileCount)
 	fmt.Fprintf(&b, "templates: %d\n", output.TemplateCount)
 	fmt.Fprintf(&b, "variables: %s\n", vars)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -29,6 +30,19 @@ func withTempWorkingDir(t *testing.T) string {
 	return tmp
 }
 
+func requireOrderedSubstrings(t *testing.T, got string, want []string) {
+	t.Helper()
+
+	searchFrom := 0
+	for _, fragment := range want {
+		idx := strings.Index(got[searchFrom:], fragment)
+		if idx == -1 {
+			t.Fatalf("output = %q, want contains %q", got, fragment)
+		}
+		searchFrom += idx + len(fragment)
+	}
+}
+
 func TestCreate_NoGitSkipsGit(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
@@ -48,6 +62,32 @@ func TestCreate_NoGitSkipsGit(t *testing.T) {
 
 	if gitCalled {
 		t.Fatal("git runner should not be called when NoGit is true")
+	}
+
+	got, err := os.ReadFile(filepath.Join(tmp, "demo", "main.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(main.go) error = %v", err)
+	}
+	if !strings.Contains(string(got), `const Name = "demo"`) {
+		t.Fatalf("main.go content = %q, want rendered project name", string(got))
+	}
+}
+
+func TestCreate_SkipsReservedManifestFile(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Production-ready Go CLI starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/main.go.tmpl":           {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+	}
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, nil)
+	tmp := withTempWorkingDir(t)
+
+	if err := creator.Create(Options{Lang: "go", ProjectName: "demo", NoGit: true}); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(tmp, "demo", ".project-template.json")); !os.IsNotExist(err) {
+		t.Fatalf("reserved manifest should be skipped, stat err = %v", err)
 	}
 
 	got, err := os.ReadFile(filepath.Join(tmp, "demo", "main.go"))
@@ -205,7 +245,67 @@ func TestCreate_DryRunSkipsWritesAndGit(t *testing.T) {
 	}
 }
 
-func TestCreate_DryRunParsesTemplateContents(t *testing.T) {
+func TestCreate_DryRunOutputsResolvedExecutionPlan(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json":                 {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/README.md":                              {Data: []byte("# README\n")},
+		"go/cmd":                                    {Mode: os.ModeDir},
+		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
+		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
+		"go/go.mod.tmpl":                            {Data: []byte("module {{.ModulePath}}\n")},
+	}
+	var out bytes.Buffer
+
+	creator := NewCreatorWithGitRunner(fsys, &out, func(dir string, args ...string) error {
+		t.Fatal("git runner should not be called during dry-run")
+		return nil
+	})
+
+	withTempWorkingDir(t)
+	opts := Options{Lang: "go", ProjectName: "Demo", ModulePath: "example.com/demo", DryRun: true, GitMode: GitModeNone}
+	vars, err := creator.templateVars(opts)
+	if err != nil {
+		t.Fatalf("templateVars() error = %v", err)
+	}
+
+	if err := creator.Create(opts); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	got := out.String()
+	requireOrderedSubstrings(t, got, []string{
+		"Creating project with language: go, project name: Demo\n",
+		"Dry-run mode: no files will be created\n",
+		"template: go\n",
+		"description: Go starter\n",
+		"target_dir: Demo\n",
+		"resolved inputs:\n",
+		"  project_name: Demo\n",
+		"  module_path: example.com/demo\n",
+		"  go_version: " + vars.GoVersion + "\n",
+		"  author: " + vars.Author + "\n",
+		"  year: " + strconv.Itoa(vars.Year) + "\n",
+		"  git_mode: none\n",
+		"explicit overrides:\n",
+		"  module_path: example.com/demo\n",
+		"  git_mode: none\n",
+		"actions:\n",
+		"  copy go/README.md -> " + filepath.Join("Demo", "README.md") + "\n",
+		"  create " + filepath.Join("Demo", "cmd") + string(filepath.Separator) + "\n",
+		"  create " + filepath.Join("Demo", "cmd", "demo") + string(filepath.Separator) + "\n",
+		"  render go/cmd/{{.ProjectNameLower}}/main.go.tmpl -> " + filepath.Join("Demo", "cmd", "demo", "main.go") + "\n",
+		"  render go/go.mod.tmpl -> " + filepath.Join("Demo", "go.mod") + "\n",
+	})
+
+	if strings.Contains(got, templateManifestFilename) {
+		t.Fatalf("output = %q, want reserved manifest omitted from dry-run actions", got)
+	}
+	if _, err := os.Stat(filepath.Join("Demo", "README.md")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run should not create files, stat err = %v", err)
+	}
+}
+
+func TestCreate_DryRunPlanStillFailsAfterPrintingHeader(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/bad.txt.tmpl": {Data: []byte("{{.ProjectName")},
 	}
@@ -219,16 +319,19 @@ func TestCreate_DryRunParsesTemplateContents(t *testing.T) {
 	withTempWorkingDir(t)
 	err := creator.Create(Options{Lang: "go", ProjectName: "demo", DryRun: true})
 	if err == nil {
-		t.Fatal("Create() expected dry-run template parsing error, got nil")
+		t.Fatal("Create() expected dry-run plan error, got nil")
 	}
 	if !strings.Contains(err.Error(), "failed to render template") {
 		t.Fatalf("Create() error = %v, want rendered template failure", err)
 	}
-	if !strings.Contains(out.String(), "Dry-run mode") {
-		t.Fatalf("output = %q, want dry-run message", out.String())
-	}
-	if !strings.Contains(out.String(), "create demo/bad.txt") {
-		t.Fatalf("output = %q, want preview path before template failure", out.String())
+
+	got := out.String()
+	requireOrderedSubstrings(t, got, []string{
+		"Creating project with language: go, project name: demo\n",
+		"Dry-run mode: no files will be created\n",
+	})
+	if strings.Contains(got, "actions:\n") {
+		t.Fatalf("output = %q, want failure before action plan is rendered", got)
 	}
 }
 
@@ -418,5 +521,101 @@ func TestCreate_SignoffRequiresCommitMode(t *testing.T) {
 
 	if _, statErr := os.Stat(filepath.Join(tmp, "demo")); !os.IsNotExist(statErr) {
 		t.Fatalf("demo directory should not be created for invalid options, stat err = %v", statErr)
+	}
+}
+
+func TestCreate_AppliesTemplateInputOverrides(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/README.md.tmpl":         {Data: []byte("module={{.ModulePath}}\ngo={{.GoVersion}}\nauthor={{.Author}}\nyear={{.Year}}\n")},
+	}
+	workDir := withTempWorkingDir(t)
+
+	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+		return nil
+	})
+
+	err := creator.Create(Options{
+		Lang:        "go",
+		ProjectName: "demo",
+		ModulePath:  "example.com/demo",
+		TemplateInputValues: map[string]string{
+			"go_version": "1.25",
+			"author":     "alice",
+			"year":       "2030",
+		},
+		NoGit: true,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(workDir, "demo", "README.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(README.md) error = %v", err)
+	}
+
+	want := "module=example.com/demo\ngo=1.25\nauthor=alice\nyear=2030\n"
+	if string(got) != want {
+		t.Fatalf("README.md = %q, want %q", string(got), want)
+	}
+}
+
+func TestCreate_RejectsUnknownOrInvalidTemplateInputs(t *testing.T) {
+	tests := []struct {
+		name                string
+		projectName         string
+		templateInputValues map[string]string
+		wantErr             string
+	}{
+		{
+			name:                "unknown input",
+			projectName:         "unknown-demo",
+			templateInputValues: map[string]string{"author": "alice"},
+			wantErr:             `template input "author" is not declared by template "go"`,
+		},
+		{
+			name:                "invalid year",
+			projectName:         "invalid-year-demo",
+			templateInputValues: map[string]string{"year": "twenty"},
+			wantErr:             `template input "year" must be a valid year`,
+		},
+		{
+			name:                "module path must stay first class",
+			projectName:         "module-path-demo",
+			templateInputValues: map[string]string{"module_path": "example.com/demo"},
+			wantErr:             `template input "module_path" must be provided via module path options`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workDir := withTempWorkingDir(t)
+			fsys := fstest.MapFS{
+				"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"year","template_var":"Year"}]}`)},
+				"go/README.md.tmpl":         {Data: []byte("# {{.ProjectName}}\n")},
+			}
+
+			creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {
+				return nil
+			})
+
+			err := creator.Create(Options{
+				Lang:                "go",
+				ProjectName:         tt.projectName,
+				TemplateInputValues: tt.templateInputValues,
+				NoGit:               true,
+			})
+			if err == nil {
+				t.Fatal("Create() expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Create() error = %v, want contains %q", err, tt.wantErr)
+			}
+
+			if _, statErr := os.Stat(filepath.Join(workDir, tt.projectName)); !os.IsNotExist(statErr) {
+				t.Fatalf("project directory should not be created for invalid template inputs, stat err = %v", statErr)
+			}
+		})
 	}
 }

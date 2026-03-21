@@ -4,12 +4,37 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/JackDrogon/project/pkg/scaffold"
 )
+
+func requireOrderedSubstrings(t *testing.T, got string, want []string) {
+	t.Helper()
+
+	searchFrom := 0
+	for _, fragment := range want {
+		idx := strings.Index(got[searchFrom:], fragment)
+		if idx == -1 {
+			t.Fatalf("output = %q, want contains %q", got, fragment)
+		}
+		searchFrom += idx + len(fragment)
+	}
+}
+
+func writeAnswersFileForTest(t *testing.T, answers scaffold.AnswersFile) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "answers.json")
+	if err := scaffold.WriteAnswersFile(path, answers); err != nil {
+		t.Fatalf("WriteAnswersFile(%q) error = %v", path, err)
+	}
+
+	return path
+}
 
 func TestNewCmd_RequiresLang(t *testing.T) {
 	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
@@ -115,6 +140,57 @@ func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 	}
 }
 
+func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json":                 {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/README.md":                              {Data: []byte("# README\n")},
+		"go/cmd":                                    {Mode: os.ModeDir},
+		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
+		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
+		"go/go.mod.tmpl":                            {Data: []byte("module {{.ModulePath}}\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+	var out bytes.Buffer
+
+	creator := scaffold.NewCreator(fsys, &out)
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", "demo"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	vars := scaffold.NewTemplateVars("demo", "example.com/demo")
+	got := out.String()
+	requireOrderedSubstrings(t, got, []string{
+		"Creating project with language: go, project name: demo\n",
+		"Dry-run mode: no files will be created\n",
+		"template: go\n",
+		"description: Go starter\n",
+		"target_dir: demo\n",
+		"resolved inputs:\n",
+		"  project_name: demo\n",
+		"  module_path: example.com/demo\n",
+		"  go_version: " + vars.GoVersion + "\n",
+		"  author: " + vars.Author + "\n",
+		"  year: " + strconv.Itoa(vars.Year) + "\n",
+		"  git_mode: none\n",
+		"explicit overrides:\n",
+		"  module_path: example.com/demo\n",
+		"  git_mode: none\n",
+		"actions:\n",
+		"  copy go/README.md -> " + filepath.Join("demo", "README.md") + "\n",
+		"  create " + filepath.Join("demo", "cmd") + string(filepath.Separator) + "\n",
+		"  create " + filepath.Join("demo", "cmd", "demo") + string(filepath.Separator) + "\n",
+		"  render go/cmd/{{.ProjectNameLower}}/main.go.tmpl -> " + filepath.Join("demo", "cmd", "demo", "main.go") + "\n",
+		"  render go/go.mod.tmpl -> " + filepath.Join("demo", "go.mod") + "\n",
+	})
+
+	if _, err := os.Stat(filepath.Join(workDir, "demo")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run should not create destination directory, stat err = %v", err)
+	}
+}
+
 func TestNewCmd_GoModuleArgumentWithMajorVersionSuffixUsesRepositoryName(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\n")},
@@ -162,6 +238,231 @@ func TestNewCmd_InvalidDerivedProjectNameReturnsResolveError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "project name") {
 		t.Fatalf("Execute() error = %v, want project name validation error", err)
+	}
+}
+
+func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\n")},
+		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
+		Command: scaffold.AnswersCommandNew,
+		Lang:    "go",
+		Create: scaffold.AnswersFileCreate{
+			ProjectName: "replayed-demo",
+			TargetDir:   "replayed-demo",
+			GitMode:     scaffold.GitModeNone,
+		},
+		TemplateInputs: map[string]string{"module_path": "example.com/replayed-demo"},
+	})
+
+	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--replay", replayPath})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	goMod, err := os.ReadFile(filepath.Join(workDir, "replayed-demo", "go.mod"))
+	if err != nil {
+		t.Fatalf("ReadFile(go.mod) error = %v", err)
+	}
+	if string(goMod) != "module example.com/replayed-demo\n" {
+		t.Fatalf("go.mod = %q, want %q", string(goMod), "module example.com/replayed-demo\n")
+	}
+
+	mainGo, err := os.ReadFile(filepath.Join(workDir, "replayed-demo", "main.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(main.go) error = %v", err)
+	}
+	if !strings.Contains(string(mainGo), `const Name = "replayed-demo"`) {
+		t.Fatalf("main.go content = %q, want rendered replay project name", string(mainGo))
+	}
+}
+
+func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
+	workDir := withTempWorkingDir(t, "workspace")
+	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
+		Command: scaffold.AnswersCommandInit,
+		Lang:    "go",
+		Create: scaffold.AnswersFileCreate{
+			ProjectName: "replayed-demo",
+			TargetDir:   "replayed-demo",
+			GitMode:     scaffold.GitModeNone,
+		},
+		TemplateInputs: map[string]string{"module_path": "example.com/replayed-demo"},
+	})
+
+	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--replay", replayPath})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected replay command mismatch error, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid --replay") {
+		t.Fatalf("Execute() error = %v, want replay validation prefix", err)
+	}
+	if !strings.Contains(err.Error(), `command "init"`) || !strings.Contains(err.Error(), `match "new"`) {
+		t.Fatalf("Execute() error = %v, want mismatch details", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(workDir, "replayed-demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("replay mismatch should fail before project creation, stat err = %v", statErr)
+	}
+}
+
+func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/go.mod.tmpl":     {Data: []byte("module {{.ModulePath}}\n")},
+		"go/main.go.tmpl":    {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+		"cpp/main.cc.tmpl":   {Data: []byte("int main() { return 0; }\n")},
+		"cpp/README.md.tmpl": {Data: []byte("# {{.ProjectName}}\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
+		Command: scaffold.AnswersCommandNew,
+		Lang:    "cpp",
+		Create: scaffold.AnswersFileCreate{
+			ProjectName: "replay-name",
+			TargetDir:   "replay-dir",
+			GitMode:     scaffold.GitModeInitOnly,
+			Signoff:     true,
+			Force:       true,
+		},
+		TemplateInputs: map[string]string{"module_path": "example.com/from-replay"},
+	})
+
+	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--replay", replayPath, "--lang", "go", "--module", "example.com/from-cli", "--git", "none", "--signoff=false", "cli-demo"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	goMod, err := os.ReadFile(filepath.Join(workDir, "cli-demo", "go.mod"))
+	if err != nil {
+		t.Fatalf("ReadFile(go.mod) error = %v", err)
+	}
+	if string(goMod) != "module example.com/from-cli\n" {
+		t.Fatalf("go.mod = %q, want %q", string(goMod), "module example.com/from-cli\n")
+	}
+
+	mainGo, err := os.ReadFile(filepath.Join(workDir, "cli-demo", "main.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(main.go) error = %v", err)
+	}
+	if !strings.Contains(string(mainGo), `const Name = "cli-demo"`) {
+		t.Fatalf("main.go content = %q, want CLI project name", string(mainGo))
+	}
+
+	if _, err := os.Stat(filepath.Join(workDir, "replay-dir")); !os.IsNotExist(err) {
+		t.Fatalf("replay target directory should not be created, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "cli-demo", "main.cc")); !os.IsNotExist(err) {
+		t.Fatalf("cpp template should not be used, stat err = %v", err)
+	}
+}
+
+func TestNewCmd_RejectsWriteAnswersWithDryRun(t *testing.T) {
+	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-answers", filepath.Join(t.TempDir(), "answers.json"), "demo"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--write-answers cannot be combined with --dry-run") {
+		t.Fatalf("Execute() error = %v, want dry-run conflict error", err)
+	}
+}
+
+func TestNewCmd_WriteAnswersRecordsResolvedInputs(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/go.mod.tmpl":            {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
+	}
+	withTempWorkingDir(t, "workspace")
+	answersPath := filepath.Join(t.TempDir(), "answers.json")
+
+	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--write-answers", answersPath, "demo"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	answers, err := scaffold.ReadAnswersFile(answersPath)
+	if err != nil {
+		t.Fatalf("ReadAnswersFile(%q) error = %v", answersPath, err)
+	}
+
+	if answers.Command != scaffold.AnswersCommandNew {
+		t.Fatalf("answers.Command = %q, want %q", answers.Command, scaffold.AnswersCommandNew)
+	}
+	if answers.Lang != "go" {
+		t.Fatalf("answers.Lang = %q, want %q", answers.Lang, "go")
+	}
+	if answers.Create.ProjectName != "demo" {
+		t.Fatalf("answers.Create.ProjectName = %q, want %q", answers.Create.ProjectName, "demo")
+	}
+	if answers.Create.TargetDir != "demo" {
+		t.Fatalf("answers.Create.TargetDir = %q, want %q", answers.Create.TargetDir, "demo")
+	}
+	if answers.Create.GitMode != scaffold.GitModeNone {
+		t.Fatalf("answers.Create.GitMode = %q, want %q", answers.Create.GitMode, scaffold.GitModeNone)
+	}
+	if answers.Create.Signoff {
+		t.Fatal("answers.Create.Signoff = true, want false")
+	}
+	if answers.Create.Force {
+		t.Fatal("answers.Create.Force = true, want false")
+	}
+	if got := answers.TemplateInputs["module_path"]; got != "example.com/demo" {
+		t.Fatalf("answers.TemplateInputs[module_path] = %q, want %q", got, "example.com/demo")
+	}
+	if got := answers.TemplateInputs["go_version"]; got != "1.25" {
+		t.Fatalf("answers.TemplateInputs[go_version] = %q, want %q", got, "1.25")
+	}
+	if len(answers.TemplateInputs) != 2 {
+		t.Fatalf("len(answers.TemplateInputs) = %d, want %d", len(answers.TemplateInputs), 2)
+	}
+}
+
+func TestNewCmd_WriteAnswersFailureReturnsWrappedError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/main.go.tmpl":           {Data: []byte("package main\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+	answersPath := filepath.Join(t.TempDir(), "missing", "answers.json")
+
+	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--write-answers", answersPath, "demo"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to write resolved answers after project creation") {
+		t.Fatalf("Execute() error = %v, want wrapped answers write error", err)
+	}
+	if !strings.Contains(err.Error(), "failed to write answers file") {
+		t.Fatalf("Execute() error = %v, want underlying answers file error", err)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(workDir, "demo", "main.go")); statErr != nil {
+		t.Fatalf("generated project should remain on disk after answers write failure, stat err = %v", statErr)
+	}
+	if _, statErr := os.Stat(answersPath); !os.IsNotExist(statErr) {
+		t.Fatalf("answers file should not be created on failure, stat err = %v", statErr)
 	}
 }
 

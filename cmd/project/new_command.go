@@ -18,16 +18,20 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new [project_name]",
 		Short: "Create new project",
-		Args:  cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("replay") {
+				return cobra.RangeArgs(0, 1)(cmd, args)
+			}
+
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projectName, targetDir, modulePath, err := resolveNewProjectArgs(shared.lang, shared.module, args[0])
+			opts, err := shared.resolveNewOptions(cmd, force, args)
 			if err != nil {
 				return err
 			}
 
-			opts := shared.options(projectName, targetDir, modulePath)
-			opts.Force = force
-			return creator.Create(opts)
+			return shared.createWithOptionalAnswers(creator, scaffold.AnswersCommandNew, opts)
 		},
 	}
 
@@ -35,6 +39,65 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "Remove existing project directory before scaffolding")
 
 	return cmd
+}
+
+func (flags createCommandFlags) resolveNewOptions(cmd *cobra.Command, force bool, args []string) (scaffold.Options, error) {
+	runtime, err := flags.runtimeState(scaffold.AnswersCommandNew)
+	if err != nil {
+		return scaffold.Options{}, err
+	}
+
+	lang, err := flags.resolveLang(cmd, runtime)
+	if err != nil {
+		return scaffold.Options{}, err
+	}
+
+	signoff := flags.resolveSignoff(cmd, runtime)
+	noGit := flags.resolveNoGit(cmd)
+	gitMode := flags.resolveGitMode(cmd, runtime)
+	replayModulePath := flags.resolveModulePath(cmd, runtime)
+
+	resolvedForce := force
+	if !cmd.Flags().Changed("force") && runtime.hasReplay {
+		resolvedForce = runtime.replay.Create.Force
+	}
+
+	if len(args) == 0 {
+		if !runtime.hasReplay {
+			return scaffold.Options{}, cobra.ExactArgs(1)(cmd, args)
+		}
+
+		opts := flags.options(
+			lang,
+			runtime.replay.Create.ProjectName,
+			runtime.replay.Create.TargetDir,
+			replayModulePath,
+			signoff,
+			noGit,
+			gitMode,
+		)
+		opts.TemplateInputValues = flags.resolveTemplateInputValues(runtime)
+		opts.Force = resolvedForce
+		return opts, nil
+	}
+
+	explicitModulePath := ""
+	if cmd.Flags().Changed("module") {
+		explicitModulePath = flags.module
+	}
+
+	projectName, targetDir, modulePath, err := resolveNewProjectArgs(lang, explicitModulePath, args[0])
+	if err != nil {
+		return scaffold.Options{}, err
+	}
+	if explicitModulePath == "" && modulePath == "" {
+		modulePath = replayModulePath
+	}
+
+	opts := flags.options(lang, projectName, targetDir, modulePath, signoff, noGit, gitMode)
+	opts.TemplateInputValues = flags.resolveTemplateInputValues(runtime)
+	opts.Force = resolvedForce
+	return opts, nil
 }
 
 func resolveNewProjectArgs(lang, module, arg string) (projectName string, targetDir string, modulePath string, err error) {

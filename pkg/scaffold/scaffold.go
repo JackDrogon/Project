@@ -61,6 +61,7 @@ type Options struct {
 	ProjectName           string
 	TargetDir             string
 	ModulePath            string
+	TemplateInputValues   map[string]string
 	Force                 bool
 	AllowExistingEmptyDir bool
 	Signoff               bool
@@ -130,6 +131,7 @@ func (c *Creator) validateCreateOptions(opts Options) error {
 		step(c.validate).
 		step(c.checkLang).
 		step(c.validateModulePath).
+		step(c.validateTemplateInputs).
 		step(c.validateGitOptions).
 		Err()
 }
@@ -144,7 +146,13 @@ func (c *Creator) previewCreate(opts Options) error {
 	}
 
 	_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
-	return PreviewEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), c.templateVars(opts))
+
+	plan, err := c.BuildDryRunPlan(opts)
+	if err != nil {
+		return err
+	}
+
+	return writeDryRunPlan(c.w, plan, opts)
 }
 
 func (c *Creator) materializeCreate(opts Options) error {
@@ -155,8 +163,13 @@ func (c *Creator) materializeCreate(opts Options) error {
 		Err()
 }
 
-func (c *Creator) templateVars(opts Options) TemplateVars {
-	return NewTemplateVars(opts.ProjectName, opts.ModulePath)
+func (c *Creator) templateVars(opts Options) (TemplateVars, error) {
+	_, vars, err := c.templateManifestAndVars(opts)
+	if err != nil {
+		return TemplateVars{}, err
+	}
+
+	return vars, nil
 }
 
 func (c *Creator) validate(opts Options) error {
@@ -179,11 +192,30 @@ func (c *Creator) defaultModulePath(opts Options) string {
 	return opts.ProjectName
 }
 
+func (c *Creator) templateManifestAndVars(opts Options) (TemplateManifest, TemplateVars, error) {
+	manifest, _, err := loadTemplateManifest(c.fsys, opts.Lang)
+	if err != nil {
+		return TemplateManifest{}, TemplateVars{}, err
+	}
+
+	vars, err := resolveTemplateVars(manifest, opts)
+	if err != nil {
+		return TemplateManifest{}, TemplateVars{}, err
+	}
+
+	return manifest, vars, nil
+}
+
 func (c *Creator) checkLang(opts Options) error {
 	if _, err := fs.ReadDir(c.fsys, opts.Lang); err != nil {
 		return fmt.Errorf("unsupported language: %s", opts.Lang)
 	}
 	return nil
+}
+
+func (c *Creator) validateTemplateInputs(opts Options) error {
+	_, _, err := c.templateManifestAndVars(opts)
+	return err
 }
 
 func (c *Creator) validateGitOptions(opts Options) error {
@@ -266,7 +298,12 @@ func validateReusableDestination(targetDir string, allowExistingEmptyDir bool) e
 }
 
 func (c *Creator) copyTemplates(opts Options) error {
-	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), c.templateVars(opts))
+	vars, err := c.templateVars(opts)
+	if err != nil {
+		return err
+	}
+
+	return CopyEmbedDir(c.w, c.fsys, opts.Lang, opts.destinationDir(), vars)
 }
 
 func (c *Creator) initGitRepo(opts Options) error {
@@ -344,6 +381,46 @@ func resolveGitMode(opts Options) (GitMode, error) {
 	default:
 		return "", fmt.Errorf("invalid git mode %q: must be one of %s, %s, %s", opts.GitMode, GitModeNone, GitModeInitOnly, GitModeInitCommit)
 	}
+}
+
+// AnswersFile returns the resolved answers payload for a completed create request.
+func (c *Creator) AnswersFile(command AnswersCommand, opts Options) (AnswersFile, error) {
+	manifest, _, err := c.templateManifestAndVars(opts)
+	if err != nil {
+		return AnswersFile{}, err
+	}
+
+	mode, err := resolveGitMode(opts)
+	if err != nil {
+		return AnswersFile{}, err
+	}
+
+	answers := AnswersFile{
+		Command: command,
+		Lang:    opts.Lang,
+		Create: AnswersFileCreate{
+			ProjectName: opts.ProjectName,
+			TargetDir:   opts.destinationDir(),
+			GitMode:     mode,
+			Signoff:     opts.Signoff,
+			Force:       opts.Force,
+		},
+		TemplateInputs: map[string]string{},
+	}
+
+	for _, input := range manifest.Inputs {
+		switch input.TemplateVar {
+		case "ModulePath":
+			answers.TemplateInputs[input.Name] = c.defaultModulePath(opts)
+		default:
+			value, ok := opts.TemplateInputValues[input.Name]
+			if ok {
+				answers.TemplateInputs[input.Name] = value
+			}
+		}
+	}
+
+	return answers, nil
 }
 
 // ListLangs returns the available template language names.

@@ -16,25 +16,61 @@ func newInitCmd(creator *scaffold.Creator) *cobra.Command {
 		Short: "Initialize project in current or target directory",
 		Args:  cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			targetDir := "."
-			if len(args) == 1 {
-				targetDir = args[0]
-			}
-
-			projectName, err := projectNameFromTargetDir(targetDir)
+			opts, err := shared.resolveInitOptions(cmd, args)
 			if err != nil {
 				return err
 			}
 
-			opts := shared.options(projectName, targetDir, shared.module)
-			opts.AllowExistingEmptyDir = true
-			return creator.Create(opts)
+			return shared.createWithOptionalAnswers(creator, scaffold.AnswersCommandInit, opts)
 		},
 	}
 
 	bindCreateCommandFlags(cmd, &shared)
 
 	return cmd
+}
+
+func (flags createCommandFlags) resolveInitOptions(cmd *cobra.Command, args []string) (scaffold.Options, error) {
+	runtime, err := flags.runtimeState(scaffold.AnswersCommandInit)
+	if err != nil {
+		return scaffold.Options{}, err
+	}
+
+	lang, err := flags.resolveLang(cmd, runtime)
+	if err != nil {
+		return scaffold.Options{}, err
+	}
+
+	targetDir := "."
+	projectName := ""
+	if len(args) == 1 {
+		targetDir = args[0]
+		projectName, err = projectNameFromTargetDir(targetDir)
+		if err != nil {
+			return scaffold.Options{}, err
+		}
+	} else if runtime.hasReplay {
+		projectName = runtime.replay.Create.ProjectName
+		targetDir = runtime.replay.Create.TargetDir
+	} else {
+		projectName, err = projectNameFromTargetDir(targetDir)
+		if err != nil {
+			return scaffold.Options{}, err
+		}
+	}
+
+	opts := flags.options(
+		lang,
+		projectName,
+		targetDir,
+		flags.resolveModulePath(cmd, runtime),
+		flags.resolveSignoff(cmd, runtime),
+		flags.resolveNoGit(cmd),
+		flags.resolveGitMode(cmd, runtime),
+	)
+	opts.TemplateInputValues = flags.resolveTemplateInputValues(runtime)
+	opts.AllowExistingEmptyDir = true
+	return opts, nil
 }
 
 func projectNameFromTargetDir(targetDir string) (string, error) {

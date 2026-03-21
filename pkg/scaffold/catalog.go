@@ -18,10 +18,13 @@ import (
 
 // TemplateSummary describes a template language at a glance.
 type TemplateSummary struct {
-	Name          string   `json:"name"`
-	FileCount     int      `json:"file_count"`
-	TemplateCount int      `json:"template_count"`
-	Variables     []string `json:"variables"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	ManifestVersion int      `json:"manifest_version"`
+	InputNames      []string `json:"input_names"`
+	FileCount       int      `json:"file_count"`
+	TemplateCount   int      `json:"template_count"`
+	Variables       []string `json:"variables"`
 }
 
 // TemplateFile describes one file in a language template.
@@ -34,7 +37,8 @@ type TemplateFile struct {
 // TemplateDetails is a full inspection result for a language template.
 type TemplateDetails struct {
 	TemplateSummary
-	Files []TemplateFile `json:"files"`
+	Inputs []TemplateManifestInput `json:"inputs"`
+	Files  []TemplateFile          `json:"files"`
 }
 
 // ListTemplateSummaries returns metadata for all available template languages.
@@ -66,6 +70,11 @@ func (c *Creator) InspectLang(lang string) (TemplateDetails, error) {
 }
 
 func (c *Creator) inspectLangDetails(lang string) (TemplateDetails, error) {
+	manifest, _, err := loadTemplateManifest(c.fsys, lang)
+	if err != nil {
+		return TemplateDetails{}, err
+	}
+
 	var files []TemplateFile
 	vars := map[string]struct{}{}
 	fileCount := 0
@@ -89,14 +98,25 @@ func (c *Creator) inspectLangDetails(lang string) (TemplateDetails, error) {
 	}
 	sort.Strings(variableList)
 
+	inputNames := make([]string, 0, len(manifest.Inputs))
+	for _, input := range manifest.Inputs {
+		inputNames = append(inputNames, input.Name)
+	}
+
+	inputs := append([]TemplateManifestInput(nil), manifest.Inputs...)
+
 	return TemplateDetails{
 		TemplateSummary: TemplateSummary{
-			Name:          lang,
-			FileCount:     fileCount,
-			TemplateCount: templateCount,
-			Variables:     variableList,
+			Name:            lang,
+			Description:     manifest.Description,
+			ManifestVersion: manifest.SchemaVersion,
+			InputNames:      inputNames,
+			FileCount:       fileCount,
+			TemplateCount:   templateCount,
+			Variables:       variableList,
 		},
-		Files: files,
+		Inputs: inputs,
+		Files:  files,
 	}, nil
 }
 
@@ -154,6 +174,10 @@ func (c *Creator) walkTemplateFiles(dir string, visit func(srcPath string, isTem
 	}
 
 	for _, entry := range entries {
+		if isReservedTemplateFile(entry.Name()) {
+			continue
+		}
+
 		srcPath := path.Join(dir, entry.Name())
 		if entry.IsDir() {
 			if err := c.walkTemplateFiles(srcPath, visit); err != nil {

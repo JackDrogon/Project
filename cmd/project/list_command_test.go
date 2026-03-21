@@ -25,13 +25,13 @@ func (f failingCommandFS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 func newCommandTestCreator() *scaffold.Creator {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":  {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
-		"cpp/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
-		"go/go.mod.tmpl":             {Data: []byte("module {{.ModulePath}}")},
-		"go/main.go.tmpl":            {Data: []byte("package main\n")},
-		"go/.gitignore":              {Data: []byte("bin/")},
-		"cpp/src/main.cc.tmpl":       {Data: []byte("// {{.ProjectName}}")},
-		"cpp/README.md.tmpl":         {Data: []byte("By {{.Author}}")},
+		"go/.project-template-manifest.json":  {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"cpp/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
+		"go/go.mod.tmpl":                      {Data: []byte("module {{.ModulePath}}")},
+		"go/main.go.tmpl":                     {Data: []byte("package main\n")},
+		"go/.gitignore":                       {Data: []byte("bin/")},
+		"cpp/src/main.cc.tmpl":                {Data: []byte("// {{.ProjectName}}")},
+		"cpp/README.md.tmpl":                  {Data: []byte("By {{.Author}}")},
 	}
 
 	return scaffold.NewCreator(fsys, &bytes.Buffer{})

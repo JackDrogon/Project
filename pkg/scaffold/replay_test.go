@@ -9,13 +9,13 @@ import (
 	"testing"
 )
 
-func TestAnswersFile_ReadWriteRoundTrip(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "answers.json")
-	want := AnswersFile{
-		SchemaVersion: answersFileSchemaVersion,
-		Command:       AnswersCommandNew,
+func TestReplayFile_ReadWriteRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "replay.json")
+	want := ReplayFile{
+		SchemaVersion: replayFileSchemaVersion,
+		Command:       ReplayCommandNew,
 		Lang:          "go",
-		Create: AnswersFileCreate{
+		Create: ReplayFileCreate{
 			ProjectName: "demo",
 			TargetDir:   "demo",
 			GitMode:     GitModeInitCommit,
@@ -28,119 +28,119 @@ func TestAnswersFile_ReadWriteRoundTrip(t *testing.T) {
 		},
 	}
 
-	if err := WriteAnswersFile(path, want); err != nil {
-		t.Fatalf("WriteAnswersFile() error = %v", err)
+	if err := WriteReplayFile(path, want); err != nil {
+		t.Fatalf("WriteReplayFile() error = %v", err)
 	}
 
-	got, err := ReadAnswersFile(path)
+	got, err := ReadReplayFile(path)
 	if err != nil {
-		t.Fatalf("ReadAnswersFile() error = %v", err)
+		t.Fatalf("ReadReplayFile() error = %v", err)
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("ReadAnswersFile() = %#v, want %#v", got, want)
+		t.Fatalf("ReadReplayFile() = %#v, want %#v", got, want)
 	}
 }
 
-func TestAnswersFile_RejectsUnknownFieldsAndSchemaVersion(t *testing.T) {
+func TestReplayFile_RejectsUnknownFieldsAndSchemaVersion(t *testing.T) {
 	t.Run("rejects unknown top level fields", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":1,"command":"new","lang":"go","create":{"project_name":"demo","target_dir":"demo","git_mode":"init+commit","signoff":false,"force":false},"template_inputs":{},"unknown":true}`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected unknown field error, got nil")
+			t.Fatal("ReadReplayFile() expected unknown field error, got nil")
 		}
 		if !strings.Contains(err.Error(), `unknown field "unknown"`) {
-			t.Fatalf("ReadAnswersFile() error = %v, want unknown field error", err)
+			t.Fatalf("ReadReplayFile() error = %v, want unknown field error", err)
 		}
 	})
 
 	t.Run("rejects unknown nested create fields", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":1,"command":"new","lang":"go","create":{"project_name":"demo","target_dir":"demo","git_mode":"init+commit","signoff":false,"force":false,"module_path":"example.com/demo"},"template_inputs":{}}`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected unknown field error, got nil")
+			t.Fatal("ReadReplayFile() expected unknown field error, got nil")
 		}
 		if !strings.Contains(err.Error(), `unknown field "module_path"`) {
-			t.Fatalf("ReadAnswersFile() error = %v, want unknown nested field error", err)
+			t.Fatalf("ReadReplayFile() error = %v, want unknown nested field error", err)
 		}
 	})
 
 	t.Run("rejects malformed json", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":1,"command":"new"`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected malformed JSON error, got nil")
+			t.Fatal("ReadReplayFile() expected malformed JSON error, got nil")
 		}
-		if !strings.Contains(err.Error(), "failed to decode answers file") {
-			t.Fatalf("ReadAnswersFile() error = %v, want decode error", err)
+		if !strings.Contains(err.Error(), "failed to decode replay file") {
+			t.Fatalf("ReadReplayFile() error = %v, want decode error", err)
 		}
 	})
 
 	t.Run("rejects unsupported schema version", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":2,"command":"new","lang":"go","create":{"project_name":"demo","target_dir":"demo","git_mode":"init+commit","signoff":false,"force":false},"template_inputs":{}}`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected schema version error, got nil")
+			t.Fatal("ReadReplayFile() expected schema version error, got nil")
 		}
 		if !strings.Contains(err.Error(), "unsupported schema_version 2") {
-			t.Fatalf("ReadAnswersFile() error = %v, want schema version error", err)
+			t.Fatalf("ReadReplayFile() error = %v, want schema version error", err)
 		}
 	})
 
 	t.Run("rejects unsupported command", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":1,"command":"list","lang":"go","create":{"project_name":"demo","target_dir":"demo","git_mode":"init+commit","signoff":false,"force":false},"template_inputs":{}}`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected command error, got nil")
+			t.Fatal("ReadReplayFile() expected command error, got nil")
 		}
 		if !strings.Contains(err.Error(), `unsupported command "list"`) {
-			t.Fatalf("ReadAnswersFile() error = %v, want command error", err)
+			t.Fatalf("ReadReplayFile() error = %v, want command error", err)
 		}
 	})
 
 	t.Run("rejects empty lang", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "answers.json")
+		path := filepath.Join(t.TempDir(), "replay.json")
 		content := []byte(`{"schema_version":1,"command":"new","lang":"","create":{"project_name":"demo","target_dir":"demo","git_mode":"init+commit","signoff":false,"force":false},"template_inputs":{}}`)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			t.Fatalf("os.WriteFile() error = %v", err)
 		}
 
-		_, err := ReadAnswersFile(path)
+		_, err := ReadReplayFile(path)
 		if err == nil {
-			t.Fatal("ReadAnswersFile() expected lang validation error, got nil")
+			t.Fatal("ReadReplayFile() expected lang validation error, got nil")
 		}
 		if !strings.Contains(err.Error(), "lang must not be empty") {
-			t.Fatalf("ReadAnswersFile() error = %v, want lang validation error", err)
+			t.Fatalf("ReadReplayFile() error = %v, want lang validation error", err)
 		}
 	})
 }
 
-func TestAnswersFile_RejectsMissingRequiredCreateBooleans(t *testing.T) {
+func TestReplayFile_RejectsMissingRequiredCreateBooleans(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -160,32 +160,32 @@ func TestAnswersFile_RejectsMissingRequiredCreateBooleans(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "answers.json")
+			path := filepath.Join(t.TempDir(), "replay.json")
 			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
 				t.Fatalf("os.WriteFile() error = %v", err)
 			}
 
-			_, err := ReadAnswersFile(path)
+			_, err := ReadReplayFile(path)
 			if err == nil {
-				t.Fatal("ReadAnswersFile() expected missing bool field error, got nil")
+				t.Fatal("ReadReplayFile() expected missing bool field error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ReadAnswersFile() error = %v, want contains %q", err, tt.wantErr)
+				t.Fatalf("ReadReplayFile() error = %v, want contains %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestAnswersFile_JSONOutputIsDeterministic(t *testing.T) {
+func TestReplayFile_JSONOutputIsDeterministic(t *testing.T) {
 	dir := t.TempDir()
-	firstPath := filepath.Join(dir, "answers-first.json")
-	secondPath := filepath.Join(dir, "answers-second.json")
+	firstPath := filepath.Join(dir, "replay-first.json")
+	secondPath := filepath.Join(dir, "replay-second.json")
 
-	first := AnswersFile{
-		SchemaVersion: answersFileSchemaVersion,
-		Command:       AnswersCommandInit,
+	first := ReplayFile{
+		SchemaVersion: replayFileSchemaVersion,
+		Command:       ReplayCommandInit,
 		Lang:          "go",
-		Create: AnswersFileCreate{
+		Create: ReplayFileCreate{
 			ProjectName: "demo",
 			TargetDir:   ".",
 			GitMode:     GitModeInitOnly,
@@ -198,11 +198,11 @@ func TestAnswersFile_JSONOutputIsDeterministic(t *testing.T) {
 		},
 	}
 
-	second := AnswersFile{
-		SchemaVersion: answersFileSchemaVersion,
-		Command:       AnswersCommandInit,
+	second := ReplayFile{
+		SchemaVersion: replayFileSchemaVersion,
+		Command:       ReplayCommandInit,
 		Lang:          "go",
-		Create: AnswersFileCreate{
+		Create: ReplayFileCreate{
 			ProjectName: "demo",
 			TargetDir:   ".",
 			GitMode:     GitModeInitOnly,
@@ -214,11 +214,11 @@ func TestAnswersFile_JSONOutputIsDeterministic(t *testing.T) {
 	second.TemplateInputs["author"] = "alice"
 	second.TemplateInputs["module_path"] = "example.com/demo"
 
-	if err := WriteAnswersFile(firstPath, first); err != nil {
-		t.Fatalf("WriteAnswersFile(first) error = %v", err)
+	if err := WriteReplayFile(firstPath, first); err != nil {
+		t.Fatalf("WriteReplayFile(first) error = %v", err)
 	}
-	if err := WriteAnswersFile(secondPath, second); err != nil {
-		t.Fatalf("WriteAnswersFile(second) error = %v", err)
+	if err := WriteReplayFile(secondPath, second); err != nil {
+		t.Fatalf("WriteReplayFile(second) error = %v", err)
 	}
 
 	firstContent, err := os.ReadFile(firstPath)

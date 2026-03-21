@@ -40,7 +40,7 @@ func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flags := createCommandFlags{setValues: tt.setValues}
+			flags := scaffoldCommandFlags{setValues: tt.setValues}
 
 			_, err := flags.parseSetValues()
 			if err == nil {

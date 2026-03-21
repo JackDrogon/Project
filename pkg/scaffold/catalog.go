@@ -17,6 +17,10 @@ import (
 // and parses template variables so CLI commands can explain what creation would do.
 
 // TemplateSummary describes a template language at a glance.
+//
+// Description, ManifestVersion, and InputNames are sourced from the template
+// manifest. FileCount, TemplateCount, and Variables are derived from walking
+// and parsing the embedded template tree.
 type TemplateSummary struct {
 	Name            string   `json:"name"`
 	Description     string   `json:"description"`
@@ -35,6 +39,9 @@ type TemplateFile struct {
 }
 
 // TemplateDetails is a full inspection result for a language template.
+//
+// Inputs preserves the ordered manifest input declarations, while Files holds
+// the per-file inspection results derived from the embedded template tree.
 type TemplateDetails struct {
 	TemplateSummary
 	Inputs []TemplateManifestInput `json:"inputs"`

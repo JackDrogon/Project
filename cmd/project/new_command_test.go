@@ -25,12 +25,12 @@ func requireOrderedSubstrings(t *testing.T, got string, want []string) {
 	}
 }
 
-func writeAnswersFileForTest(t *testing.T, answers scaffold.AnswersFile) string {
+func writeReplayFileForTest(t *testing.T, replay scaffold.ReplayFile) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "answers.json")
-	if err := scaffold.WriteAnswersFile(path, answers); err != nil {
-		t.Fatalf("WriteAnswersFile(%q) error = %v", path, err)
+	path := filepath.Join(t.TempDir(), "replay.json")
+	if err := scaffold.WriteReplayFile(path, replay); err != nil {
+		t.Fatalf("WriteReplayFile(%q) error = %v", path, err)
 	}
 
 	return path
@@ -142,7 +142,7 @@ func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 
 func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":                 {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/.project-template-manifest.json":        {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
 		"go/README.md":                              {Data: []byte("# README\n")},
 		"go/cmd":                                    {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
@@ -247,10 +247,10 @@ func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
 		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
-		Command: scaffold.AnswersCommandNew,
+	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
+		Command: scaffold.ReplayCommandNew,
 		Lang:    "go",
-		Create: scaffold.AnswersFileCreate{
+		Create: scaffold.ReplayFileCreate{
 			ProjectName: "replayed-demo",
 			TargetDir:   "replayed-demo",
 			GitMode:     scaffold.GitModeNone,
@@ -285,10 +285,10 @@ func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
 
 func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
-		Command: scaffold.AnswersCommandInit,
+	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
+		Command: scaffold.ReplayCommandInit,
 		Lang:    "go",
-		Create: scaffold.AnswersFileCreate{
+		Create: scaffold.ReplayFileCreate{
 			ProjectName: "replayed-demo",
 			TargetDir:   "replayed-demo",
 			GitMode:     scaffold.GitModeNone,
@@ -323,10 +323,10 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 		"cpp/README.md.tmpl": {Data: []byte("# {{.ProjectName}}\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeAnswersFileForTest(t, scaffold.AnswersFile{
-		Command: scaffold.AnswersCommandNew,
+	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
+		Command: scaffold.ReplayCommandNew,
 		Lang:    "cpp",
-		Create: scaffold.AnswersFileCreate{
+		Create: scaffold.ReplayFileCreate{
 			ProjectName: "replay-name",
 			TargetDir:   "replay-dir",
 			GitMode:     scaffold.GitModeInitOnly,
@@ -368,101 +368,101 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 	}
 }
 
-func TestNewCmd_RejectsWriteAnswersWithDryRun(t *testing.T) {
+func TestNewCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
 	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
-	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-answers", filepath.Join(t.TempDir(), "answers.json"), "demo"})
+	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.json"), "demo"})
 
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Execute() expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "--write-answers cannot be combined with --dry-run") {
+	if !strings.Contains(err.Error(), "--write-replay cannot be combined with --dry-run") {
 		t.Fatalf("Execute() error = %v, want dry-run conflict error", err)
 	}
 }
 
-func TestNewCmd_WriteAnswersRecordsResolvedInputs(t *testing.T) {
+func TestNewCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
-		"go/go.mod.tmpl":            {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
 	}
 	withTempWorkingDir(t, "workspace")
-	answersPath := filepath.Join(t.TempDir(), "answers.json")
+	replayPath := filepath.Join(t.TempDir(), "replay.json")
 
 	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
-	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--write-answers", answersPath, "demo"})
+	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--write-replay", replayPath, "demo"})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	answers, err := scaffold.ReadAnswersFile(answersPath)
+	replay, err := scaffold.ReadReplayFile(replayPath)
 	if err != nil {
-		t.Fatalf("ReadAnswersFile(%q) error = %v", answersPath, err)
+		t.Fatalf("ReadReplayFile(%q) error = %v", replayPath, err)
 	}
 
-	if answers.Command != scaffold.AnswersCommandNew {
-		t.Fatalf("answers.Command = %q, want %q", answers.Command, scaffold.AnswersCommandNew)
+	if replay.Command != scaffold.ReplayCommandNew {
+		t.Fatalf("replay.Command = %q, want %q", replay.Command, scaffold.ReplayCommandNew)
 	}
-	if answers.Lang != "go" {
-		t.Fatalf("answers.Lang = %q, want %q", answers.Lang, "go")
+	if replay.Lang != "go" {
+		t.Fatalf("replay.Lang = %q, want %q", replay.Lang, "go")
 	}
-	if answers.Create.ProjectName != "demo" {
-		t.Fatalf("answers.Create.ProjectName = %q, want %q", answers.Create.ProjectName, "demo")
+	if replay.Create.ProjectName != "demo" {
+		t.Fatalf("replay.Create.ProjectName = %q, want %q", replay.Create.ProjectName, "demo")
 	}
-	if answers.Create.TargetDir != "demo" {
-		t.Fatalf("answers.Create.TargetDir = %q, want %q", answers.Create.TargetDir, "demo")
+	if replay.Create.TargetDir != "demo" {
+		t.Fatalf("replay.Create.TargetDir = %q, want %q", replay.Create.TargetDir, "demo")
 	}
-	if answers.Create.GitMode != scaffold.GitModeNone {
-		t.Fatalf("answers.Create.GitMode = %q, want %q", answers.Create.GitMode, scaffold.GitModeNone)
+	if replay.Create.GitMode != scaffold.GitModeNone {
+		t.Fatalf("replay.Create.GitMode = %q, want %q", replay.Create.GitMode, scaffold.GitModeNone)
 	}
-	if answers.Create.Signoff {
-		t.Fatal("answers.Create.Signoff = true, want false")
+	if replay.Create.Signoff {
+		t.Fatal("replay.Create.Signoff = true, want false")
 	}
-	if answers.Create.Force {
-		t.Fatal("answers.Create.Force = true, want false")
+	if replay.Create.Force {
+		t.Fatal("replay.Create.Force = true, want false")
 	}
-	if got := answers.TemplateInputs["module_path"]; got != "example.com/demo" {
-		t.Fatalf("answers.TemplateInputs[module_path] = %q, want %q", got, "example.com/demo")
+	if got := replay.TemplateInputs["module_path"]; got != "example.com/demo" {
+		t.Fatalf("replay.TemplateInputs[module_path] = %q, want %q", got, "example.com/demo")
 	}
-	if got := answers.TemplateInputs["go_version"]; got != "1.25" {
-		t.Fatalf("answers.TemplateInputs[go_version] = %q, want %q", got, "1.25")
+	if got := replay.TemplateInputs["go_version"]; got != "1.25" {
+		t.Fatalf("replay.TemplateInputs[go_version] = %q, want %q", got, "1.25")
 	}
-	if len(answers.TemplateInputs) != 2 {
-		t.Fatalf("len(answers.TemplateInputs) = %d, want %d", len(answers.TemplateInputs), 2)
+	if len(replay.TemplateInputs) != 2 {
+		t.Fatalf("len(replay.TemplateInputs) = %d, want %d", len(replay.TemplateInputs), 2)
 	}
 }
 
-func TestNewCmd_WriteAnswersFailureReturnsWrappedError(t *testing.T) {
+func TestNewCmd_WriteReplayFailureReturnsWrappedError(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
-		"go/main.go.tmpl":           {Data: []byte("package main\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/main.go.tmpl":                    {Data: []byte("package main\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	answersPath := filepath.Join(t.TempDir(), "missing", "answers.json")
+	replayPath := filepath.Join(t.TempDir(), "missing", "replay.json")
 
 	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
-	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--write-answers", answersPath, "demo"})
+	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--write-replay", replayPath, "demo"})
 
 	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("Execute() expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "failed to write resolved answers after project creation") {
-		t.Fatalf("Execute() error = %v, want wrapped answers write error", err)
+	if !strings.Contains(err.Error(), "failed to write resolved replay after project creation") {
+		t.Fatalf("Execute() error = %v, want wrapped replay write error", err)
 	}
-	if !strings.Contains(err.Error(), "failed to write answers file") {
-		t.Fatalf("Execute() error = %v, want underlying answers file error", err)
+	if !strings.Contains(err.Error(), "failed to write replay file") {
+		t.Fatalf("Execute() error = %v, want underlying replay file error", err)
 	}
 
 	if _, statErr := os.Stat(filepath.Join(workDir, "demo", "main.go")); statErr != nil {
-		t.Fatalf("generated project should remain on disk after answers write failure, stat err = %v", statErr)
+		t.Fatalf("generated project should remain on disk after replay write failure, stat err = %v", statErr)
 	}
-	if _, statErr := os.Stat(answersPath); !os.IsNotExist(statErr) {
-		t.Fatalf("answers file should not be created on failure, stat err = %v", statErr)
+	if _, statErr := os.Stat(replayPath); !os.IsNotExist(statErr) {
+		t.Fatalf("replay file should not be created on failure, stat err = %v", statErr)
 	}
 }
 

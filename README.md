@@ -60,8 +60,8 @@ This will:
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
-| `--replay` | | Load answers from a JSON replay file |
-| `--write-answers` | | Write resolved answers to a JSON file after success |
+| `--replay` | | Load project configuration from a JSON replay file |
+| `--write-replay` | | Write resolved replay to a JSON file after success |
 | `--set` | | Set a template-specific input value (`--set key=value`) |
 | `--no-git` | | Deprecated alias for `--git none` |
 
@@ -72,13 +72,13 @@ This will:
 project new -l go myapp -m github.com/myorg/myapp
 
 # Create a project using a replay file
-project new --replay .project-answers.json
+project new --replay .project-replay.json
 
 # Override replay values with CLI flags
-project new --replay .project-answers.json --set go_version=1.22
+project new --replay .project-replay.json --set go_version=1.22
 
-# Save resolved answers to a file
-project new -l go myapp --write-answers .project-answers.json
+# Save resolved replay to a file
+project new -l go myapp --write-replay .project-replay.json
 
 # Preview what files would be created
 project new -l go myapp -n
@@ -110,9 +110,9 @@ actions:
 
 ## Scaffolding Contracts
 
-### Template Manifest (`.project-template.json`)
+### Template Manifest (`.project-template-manifest.json`)
 
-Templates may include a `.project-template.json` manifest at their root to define metadata and input variables. This is a reserved file and is never copied to the target project. The current schema version is `1`.
+Templates may include a `.project-template-manifest.json` manifest at their root to define metadata and input variables. This is a reserved file and is never copied to the target project. The current schema version is `1`.
 
 Example manifest:
 ```json
@@ -129,13 +129,13 @@ Example manifest:
 }
 ```
 
-### Answers File (`.project-answers.json`)
+### Replay File (`.project-replay.json`)
 
-Using `--write-answers` produces a JSON file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.
+Using `--write-replay` produces a JSON file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.
 
 **Contract Rules:**
 - **Precedence**: Explicit CLI flags and `--set` arguments always take precedence over values in a replay file.
-- **Derived Defaults**: Runtime-derived values (like the current `year` or system `author`) are not persisted in the answers file unless they were explicitly provided via CLI or replay.
+- **Derived Defaults**: Runtime-derived values (like the current `year` or system `author`) are not persisted in the replay file unless they were explicitly provided via CLI or replay.
 
 ## Template Variables
 
@@ -152,6 +152,7 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 
 ## Template Discovery
 
+- In structured `list --detail` and `inspect` output, `description`, `manifest_version`, `input_names`, and `inputs` come from `.project-template-manifest.json`, while `variables`, `file_count`, `template_count`, and `files` are derived from inspecting the embedded template tree.
 - `project list` prints available language names.
 - `project list --detail` prints file count, template count, and template variables per language.
 - `project list --json` prints machine-readable output.

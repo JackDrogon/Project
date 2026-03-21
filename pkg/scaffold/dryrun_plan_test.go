@@ -12,7 +12,7 @@ import (
 
 func TestBuildDryRunPlan_ClassifiesCreateRenderAndCopyActions(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":                 {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/.project-template-manifest.json":        {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
 		"go/cmd":                                    {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
@@ -86,8 +86,8 @@ func TestBuildDryRunPlan_ClassifiesCreateRenderAndCopyActions(t *testing.T) {
 
 func TestBuildDryRunPlan_PreservesNoWriteAndNoGitGuarantees(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
-		"go/main.go.tmpl":           {Data: []byte("package main\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/main.go.tmpl":                    {Data: []byte("package main\n")},
 	}
 
 	originalRemoveAll := osRemoveAll

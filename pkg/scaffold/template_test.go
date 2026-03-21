@@ -61,16 +61,6 @@ func (i stubFileInfo) ModTime() time.Time { return time.Unix(0, 0) }
 func (i stubFileInfo) IsDir() bool        { return i.mode.IsDir() }
 func (i stubFileInfo) Sys() any           { return nil }
 
-type infoErrorFS struct {
-	err error
-}
-
-func (f infoErrorFS) Open(name string) (fs.File, error) { return nil, f.err }
-func (f infoErrorFS) ReadDir(name string) ([]fs.DirEntry, error) {
-	return []fs.DirEntry{stubDirEntry{name: "file.txt", mode: 0, infoErr: f.err}}, nil
-}
-func (f infoErrorFS) ReadFile(name string) ([]byte, error) { return []byte("content"), nil }
-
 func stubTemplateOSFuncs(t *testing.T) {
 	t.Helper()
 	oldMkdirAll := osMkdirAll

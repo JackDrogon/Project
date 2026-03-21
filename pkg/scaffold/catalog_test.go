@@ -39,13 +39,13 @@ func (f catalogErrorFS) ReadFile(name string) ([]byte, error) {
 
 func TestListTemplateSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":  {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
-		"cpp/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
-		"go/go.mod.tmpl":             {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
-		"go/main.go.tmpl":            {Data: []byte("package main\n")},
-		"go/.gitignore":              {Data: []byte("bin/")},
-		"cpp/src/main.cc.tmpl":       {Data: []byte("// {{.ProjectName}}")},
-		"cpp/README.md.tmpl":         {Data: []byte("By {{.Author}}")},
+		"go/.project-template-manifest.json":  {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"cpp/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
+		"go/go.mod.tmpl":                      {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
+		"go/main.go.tmpl":                     {Data: []byte("package main\n")},
+		"go/.gitignore":                       {Data: []byte("bin/")},
+		"cpp/src/main.cc.tmpl":                {Data: []byte("// {{.ProjectName}}")},
+		"cpp/README.md.tmpl":                  {Data: []byte("By {{.Author}}")},
 	}
 
 	c := NewCreator(fsys, &bytes.Buffer{})
@@ -107,7 +107,7 @@ func TestListTemplateSummaries(t *testing.T) {
 
 func TestInspectLang(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":            {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/.project-template-manifest.json":   {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
 		"go/go.mod.tmpl":                       {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
 		"go/main.go.tmpl":                      {Data: []byte("// {{.ProjectName}}")},
 		"go/.gitignore":                        {Data: []byte("bin/")},
@@ -163,9 +163,9 @@ func TestInspectLang(t *testing.T) {
 
 func TestListTemplateSummaries_UsesManifestMetadata(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
-		"go/go.mod.tmpl":            {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
-		"go/main.go.tmpl":           {Data: []byte("package main\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}")},
+		"go/main.go.tmpl":                    {Data: []byte("package main\n")},
 	}
 
 	c := NewCreator(fsys, &bytes.Buffer{})

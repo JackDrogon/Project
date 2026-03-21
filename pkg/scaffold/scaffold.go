@@ -383,22 +383,22 @@ func resolveGitMode(opts Options) (GitMode, error) {
 	}
 }
 
-// AnswersFile returns the resolved answers payload for a completed create request.
-func (c *Creator) AnswersFile(command AnswersCommand, opts Options) (AnswersFile, error) {
+// ReplayFile returns the resolved replay payload for a completed create request.
+func (c *Creator) ReplayFile(command ReplayCommand, opts Options) (ReplayFile, error) {
 	manifest, _, err := c.templateManifestAndVars(opts)
 	if err != nil {
-		return AnswersFile{}, err
+		return ReplayFile{}, err
 	}
 
 	mode, err := resolveGitMode(opts)
 	if err != nil {
-		return AnswersFile{}, err
+		return ReplayFile{}, err
 	}
 
-	answers := AnswersFile{
+	replay := ReplayFile{
 		Command: command,
 		Lang:    opts.Lang,
-		Create: AnswersFileCreate{
+		Create: ReplayFileCreate{
 			ProjectName: opts.ProjectName,
 			TargetDir:   opts.destinationDir(),
 			GitMode:     mode,
@@ -411,16 +411,16 @@ func (c *Creator) AnswersFile(command AnswersCommand, opts Options) (AnswersFile
 	for _, input := range manifest.Inputs {
 		switch input.TemplateVar {
 		case "ModulePath":
-			answers.TemplateInputs[input.Name] = c.defaultModulePath(opts)
+			replay.TemplateInputs[input.Name] = c.defaultModulePath(opts)
 		default:
 			value, ok := opts.TemplateInputValues[input.Name]
 			if ok {
-				answers.TemplateInputs[input.Name] = value
+				replay.TemplateInputs[input.Name] = value
 			}
 		}
 	}
 
-	return answers, nil
+	return replay, nil
 }
 
 // ListLangs returns the available template language names.

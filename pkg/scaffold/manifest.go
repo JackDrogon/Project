@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	templateManifestFilename      = ".project-template.json"
+	templateManifestFilename      = ".project-template-manifest.json"
 	templateManifestSchemaVersion = 1
 )
 

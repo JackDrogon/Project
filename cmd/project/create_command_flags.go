@@ -8,20 +8,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type createCommandFlags struct {
-	lang             string
-	module           string
-	signoff          bool
-	dryRun           bool
-	noGit            bool
-	gitMode          string
-	replayPath       string
-	writeAnswersPath string
-	setValues        []string
+type scaffoldCommandFlags struct {
+	lang            string
+	module          string
+	signoff         bool
+	dryRun          bool
+	noGit           bool
+	gitMode         string
+	replayPath      string
+	writeReplayPath string
+	setValues       []string
 }
 
-type createCommandRuntime struct {
-	replay              scaffold.AnswersFile
+type scaffoldCommandRuntime struct {
+	replay              scaffold.ReplayFile
 	hasReplay           bool
 	templateInputValues map[string]string
 }
@@ -37,7 +37,7 @@ var reservedSetKeys = map[string]struct{}{
 	"dry_run":      {},
 }
 
-func bindCreateCommandFlags(cmd *cobra.Command, flags *createCommandFlags) {
+func bindScaffoldCommandFlags(cmd *cobra.Command, flags *scaffoldCommandFlags) {
 	cmd.Flags().StringVarP(&flags.lang, "lang", "l", "", "Programming language for the project")
 	cmd.Flags().StringVarP(&flags.module, "module", "m", "", "Module path (e.g. github.com/user/project)")
 	cmd.Flags().BoolVar(&flags.signoff, "signoff", false, "Add Signed-off-by trailer to the initial commit")
@@ -45,32 +45,32 @@ func bindCreateCommandFlags(cmd *cobra.Command, flags *createCommandFlags) {
 	cmd.Flags().BoolVar(&flags.noGit, "no-git", false, "Skip git init/add/commit after scaffolding")
 	cmd.Flags().StringVar(&flags.gitMode, "git", "", "Git workflow: none, init-only, init+commit (default: init+commit)")
 	cmd.Flags().StringVar(&flags.replayPath, "replay", "", "Load project configuration from a JSON replay file")
-	cmd.Flags().StringVar(&flags.writeAnswersPath, "write-answers", "", "Write resolved project configuration to a JSON file after success")
+	cmd.Flags().StringVar(&flags.writeReplayPath, "write-replay", "", "Write resolved project configuration to a JSON file after success")
 	cmd.Flags().StringArrayVar(&flags.setValues, "set", nil, "Set a template-specific input value (key=value)")
 	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 }
 
-func (flags createCommandFlags) runtimeState(expectedCommand scaffold.AnswersCommand) (createCommandRuntime, error) {
+func (flags scaffoldCommandFlags) runtimeState(expectedCommand scaffold.ReplayCommand) (scaffoldCommandRuntime, error) {
 	templateInputValues, err := flags.parseSetValues()
 	if err != nil {
-		return createCommandRuntime{}, err
+		return scaffoldCommandRuntime{}, err
 	}
 
-	if flags.writeAnswersPath != "" && flags.dryRun {
-		return createCommandRuntime{}, fmt.Errorf("--write-answers cannot be combined with --dry-run")
+	if flags.writeReplayPath != "" && flags.dryRun {
+		return scaffoldCommandRuntime{}, fmt.Errorf("--write-replay cannot be combined with --dry-run")
 	}
 
 	if flags.replayPath == "" {
-		return createCommandRuntime{templateInputValues: templateInputValues}, nil
+		return scaffoldCommandRuntime{templateInputValues: templateInputValues}, nil
 	}
 
-	replay, err := scaffold.ReadAnswersFile(flags.replayPath)
+	replay, err := scaffold.ReadReplayFile(flags.replayPath)
 	if err != nil {
-		return createCommandRuntime{}, err
+		return scaffoldCommandRuntime{}, err
 	}
 	if replay.Command != expectedCommand {
-		return createCommandRuntime{}, fmt.Errorf(
-			"invalid --replay %q: answers command %q does not match %q",
+		return scaffoldCommandRuntime{}, fmt.Errorf(
+			"invalid --replay %q: replay command %q does not match %q",
 			flags.replayPath,
 			replay.Command,
 			expectedCommand,
@@ -88,10 +88,10 @@ func (flags createCommandFlags) runtimeState(expectedCommand scaffold.AnswersCom
 		mergedInputs[key] = value
 	}
 
-	return createCommandRuntime{replay: replay, hasReplay: true, templateInputValues: mergedInputs}, nil
+	return scaffoldCommandRuntime{replay: replay, hasReplay: true, templateInputValues: mergedInputs}, nil
 }
 
-func (flags createCommandFlags) parseSetValues() (map[string]string, error) {
+func (flags scaffoldCommandFlags) parseSetValues() (map[string]string, error) {
 	values := make(map[string]string, len(flags.setValues))
 	for _, raw := range flags.setValues {
 		key, value, ok := strings.Cut(raw, "=")
@@ -114,7 +114,7 @@ func (flags createCommandFlags) parseSetValues() (map[string]string, error) {
 	return values, nil
 }
 
-func (flags createCommandFlags) resolveLang(cmd *cobra.Command, runtime createCommandRuntime) (string, error) {
+func (flags scaffoldCommandFlags) resolveLang(cmd *cobra.Command, runtime scaffoldCommandRuntime) (string, error) {
 	if cmd.Flags().Changed("lang") {
 		return flags.lang, nil
 	}
@@ -125,7 +125,7 @@ func (flags createCommandFlags) resolveLang(cmd *cobra.Command, runtime createCo
 	return "", fmt.Errorf("required flag(s) \"lang\" not set")
 }
 
-func (flags createCommandFlags) resolveSignoff(cmd *cobra.Command, runtime createCommandRuntime) bool {
+func (flags scaffoldCommandFlags) resolveSignoff(cmd *cobra.Command, runtime scaffoldCommandRuntime) bool {
 	if cmd.Flags().Changed("signoff") {
 		return flags.signoff
 	}
@@ -136,7 +136,7 @@ func (flags createCommandFlags) resolveSignoff(cmd *cobra.Command, runtime creat
 	return flags.signoff
 }
 
-func (flags createCommandFlags) resolveNoGit(cmd *cobra.Command) bool {
+func (flags scaffoldCommandFlags) resolveNoGit(cmd *cobra.Command) bool {
 	if cmd.Flags().Changed("no-git") {
 		return flags.noGit
 	}
@@ -144,7 +144,7 @@ func (flags createCommandFlags) resolveNoGit(cmd *cobra.Command) bool {
 	return flags.noGit
 }
 
-func (flags createCommandFlags) resolveGitMode(cmd *cobra.Command, runtime createCommandRuntime) string {
+func (flags scaffoldCommandFlags) resolveGitMode(cmd *cobra.Command, runtime scaffoldCommandRuntime) string {
 	if cmd.Flags().Changed("git") {
 		return flags.gitMode
 	}
@@ -158,7 +158,7 @@ func (flags createCommandFlags) resolveGitMode(cmd *cobra.Command, runtime creat
 	return flags.gitMode
 }
 
-func (flags createCommandFlags) resolveModulePath(cmd *cobra.Command, runtime createCommandRuntime) string {
+func (flags scaffoldCommandFlags) resolveModulePath(cmd *cobra.Command, runtime scaffoldCommandRuntime) string {
 	if cmd.Flags().Changed("module") {
 		return flags.module
 	}
@@ -169,7 +169,7 @@ func (flags createCommandFlags) resolveModulePath(cmd *cobra.Command, runtime cr
 	return flags.module
 }
 
-func (flags createCommandFlags) resolveTemplateInputValues(runtime createCommandRuntime) map[string]string {
+func (flags scaffoldCommandFlags) resolveTemplateInputValues(runtime scaffoldCommandRuntime) map[string]string {
 	if len(runtime.templateInputValues) == 0 {
 		return nil
 	}
@@ -182,7 +182,7 @@ func (flags createCommandFlags) resolveTemplateInputValues(runtime createCommand
 	return resolved
 }
 
-func (flags createCommandFlags) options(lang, projectName, targetDir, modulePath string, signoff, noGit bool, gitMode string) scaffold.Options {
+func (flags scaffoldCommandFlags) options(lang, projectName, targetDir, modulePath string, signoff, noGit bool, gitMode string) scaffold.Options {
 	return scaffold.Options{
 		Lang:        lang,
 		ProjectName: projectName,
@@ -195,20 +195,20 @@ func (flags createCommandFlags) options(lang, projectName, targetDir, modulePath
 	}
 }
 
-func (flags createCommandFlags) createWithOptionalAnswers(creator *scaffold.Creator, command scaffold.AnswersCommand, opts scaffold.Options) error {
+func (flags scaffoldCommandFlags) scaffoldAndMaybeWriteReplay(creator *scaffold.Creator, command scaffold.ReplayCommand, opts scaffold.Options) error {
 	if err := creator.Create(opts); err != nil {
 		return err
 	}
-	if flags.writeAnswersPath == "" {
+	if flags.writeReplayPath == "" {
 		return nil
 	}
 
-	answers, err := creator.AnswersFile(command, opts)
+	replay, err := creator.ReplayFile(command, opts)
 	if err != nil {
-		return fmt.Errorf("failed to resolve answers after project creation: %w", err)
+		return fmt.Errorf("failed to resolve replay after project creation: %w", err)
 	}
-	if err := scaffold.WriteAnswersFile(flags.writeAnswersPath, answers); err != nil {
-		return fmt.Errorf("failed to write resolved answers after project creation: %w", err)
+	if err := scaffold.WriteReplayFile(flags.writeReplayPath, replay); err != nil {
+		return fmt.Errorf("failed to write resolved replay after project creation: %w", err)
 	}
 
 	return nil

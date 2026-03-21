@@ -9,7 +9,7 @@ import (
 )
 
 func newInitCmd(creator *scaffold.Creator) *cobra.Command {
-	var shared createCommandFlags
+	var shared scaffoldCommandFlags
 
 	cmd := &cobra.Command{
 		Use:   "init [target_dir]",
@@ -21,17 +21,17 @@ func newInitCmd(creator *scaffold.Creator) *cobra.Command {
 				return err
 			}
 
-			return shared.createWithOptionalAnswers(creator, scaffold.AnswersCommandInit, opts)
+			return shared.scaffoldAndMaybeWriteReplay(creator, scaffold.ReplayCommandInit, opts)
 		},
 	}
 
-	bindCreateCommandFlags(cmd, &shared)
+	bindScaffoldCommandFlags(cmd, &shared)
 
 	return cmd
 }
 
-func (flags createCommandFlags) resolveInitOptions(cmd *cobra.Command, args []string) (scaffold.Options, error) {
-	runtime, err := flags.runtimeState(scaffold.AnswersCommandInit)
+func (flags scaffoldCommandFlags) resolveInitOptions(cmd *cobra.Command, args []string) (scaffold.Options, error) {
+	runtime, err := flags.runtimeState(scaffold.ReplayCommandInit)
 	if err != nil {
 		return scaffold.Options{}, err
 	}

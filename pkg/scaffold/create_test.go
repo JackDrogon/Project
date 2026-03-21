@@ -75,8 +75,8 @@ func TestCreate_NoGitSkipsGit(t *testing.T) {
 
 func TestCreate_SkipsReservedManifestFile(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Production-ready Go CLI starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
-		"go/main.go.tmpl":           {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Production-ready Go CLI starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/main.go.tmpl":                    {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
 	}
 
 	creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, nil)
@@ -86,7 +86,7 @@ func TestCreate_SkipsReservedManifestFile(t *testing.T) {
 		t.Fatalf("Create() error = %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(tmp, "demo", ".project-template.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(tmp, "demo", ".project-template-manifest.json")); !os.IsNotExist(err) {
 		t.Fatalf("reserved manifest should be skipped, stat err = %v", err)
 	}
 
@@ -247,7 +247,7 @@ func TestCreate_DryRunSkipsWritesAndGit(t *testing.T) {
 
 func TestCreate_DryRunOutputsResolvedExecutionPlan(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json":                 {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/.project-template-manifest.json":        {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
 		"go/README.md":                              {Data: []byte("# README\n")},
 		"go/cmd":                                    {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
@@ -526,8 +526,8 @@ func TestCreate_SignoffRequiresCommitMode(t *testing.T) {
 
 func TestCreate_AppliesTemplateInputOverrides(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
-		"go/README.md.tmpl":         {Data: []byte("module={{.ModulePath}}\ngo={{.GoVersion}}\nauthor={{.Author}}\nyear={{.Year}}\n")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/README.md.tmpl":                  {Data: []byte("module={{.ModulePath}}\ngo={{.GoVersion}}\nauthor={{.Author}}\nyear={{.Year}}\n")},
 	}
 	workDir := withTempWorkingDir(t)
 
@@ -592,8 +592,8 @@ func TestCreate_RejectsUnknownOrInvalidTemplateInputs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			workDir := withTempWorkingDir(t)
 			fsys := fstest.MapFS{
-				"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"year","template_var":"Year"}]}`)},
-				"go/README.md.tmpl":         {Data: []byte("# {{.ProjectName}}\n")},
+				"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"year","template_var":"Year"}]}`)},
+				"go/README.md.tmpl":                  {Data: []byte("# {{.ProjectName}}\n")},
 			}
 
 			creator := NewCreatorWithGitRunner(fsys, &bytes.Buffer{}, func(dir string, args ...string) error {

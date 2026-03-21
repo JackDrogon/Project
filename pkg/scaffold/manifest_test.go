@@ -13,7 +13,7 @@ import (
 func TestLoadTemplateManifest_ValidatesReservedFilenameAndSchemaVersion(t *testing.T) {
 	t.Run("loads valid manifest from reserved filename", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"module","template_var":"ModulePath"}]}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"module","template_var":"ModulePath"}]}`)},
 		}
 
 		manifest, found, err := loadTemplateManifest(fsys, "go")
@@ -46,7 +46,7 @@ func TestLoadTemplateManifest_ValidatesReservedFilenameAndSchemaVersion(t *testi
 
 	t.Run("rejects unsupported schema version", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":2,"name":"go"}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":2,"name":"go"}`)},
 		}
 
 		_, _, err := loadTemplateManifest(fsys, "go")
@@ -60,7 +60,7 @@ func TestLoadTemplateManifest_ValidatesReservedFilenameAndSchemaVersion(t *testi
 
 	t.Run("rejects mismatched template name", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"cpp"}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"cpp"}`)},
 		}
 
 		_, _, err := loadTemplateManifest(fsys, "go")
@@ -76,7 +76,7 @@ func TestLoadTemplateManifest_ValidatesReservedFilenameAndSchemaVersion(t *testi
 func TestLoadTemplateManifest_RejectsUnknownFieldsAndUnsupportedTemplateVars(t *testing.T) {
 	t.Run("rejects unknown fields", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","unknown":true}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","unknown":true}`)},
 		}
 
 		_, _, err := loadTemplateManifest(fsys, "go")
@@ -90,7 +90,7 @@ func TestLoadTemplateManifest_RejectsUnknownFieldsAndUnsupportedTemplateVars(t *
 
 	t.Run("rejects unsupported template vars", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"project","template_var":"ProjectName"}]}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"project","template_var":"ProjectName"}]}`)},
 		}
 
 		_, _, err := loadTemplateManifest(fsys, "go")
@@ -104,7 +104,7 @@ func TestLoadTemplateManifest_RejectsUnknownFieldsAndUnsupportedTemplateVars(t *
 
 	t.Run("rejects duplicate input names", func(t *testing.T) {
 		fsys := fstest.MapFS{
-			"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"module","template_var":"ModulePath"},{"name":"module","template_var":"Author"}]}`)},
+			"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","inputs":[{"name":"module","template_var":"ModulePath"},{"name":"module","template_var":"Author"}]}`)},
 		}
 
 		_, _, err := loadTemplateManifest(fsys, "go")
@@ -119,9 +119,9 @@ func TestLoadTemplateManifest_RejectsUnknownFieldsAndUnsupportedTemplateVars(t *
 
 func TestTemplateWalkers_SkipReservedManifestFile(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template.json": {Data: []byte(`{"schema_version":1,"name":"go"}`)},
-		"go/README.md.tmpl":         {Data: []byte("# {{.ProjectName}}\n")},
-		"go/sub/nested.txt":         {Data: []byte("plain")},
+		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go"}`)},
+		"go/README.md.tmpl":                  {Data: []byte("# {{.ProjectName}}\n")},
+		"go/sub/nested.txt":                  {Data: []byte("plain")},
 	}
 
 	vars := TemplateVars{ProjectName: "Demo", ProjectNameLower: "demo"}
@@ -134,7 +134,7 @@ func TestTemplateWalkers_SkipReservedManifestFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walkTemplateEntries() error = %v", err)
 	}
-	if slices.Contains(entryPaths, "go/.project-template.json") {
+	if slices.Contains(entryPaths, "go/.project-template-manifest.json") {
 		t.Fatalf("walkTemplateEntries() visited reserved manifest: %v", entryPaths)
 	}
 
@@ -147,7 +147,7 @@ func TestTemplateWalkers_SkipReservedManifestFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walkTemplateFiles() error = %v", err)
 	}
-	if slices.Contains(filePaths, "go/.project-template.json") {
+	if slices.Contains(filePaths, "go/.project-template-manifest.json") {
 		t.Fatalf("walkTemplateFiles() visited reserved manifest: %v", filePaths)
 	}
 

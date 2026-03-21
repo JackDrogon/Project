@@ -12,7 +12,7 @@ var goMajorVersionSuffix = regexp.MustCompile(`^v[2-9][0-9]*$`)
 
 // newNewCmd creates the "new" subcommand that scaffolds a project from templates.
 func newNewCmd(creator *scaffold.Creator) *cobra.Command {
-	var shared createCommandFlags
+	var shared scaffoldCommandFlags
 	var force bool
 
 	cmd := &cobra.Command{
@@ -31,18 +31,18 @@ func newNewCmd(creator *scaffold.Creator) *cobra.Command {
 				return err
 			}
 
-			return shared.createWithOptionalAnswers(creator, scaffold.AnswersCommandNew, opts)
+			return shared.scaffoldAndMaybeWriteReplay(creator, scaffold.ReplayCommandNew, opts)
 		},
 	}
 
-	bindCreateCommandFlags(cmd, &shared)
+	bindScaffoldCommandFlags(cmd, &shared)
 	cmd.Flags().BoolVar(&force, "force", false, "Remove existing project directory before scaffolding")
 
 	return cmd
 }
 
-func (flags createCommandFlags) resolveNewOptions(cmd *cobra.Command, force bool, args []string) (scaffold.Options, error) {
-	runtime, err := flags.runtimeState(scaffold.AnswersCommandNew)
+func (flags scaffoldCommandFlags) resolveNewOptions(cmd *cobra.Command, force bool, args []string) (scaffold.Options, error) {
+	runtime, err := flags.runtimeState(scaffold.ReplayCommandNew)
 	if err != nil {
 		return scaffold.Options{}, err
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 const TmplSuffix = ".tmpl"

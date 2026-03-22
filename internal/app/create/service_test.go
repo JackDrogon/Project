@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 func TestNewService(t *testing.T) {

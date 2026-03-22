@@ -1,4 +1,4 @@
-package cli
+package presenters
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/JackDrogon/project/internal/app/catalog"
-	"github.com/JackDrogon/project/internal/domain/scaffold"
+	"github.com/JackDrogon/project/internal/scaffold"
 )
 
 func TestNewPresenter(t *testing.T) {

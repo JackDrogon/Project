@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 func TestReplayV2_ReadWriteRoundTrip(t *testing.T) {

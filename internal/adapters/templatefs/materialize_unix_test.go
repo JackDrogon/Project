@@ -11,7 +11,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 func TestMaterialize_CorrectsForUmaskOnPOSIX(t *testing.T) {

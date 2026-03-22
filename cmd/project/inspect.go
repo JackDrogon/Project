@@ -3,8 +3,7 @@ package main
 import (
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
-	presenter "github.com/JackDrogon/project/internal/presenters/cli"
-
+	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +25,7 @@ func newInspectCmd(creator *appcreate.Creator) *cobra.Command {
 			out := cmd.OutOrStdout()
 			format := selectedOutputFormat(asTOML)
 
-			cliPresenter, err := presenter.NewPresenter(format)
+			cliPresenter, err := presenters.NewPresenter(format)
 			if err != nil {
 				return err
 			}

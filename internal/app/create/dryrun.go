@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/JackDrogon/project/internal/adapters/templatefs"
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 func (c *Creator) BuildDryRunPlan(opts Options) (domain.DryRunPlan, error) {

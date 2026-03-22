@@ -9,7 +9,7 @@ import (
 	"text/template"
 	"text/template/parse"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 type Manifest struct {

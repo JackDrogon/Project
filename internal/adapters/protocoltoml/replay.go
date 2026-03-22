@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 	toml "github.com/pelletier/go-toml/v2"
 )
 

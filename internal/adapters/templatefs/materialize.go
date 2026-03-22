@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 var (

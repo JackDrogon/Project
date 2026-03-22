@@ -11,7 +11,7 @@ import (
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 func requireOrderedSubstrings(t *testing.T, got string, want []string) {

@@ -6,7 +6,7 @@ import (
 	"github.com/JackDrogon/project/internal/adapters/templatesrc"
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
-	presenter "github.com/JackDrogon/project/internal/presenters/cli"
+	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ func newListCmd(creator *appcreate.Creator) *cobra.Command {
 			service := newCatalogService()
 			format := selectedOutputFormat(asTOML)
 
-			cliPresenter, err := presenter.NewPresenter(format)
+			cliPresenter, err := presenters.NewPresenter(format)
 			if err != nil {
 				return err
 			}

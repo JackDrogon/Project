@@ -8,7 +8,7 @@ import (
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	"github.com/JackDrogon/project/internal/adapters/templatefs"
-	domain "github.com/JackDrogon/project/internal/domain/scaffold"
+	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
 const (

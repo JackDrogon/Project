@@ -17,6 +17,7 @@ alias f := fmt
 alias c := cover
 alias r := run
 alias i := install
+alias g := generate
 
 # ─────────────────────────────────────────────────────────────────────
 # Help
@@ -72,9 +73,14 @@ fmt:
 vet:
     go vet ./...
 
+# Regenerate auto-generated source files
+[group('quality')]
+generate:
+    go generate ./...
+
 # Pre-commit: format → lint → test — run before every commit
 [group('quality')]
-pre-commit: fmt lint test
+pre-commit: generate fmt lint test
     @echo "All checks passed."
 
 # ═════════════════════════════════════════════════════════════════════

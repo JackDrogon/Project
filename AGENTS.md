@@ -39,6 +39,7 @@ Guidance for agentic coding assistants working in this repository.
 - `just fmt` runs `go fmt ./...`.
 - `just lint` runs `golangci-lint run`.
 - `just vet` runs `go vet ./...`.
+- `just generate` runs `go generate ./...` to regenerate auto-generated source files.
 - `just pre-commit` runs `fmt`, `lint`, and `test` in sequence.
 
 ### Test
@@ -161,6 +162,9 @@ Guidance for agentic coding assistants working in this repository.
 - Do not remove or weaken tests just to make a change pass.
 - If you touch command flags or output, inspect related tests under `cmd/project/*_test.go`.
 - If you touch scaffolding logic, inspect `pkg/scaffold/*_test.go` and template-related tests.
+- If you add, remove, or change permissions of template files under `internal/adapters/templatesrc/`,
+  run `just generate` to regenerate the permission metadata, then commit the updated
+  `permissions_generated.go` alongside your changes.
 - If you touch version behavior, inspect both `pkg/version/*` and command-level version tests.
 - Run the narrowest relevant tests first, then expand to `just test` for non-trivial Go changes.
 - Run `just fmt` after Go edits and `just lint` when the change could affect style or static analysis.

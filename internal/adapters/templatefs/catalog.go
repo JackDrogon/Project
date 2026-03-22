@@ -41,6 +41,10 @@ type Details struct {
 	Files  []FileDetail
 }
 
+// CollectDetails scans a template directory and collects comprehensive metadata including
+// file listings, template variables, and manifest inputs. It walks the template tree,
+// analyzes .tmpl files to extract variables, and returns structured details for inspection.
+// Returns an error if the language is unsupported or if template parsing fails.
 func CollectDetails(fsys fs.FS, lang string, manifest Manifest) (Details, error) {
 	if _, err := fs.ReadDir(fsys, lang); err != nil {
 		return Details{}, fmt.Errorf("unsupported language: %s", lang)
@@ -164,6 +168,9 @@ func addTemplateVarNames(dest map[string]struct{}, names []string) {
 	}
 }
 
+// ExtractTemplateVars parses template content and extracts all variable names referenced
+// in the template syntax (e.g., {{.VariableName}}). It returns a sorted list of unique
+// variable names. Returns an error if the template syntax is invalid.
 func ExtractTemplateVars(content []byte) ([]string, error) {
 	tmpl, err := template.New("template-vars").Parse(string(content))
 	if err != nil {
@@ -191,44 +198,47 @@ func collectTemplateVars(node parse.Node, vars map[string]struct{}) {
 
 	switch n := node.(type) {
 	case *parse.ListNode:
-		if n == nil {
-			return
-		}
-		for _, child := range n.Nodes {
-			collectTemplateVars(child, vars)
-		}
+		collectFromListNode(n, vars)
 	case *parse.ActionNode:
-		if n == nil {
-			return
-		}
-		collectPipeVars(n.Pipe, vars)
+		collectFromActionNode(n, vars)
 	case *parse.IfNode:
-		if n == nil {
-			return
-		}
-		collectPipeVars(n.Pipe, vars)
-		collectTemplateVars(n.List, vars)
-		collectTemplateVars(n.ElseList, vars)
+		collectFromBranchNode(n.Pipe, n.List, n.ElseList, vars)
 	case *parse.RangeNode:
-		if n == nil {
-			return
-		}
-		collectPipeVars(n.Pipe, vars)
-		collectTemplateVars(n.List, vars)
-		collectTemplateVars(n.ElseList, vars)
+		collectFromBranchNode(n.Pipe, n.List, n.ElseList, vars)
 	case *parse.WithNode:
-		if n == nil {
-			return
-		}
-		collectPipeVars(n.Pipe, vars)
-		collectTemplateVars(n.List, vars)
-		collectTemplateVars(n.ElseList, vars)
+		collectFromBranchNode(n.Pipe, n.List, n.ElseList, vars)
 	case *parse.TemplateNode:
-		if n == nil {
-			return
-		}
-		collectPipeVars(n.Pipe, vars)
+		collectFromTemplateNode(n, vars)
 	}
+}
+
+func collectFromListNode(n *parse.ListNode, vars map[string]struct{}) {
+	if n == nil {
+		return
+	}
+	for _, child := range n.Nodes {
+		collectTemplateVars(child, vars)
+	}
+}
+
+func collectFromActionNode(n *parse.ActionNode, vars map[string]struct{}) {
+	if n == nil {
+		return
+	}
+	collectPipeVars(n.Pipe, vars)
+}
+
+func collectFromBranchNode(pipe *parse.PipeNode, list, elseList *parse.ListNode, vars map[string]struct{}) {
+	collectPipeVars(pipe, vars)
+	collectTemplateVars(list, vars)
+	collectTemplateVars(elseList, vars)
+}
+
+func collectFromTemplateNode(n *parse.TemplateNode, vars map[string]struct{}) {
+	if n == nil {
+		return
+	}
+	collectPipeVars(n.Pipe, vars)
 }
 
 func collectPipeVars(pipe *parse.PipeNode, vars map[string]struct{}) {

@@ -28,6 +28,9 @@ type Entry struct {
 	RawContents []byte
 }
 
+// RenderTemplate applies template variable substitution to the given content.
+// It uses Go's text/template engine with strict error handling for missing keys.
+// Returns the rendered content or an error if template execution fails.
 func RenderTemplate(content []byte, vars domain.TemplateVars) ([]byte, error) {
 	rendered, err := renderTemplateString(string(content), vars)
 	if err != nil {
@@ -48,6 +51,9 @@ func renderTemplateString(content string, vars domain.TemplateVars) (string, err
 	return buf.String(), nil
 }
 
+// RenderPathSegment renders a single path component (file or directory name) with template variables.
+// It validates that the result is a valid path segment without separators or special names.
+// Returns an error if rendering produces an invalid path component.
 func RenderPathSegment(name string, vars domain.TemplateVars) (string, error) {
 	rendered, err := renderTemplateString(name, vars)
 	if err != nil {
@@ -63,6 +69,9 @@ func RenderPathSegment(name string, vars domain.TemplateVars) (string, error) {
 	return rendered, nil
 }
 
+// WalkEntries recursively traverses a template directory tree and invokes the visit function for each entry.
+// It renders path segments with template variables and skips reserved template files.
+// Returns an error if directory traversal or path rendering fails.
 func WalkEntries(fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, visit func(Entry) error) error {
 	entries, err := fs.ReadDir(fsys, srcDir)
 	if err != nil {
@@ -103,6 +112,8 @@ func WalkEntries(fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, v
 	return nil
 }
 
+// ReadEntry loads the file content for a given entry from the filesystem.
+// It populates the RawContents field of the entry. Returns an error if the file cannot be read.
 func ReadEntry(fsys fs.FS, entry Entry) (Entry, error) {
 	content, err := fs.ReadFile(fsys, entry.SourcePath)
 	if err != nil {
@@ -113,6 +124,8 @@ func ReadEntry(fsys fs.FS, entry Entry) (Entry, error) {
 	return entry, nil
 }
 
+// RenderEntry processes an entry's content, applying template rendering if it's a .tmpl file.
+// Non-template files are returned as-is. Returns an error if template rendering fails.
 func RenderEntry(entry Entry, vars domain.TemplateVars) ([]byte, error) {
 	if !entry.IsTemplate {
 		return entry.RawContents, nil

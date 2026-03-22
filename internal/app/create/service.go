@@ -383,10 +383,16 @@ func resolveNewProjectArgs(lang, module, arg string) (projectName string, target
 	return arg, arg, module, nil
 }
 
+// ResolveNewProjectArgs resolves the project name, target directory, and module path
+// from the provided language, module flag, and positional argument.
+// For Go projects, it handles both simple project names and full module paths.
+// Returns an error if the arguments are invalid or cannot be resolved.
 func ResolveNewProjectArgs(lang, module, arg string) (projectName string, targetDir string, modulePath string, err error) {
 	return resolveNewProjectArgs(lang, module, arg)
 }
 
+// ProjectNameFromGoModulePath extracts the project name from a Go module path.
+// For example, "github.com/user/myapp" returns "myapp", and "github.com/user/myapp/v2" also returns "myapp".
 func ProjectNameFromGoModulePath(modulePath string) string {
 	return domain.ProjectNameFromGoModulePath(modulePath)
 }
@@ -400,6 +406,8 @@ func projectNameFromTargetDir(targetDir string) (string, error) {
 	return filepath.Base(absTarget), nil
 }
 
+// ProjectNameFromTargetDir derives the project name from the target directory path.
+// It returns the base name of the absolute path. Returns an error if the path cannot be resolved.
 func ProjectNameFromTargetDir(targetDir string) (string, error) {
 	return projectNameFromTargetDir(targetDir)
 }

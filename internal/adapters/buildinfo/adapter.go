@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+const (
+	shortRevisionLength = 7
+)
+
 var readBuildInfo = debug.ReadBuildInfo
 
 var Tag = "dev"
@@ -50,8 +54,8 @@ func vcsInfo() (revision string, modified bool) {
 		switch s.Key {
 		case "vcs.revision":
 			revision = s.Value
-			if len(revision) > 7 {
-				revision = revision[:7]
+			if len(revision) > shortRevisionLength {
+				revision = revision[:shortRevisionLength]
 			}
 		case "vcs.modified":
 			modified = s.Value == "true"

@@ -11,6 +11,19 @@ import (
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
+const (
+	// defaultDirMode is the standard permission for created directories (rwxr-xr-x).
+	defaultDirMode fs.FileMode = 0o755
+	// defaultFileMode is the standard permission for regular files (rw-r--r--).
+	defaultFileMode fs.FileMode = 0o644
+	// tempFileMode is the initial permission for files during creation (rw-rw-rw-).
+	tempFileMode fs.FileMode = 0o666
+	// tempDirMode is the permission for parent directories during creation (rwxrwxrwx).
+	tempDirMode fs.FileMode = 0o777
+	// ownerWriteMask ensures directory owner has write permission (rwx------).
+	ownerWriteMask fs.FileMode = 0o700
+)
+
 var (
 	osMkdirAll  = os.MkdirAll
 	osWriteFile = os.WriteFile
@@ -37,7 +50,7 @@ func Preview(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Templa
 }
 
 func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, resolveMode ModeResolver) error {
-	if err := osMkdirAll(destDir, 0o755); err != nil {
+	if err := osMkdirAll(destDir, defaultDirMode); err != nil {
 		return err
 	}
 
@@ -69,10 +82,10 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 			return err
 		}
 
-		if err := osMkdirAll(filepath.Dir(entry.Destination), 0o777); err != nil {
+		if err := osMkdirAll(filepath.Dir(entry.Destination), tempDirMode); err != nil {
 			return err
 		}
-		if err := osWriteFile(entry.Destination, rendered, 0o666); err != nil {
+		if err := osWriteFile(entry.Destination, rendered, tempFileMode); err != nil {
 			return err
 		}
 
@@ -98,9 +111,9 @@ func resolvedMode(entry Entry, isDir bool, resolveMode ModeResolver) fs.FileMode
 		}
 	}
 	if isDir {
-		return 0o755
+		return defaultDirMode
 	}
-	return 0o644
+	return defaultFileMode
 }
 
 func applyMaterializedMode(path string, mode fs.FileMode) error {
@@ -119,8 +132,8 @@ func applyMaterializedMode(path string, mode fs.FileMode) error {
 
 func ensureWritableDirMode(mode fs.FileMode) fs.FileMode {
 	if mode.Perm() == 0 {
-		return 0o755
+		return defaultDirMode
 	}
 
-	return mode.Perm() | 0o700
+	return mode.Perm() | ownerWriteMask
 }

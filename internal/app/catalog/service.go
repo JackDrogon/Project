@@ -32,6 +32,8 @@ type Service struct {
 	manifestLoader ManifestLoader
 }
 
+// Summary provides a high-level overview of a template's metadata.
+// It includes the template name, description, file counts, and extracted variables.
 type Summary struct {
 	Name            string
 	Description     string
@@ -42,12 +44,16 @@ type Summary struct {
 	Variables       []string
 }
 
+// FileDetail represents metadata about a single file in a template.
+// It tracks the source path, output path, and whether the file requires template rendering.
 type FileDetail struct {
 	Source     string
 	Output     string
 	IsTemplate bool
 }
 
+// Inspection contains comprehensive analysis results for a template.
+// It extends Summary with detailed file listings and manifest inputs, optionally filtered by inspection mode.
 type Inspection struct {
 	Name            string
 	Description     string

@@ -12,6 +12,10 @@ import (
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
+const (
+	defaultAuthorName = "author"
+)
+
 var (
 	currentUser      = user.Current
 	execGoCommand    = exec.Command
@@ -24,7 +28,7 @@ func NewTemplateVars(projectName, modulePath string) domain.TemplateVars {
 }
 
 func newDefaultTemplateVars(projectName, modulePath string) domain.TemplateVars {
-	author := "author"
+	author := defaultAuthorName
 	if u, err := currentUser(); err == nil && u.Username != "" {
 		author = u.Username
 	}

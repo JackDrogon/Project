@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"slices"
 	"strings"
 
 	toml "github.com/pelletier/go-toml/v2"
@@ -85,7 +86,7 @@ func ValidateManifest(manifest Manifest, manifestPath, lang string) error {
 		}
 		seenInputs[input.Key] = struct{}{}
 
-		if !containsString(allowedManifestTemplateVars, input.TemplateVar) {
+		if !slices.Contains(allowedManifestTemplateVars, input.TemplateVar) {
 			return fmt.Errorf("template manifest %s input %q has unsupported template_var %q", manifestPath, input.Key, input.TemplateVar)
 		}
 	}
@@ -99,13 +100,4 @@ func rejectLegacyJSON(content []byte, path string) error {
 		return fmt.Errorf("%s contains legacy JSON; only TOML is supported", path)
 	}
 	return nil
-}
-
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }

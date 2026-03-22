@@ -2,11 +2,14 @@ package templatefs
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -14,9 +17,12 @@ import (
 
 const TmplSuffix = ".tmpl"
 
-var reservedTemplateFilenames = map[string]struct{}{
-	".project-template-manifest.toml": {},
-}
+var (
+	reservedTemplateFilenames = map[string]struct{}{
+		".project-template-manifest.toml": {},
+	}
+	templateCache sync.Map
+)
 
 type Entry struct {
 	SourcePath  string
@@ -40,15 +46,30 @@ func RenderTemplate(content []byte, vars domain.TemplateVars) ([]byte, error) {
 }
 
 func renderTemplateString(content string, vars domain.TemplateVars) (string, error) {
-	tmpl, err := template.New("").Option("missingkey=error").Parse(content)
-	if err != nil {
-		return "", err
+	cacheKey := computeTemplateHash(content)
+
+	var tmpl *template.Template
+	if cached, ok := templateCache.Load(cacheKey); ok {
+		tmpl = cached.(*template.Template)
+	} else {
+		parsed, err := template.New("").Option("missingkey=error").Parse(content)
+		if err != nil {
+			return "", err
+		}
+		templateCache.Store(cacheKey, parsed)
+		tmpl = parsed
 	}
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, vars); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func computeTemplateHash(content string) string {
+	hash := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(hash[:])
 }
 
 // RenderPathSegment renders a single path component (file or directory name) with template variables.

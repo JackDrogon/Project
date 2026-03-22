@@ -1,10 +1,14 @@
 package catalog
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"sort"
 	"strings"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	"github.com/JackDrogon/project/internal/adapters/templatefs"
@@ -96,22 +100,41 @@ func (s *Service) ListSummaries() ([]Summary, error) {
 		return nil, err
 	}
 
+	var mu sync.Mutex
 	results := make([]Summary, 0, len(langs))
+	g, _ := errgroup.WithContext(context.Background())
+
 	for _, lang := range langs {
-		inspection, err := s.Inspect(lang, InspectModeAll)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, Summary{
-			Name:            inspection.Name,
-			Description:     inspection.Description,
-			ManifestVersion: inspection.ManifestVersion,
-			InputNames:      inputNames(inspection.Inputs),
-			FileCount:       inspection.FileCount,
-			TemplateCount:   inspection.TemplateCount,
-			Variables:       append([]string(nil), inspection.Variables...),
+		lang := lang
+		g.Go(func() error {
+			inspection, err := s.Inspect(lang, InspectModeAll)
+			if err != nil {
+				return err
+			}
+
+			mu.Lock()
+			results = append(results, Summary{
+				Name:            inspection.Name,
+				Description:     inspection.Description,
+				ManifestVersion: inspection.ManifestVersion,
+				InputNames:      inputNames(inspection.Inputs),
+				FileCount:       inspection.FileCount,
+				TemplateCount:   inspection.TemplateCount,
+				Variables:       append([]string(nil), inspection.Variables...),
+			})
+			mu.Unlock()
+			return nil
 		})
 	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Name < results[j].Name
+	})
+
 	return results, nil
 }
 

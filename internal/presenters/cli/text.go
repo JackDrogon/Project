@@ -8,7 +8,7 @@ import (
 	"github.com/JackDrogon/project/internal/app/catalog"
 )
 
-func WriteTextLangs(w io.Writer, langs []string) error {
+func writeTextLangs(w io.Writer, langs []string) error {
 	var b strings.Builder
 	for _, lang := range langs {
 		fmt.Fprintln(&b, lang)
@@ -17,7 +17,7 @@ func WriteTextLangs(w io.Writer, langs []string) error {
 	return err
 }
 
-func WriteTextSummaries(w io.Writer, summaries []catalog.Summary) error {
+func writeTextSummaries(w io.Writer, summaries []catalog.Summary) error {
 	var b strings.Builder
 	for _, summary := range summaries {
 		vars := "(none)"
@@ -41,7 +41,7 @@ func WriteTextSummaries(w io.Writer, summaries []catalog.Summary) error {
 	return err
 }
 
-func WriteTextInspection(w io.Writer, inspection catalog.Inspection) error {
+func writeTextInspection(w io.Writer, inspection catalog.Inspection) error {
 	var b strings.Builder
 	vars := "(none)"
 	if len(inspection.Variables) > 0 {

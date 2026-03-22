@@ -45,7 +45,7 @@ type tomlFileDetail struct {
 	IsTemplate bool   `toml:"is_template"`
 }
 
-func WriteTOMLLangs(w io.Writer, langs []string) error {
+func writeTOMLLangs(w io.Writer, langs []string) error {
 	content, err := toml.Marshal(struct {
 		Languages []string `toml:"languages"`
 	}{Languages: langs})
@@ -56,7 +56,7 @@ func WriteTOMLLangs(w io.Writer, langs []string) error {
 	return err
 }
 
-func WriteTOMLSummaries(w io.Writer, summaries []catalog.Summary) error {
+func writeTOMLSummaries(w io.Writer, summaries []catalog.Summary) error {
 	encoded := tomlSummaries{Templates: make([]tomlSummary, 0, len(summaries))}
 	for _, summary := range summaries {
 		encoded.Templates = append(encoded.Templates, tomlSummary{
@@ -78,7 +78,7 @@ func WriteTOMLSummaries(w io.Writer, summaries []catalog.Summary) error {
 	return err
 }
 
-func WriteTOMLInspection(w io.Writer, inspection catalog.Inspection) error {
+func writeTOMLInspection(w io.Writer, inspection catalog.Inspection) error {
 	encoded := tomlInspection{
 		Name:            inspection.Name,
 		Description:     inspection.Description,

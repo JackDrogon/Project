@@ -28,31 +28,24 @@ func newListCmd(creator *appcreate.Creator) *cobra.Command {
 			service := newCatalogService()
 			format := selectedOutputFormat(asTOML)
 
+			cliPresenter, err := presenter.NewPresenter(format)
+			if err != nil {
+				return err
+			}
+
 			if detail {
 				summaries, err := service.ListSummaries()
 				if err != nil {
 					return err
 				}
-
-				switch format {
-				case outputFormatTOML:
-					return presenter.WriteTOMLSummaries(out, summaries)
-				}
-
-				return presenter.WriteTextSummaries(out, summaries)
+				return cliPresenter.WriteSummaries(out, summaries)
 			}
 
 			langs, err := service.ListLangs()
 			if err != nil {
 				return err
 			}
-
-			switch format {
-			case outputFormatTOML:
-				return presenter.WriteTOMLLangs(out, langs)
-			}
-
-			return presenter.WriteTextLangs(out, langs)
+			return cliPresenter.WriteLangs(out, langs)
 		},
 	}
 

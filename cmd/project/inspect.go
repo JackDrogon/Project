@@ -26,12 +26,12 @@ func newInspectCmd(creator *appcreate.Creator) *cobra.Command {
 			out := cmd.OutOrStdout()
 			format := selectedOutputFormat(asTOML)
 
-			switch format {
-			case outputFormatTOML:
-				return presenter.WriteTOMLInspection(out, inspection)
+			cliPresenter, err := presenter.NewPresenter(format)
+			if err != nil {
+				return err
 			}
 
-			return presenter.WriteTextInspection(out, inspection)
+			return cliPresenter.WriteInspection(out, inspection)
 		},
 	}
 

@@ -1,7 +1,45 @@
 package cli
 
-type Presenter struct{}
+import (
+	"fmt"
+	"io"
 
-func New() *Presenter {
-	return &Presenter{}
+	"github.com/JackDrogon/project/internal/app/catalog"
+)
+
+type Presenter struct {
+	formatter Formatter
+}
+
+func NewPresenter(format string) (*Presenter, error) {
+	var formatter Formatter
+	switch format {
+	case "text":
+		formatter = &textFormatter{}
+	case "toml":
+		formatter = &tomlFormatter{}
+	default:
+		return nil, fmt.Errorf("unsupported format: %s", format)
+	}
+	return &Presenter{formatter: formatter}, nil
+}
+
+func NewTextPresenter() *Presenter {
+	return &Presenter{formatter: &textFormatter{}}
+}
+
+func NewTOMLPresenter() *Presenter {
+	return &Presenter{formatter: &tomlFormatter{}}
+}
+
+func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {
+	return p.formatter.WriteLangs(w, langs)
+}
+
+func (p *Presenter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
+	return p.formatter.WriteSummaries(w, summaries)
+}
+
+func (p *Presenter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
+	return p.formatter.WriteInspection(w, inspection)
 }

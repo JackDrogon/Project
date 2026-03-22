@@ -92,3 +92,70 @@ func TestLookupMode_UsesExplicitMetadataTableOnly(t *testing.T) {
 		t.Fatal("lookupMode() unexpectedly inferred metadata for missing path")
 	}
 }
+
+func TestPermissionsGeneratedUpToDate(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir() error = %v", err)
+	}
+
+	var templateDirs []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == "gen" || name[0] == '.' {
+			continue
+		}
+		templateDirs = append(templateDirs, name)
+	}
+
+	var mismatches []string
+	for _, dir := range templateDirs {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() && isEmptyDir(path) {
+				return nil
+			}
+			normalizedPath := filepath.ToSlash(path)
+			actualMode := info.Mode().Perm()
+			generatedMode, ok := templateModeMetadata[normalizedPath]
+			if !ok {
+				mismatches = append(mismatches, normalizedPath+" (missing in metadata)")
+				return nil
+			}
+			if actualMode != generatedMode {
+				mismatches = append(mismatches, normalizedPath)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("Walk(%q) error = %v", dir, err)
+		}
+	}
+
+	if len(mismatches) > 0 {
+		sort.Strings(mismatches)
+		t.Fatalf("permissions_generated.go is stale, run: go generate ./internal/adapters/templatesrc/\nmismatched paths: %v", mismatches)
+	}
+}
+
+func isEmptyDir(path string) bool {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			return false
+		}
+		subPath := filepath.Join(path, entry.Name())
+		if !isEmptyDir(subPath) {
+			return false
+		}
+	}
+	return true
+}

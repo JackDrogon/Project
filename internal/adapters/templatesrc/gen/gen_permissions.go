@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"go/format"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -68,8 +69,14 @@ func collectPermissions(root string, permissions map[string]fs.FileMode) error {
 			return err
 		}
 
-		if info.IsDir() && isEmptyDir(path) {
-			return nil
+		if info.IsDir() {
+			empty, err := isEmptyDir(path)
+			if err != nil {
+				return fmt.Errorf("failed to check if directory is empty: %w", err)
+			}
+			if empty {
+				return nil
+			}
 		}
 
 		normalizedPath := filepath.ToSlash(path)
@@ -80,23 +87,27 @@ func collectPermissions(root string, permissions map[string]fs.FileMode) error {
 	})
 }
 
-func isEmptyDir(path string) bool {
+func isEmptyDir(path string) (bool, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return false
+		return false, err
 	}
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			return false
+			return false, nil
 		}
 		subPath := filepath.Join(path, entry.Name())
-		if !isEmptyDir(subPath) {
-			return false
+		empty, err := isEmptyDir(subPath)
+		if err != nil {
+			return false, err
+		}
+		if !empty {
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 func generateFile(permissions map[string]fs.FileMode) error {
@@ -120,8 +131,13 @@ func generateFile(permissions map[string]fs.FileMode) error {
 
 	sb.WriteString("}\n")
 
+	formatted, err := format.Source([]byte(sb.String()))
+	if err != nil {
+		return fmt.Errorf("failed to format generated code: %w", err)
+	}
+
 	outputPath := "permissions_generated.go"
-	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {
+	if err := os.WriteFile(outputPath, formatted, 0644); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 

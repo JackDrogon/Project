@@ -40,7 +40,7 @@ Guidance for agentic coding assistants working in this repository.
 - `just lint` runs `golangci-lint run`.
 - `just vet` runs `go vet ./...`.
 - `just generate` runs `go generate ./...` to regenerate auto-generated source files.
-- `just pre-commit` runs `fmt`, `lint`, and `test` in sequence.
+- `just pre-commit` runs `generate`, `fmt`, `lint`, and `test` in sequence.
 
 ### Test
 

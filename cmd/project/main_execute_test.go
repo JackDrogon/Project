@@ -8,8 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/JackDrogon/project/pkg/scaffold"
-	projectversion "github.com/JackDrogon/project/pkg/version"
+	"github.com/JackDrogon/project/internal/adapters/buildinfo"
 )
 
 type exitPanic struct {
@@ -41,12 +40,12 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func TestMain_PrintsVersion(t *testing.T) {
 	oldArgs := os.Args
-	oldTag := projectversion.Tag
+	oldTag := buildinfo.Tag
 	os.Args = []string{"project", "version"}
-	projectversion.Tag = "main-test-tag"
+	buildinfo.Tag = "main-test-tag"
 	t.Cleanup(func() {
 		os.Args = oldArgs
-		projectversion.Tag = oldTag
+		buildinfo.Tag = oldTag
 	})
 
 	output := captureStdout(t, func() {
@@ -73,7 +72,7 @@ func TestExecute_ExitsOnError(t *testing.T) {
 		stderrWriter = oldStderr
 	})
 
-	creator := scaffold.NewCreator(fstest.MapFS{}, io.Discard)
+	creator := newCommandCreatorFromFS(fstest.MapFS{}, io.Discard)
 
 	defer func() {
 		r := recover()

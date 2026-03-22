@@ -1,0 +1,13 @@
+version = 2
+name = "go"
+description = "Production-ready Go CLI starter"
+
+[[inputs]]
+key = "module_path"
+template_var = "ModulePath"
+required = true
+
+[[inputs]]
+key = "go_version"
+template_var = "GoVersion"
+required = true

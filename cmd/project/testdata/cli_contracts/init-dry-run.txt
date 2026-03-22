@@ -1,0 +1,24 @@
+Creating project with language: go, project name: demo
+Dry-run mode: no files will be created
+template: go
+description: Go starter
+target_dir: nested/demo
+resolved inputs:
+  project_name: demo
+  module_path: example.com/demo
+  go_version: 1.25
+  author: cli-contract
+  year: 2042
+  git_mode: none
+explicit overrides:
+  module_path: example.com/demo
+  go_version: 1.25
+  author: cli-contract
+  year: 2042
+  git_mode: none
+actions:
+  copy go/README.md -> nested/demo/README.md
+  create nested/demo/cmd/
+  create nested/demo/cmd/demo/
+  render go/cmd/{{.ProjectNameLower}}/main.go.tmpl -> nested/demo/cmd/demo/main.go
+  render go/go.mod.tmpl -> nested/demo/go.mod

@@ -9,7 +9,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/JackDrogon/project/pkg/scaffold"
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appcreate "github.com/JackDrogon/project/internal/app/create"
+	domain "github.com/JackDrogon/project/internal/domain/scaffold"
 )
 
 func withTempWorkingDir(t *testing.T, baseName string) string {
@@ -41,7 +43,7 @@ func TestInitCmd_DefaultsToCurrentDirectory(t *testing.T) {
 	}
 	workDir := withTempWorkingDir(t, "demo")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git"})
 
@@ -64,7 +66,7 @@ func TestInitCmd_UsesExplicitTargetDirectory(t *testing.T) {
 	}
 	workDir := withTempWorkingDir(t, "workspace")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", filepath.Join("nested", "demo")})
 
@@ -94,7 +96,7 @@ func TestInitCmd_RejectsNonEmptyDirectory(t *testing.T) {
 		t.Fatalf("WriteFile(old.txt) error = %v", err)
 	}
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", "demo"})
 
@@ -108,7 +110,7 @@ func TestInitCmd_RejectsNonEmptyDirectory(t *testing.T) {
 }
 
 func TestInitCmd_RequiresLang(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--git", "none"})
 
@@ -122,7 +124,7 @@ func TestInitCmd_RequiresLang(t *testing.T) {
 }
 
 func TestInitCmd_RejectsTooManyArgs(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "one", "two"})
 
@@ -141,7 +143,7 @@ func TestInitCmd_PropagatesGitOptionConflict(t *testing.T) {
 	}
 	withTempWorkingDir(t, "workspace")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", "--git", "init-only"})
 
@@ -167,7 +169,7 @@ func TestInitCmd_DryRunRejectsNonEmptyDirectory(t *testing.T) {
 		t.Fatalf("WriteFile(old.txt) error = %v", err)
 	}
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--dry-run", "demo"})
 
@@ -185,7 +187,7 @@ func TestInitCmd_DryRunRejectsNonEmptyDirectory(t *testing.T) {
 
 func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template-manifest.json":        {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
 		"go/README.md":                              {Data: []byte("# README\n")},
 		"go/cmd":                                    {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
@@ -195,7 +197,7 @@ func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 	var out bytes.Buffer
 
-	creator := scaffold.NewCreator(fsys, &out)
+	creator := appcreate.NewCreator(fsys, &out)
 	cmd := newInitCmd(creator)
 	targetDir := filepath.Join("nested", "demo")
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", targetDir})
@@ -204,7 +206,7 @@ func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	vars := scaffold.NewTemplateVars("demo", "example.com/demo")
+	vars := appcreate.NewTemplateVars("demo", "example.com/demo")
 	got := out.String()
 	requireOrderedSubstrings(t, got, []string{
 		"Creating project with language: go, project name: demo\n",
@@ -236,9 +238,9 @@ func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 }
 
 func TestInitCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
-	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.json")})
+	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.toml")})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -251,18 +253,21 @@ func TestInitCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
 
 func TestInitCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
-		Command: scaffold.ReplayCommandNew,
-		Lang:    "go",
-		Create: scaffold.ReplayFileCreate{
-			ProjectName: "replayed-demo",
-			TargetDir:   "replayed-demo",
-			GitMode:     scaffold.GitModeNone,
+	replayPath := writeReplayTOMLForTest(t, protocoltoml.Replay{
+		Version:  protocoltoml.ReplayVersion,
+		Mode:     string(appcreate.CommandNew),
+		Template: protocoltoml.ReplayTemplate{Lang: "go"},
+		Project: protocoltoml.ReplayProject{
+			Name:       "replayed-demo",
+			TargetDir:  "replayed-demo",
+			ModulePath: "example.com/replayed-demo",
 		},
-		TemplateInputs: map[string]string{"module_path": "example.com/replayed-demo"},
+		Git:     protocoltoml.ReplayGit{Mode: domain.GitModeNone},
+		Options: protocoltoml.ReplayOptions{},
+		Inputs:  map[string]string{"module_path": "example.com/replayed-demo"},
 	})
 
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
@@ -281,15 +286,38 @@ func TestInitCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	}
 }
 
+func TestInitCmd_ReplayRejectsLegacyJSONContent(t *testing.T) {
+	workDir := withTempWorkingDir(t, "workspace")
+	replayPath := filepath.Join(t.TempDir(), "replay.toml")
+	if err := os.WriteFile(replayPath, []byte(`{"schema_version":1,"command":"init"}`), 0644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", replayPath, err)
+	}
+
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := newInitCmd(creator)
+	cmd.SetArgs([]string{"--replay", replayPath})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "legacy JSON") {
+		t.Fatalf("Execute() error = %v, want legacy JSON rejection", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(workDir, "replayed-demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy JSON input should fail before project creation, stat err = %v", statErr)
+	}
+}
+
 func TestInitCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	fsys := fstest.MapFS{
-		"cpp/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"cpp","description":"C++ starter","inputs":[{"name":"author","template_var":"Author"}]}`)},
+		"cpp/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"cpp\"\ndescription = \"C++ starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n")},
 		"cpp/README.md.tmpl":                  {Data: []byte("By {{.Author}}\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := filepath.Join(t.TempDir(), "replay.json")
+	replayPath := filepath.Join(t.TempDir(), "replay.toml")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "cpp", "--git", "none", "--set", "author=alice", "--write-replay", replayPath, "demo"})
 
@@ -297,31 +325,31 @@ func TestInitCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	replay, err := scaffold.ReadReplayFile(replayPath)
+	replay, err := protocoltoml.ReadReplay(replayPath)
 	if err != nil {
-		t.Fatalf("ReadReplayFile(%q) error = %v", replayPath, err)
+		t.Fatalf("ReadReplay(%q) error = %v", replayPath, err)
 	}
 
-	if replay.Command != scaffold.ReplayCommandInit {
-		t.Fatalf("replay.Command = %q, want %q", replay.Command, scaffold.ReplayCommandInit)
+	if replay.Mode != string(appcreate.CommandInit) {
+		t.Fatalf("replay.Mode = %q, want %q", replay.Mode, appcreate.CommandInit)
 	}
-	if replay.Lang != "cpp" {
-		t.Fatalf("replay.Lang = %q, want %q", replay.Lang, "cpp")
+	if replay.Template.Lang != "cpp" {
+		t.Fatalf("replay.Template.Lang = %q, want %q", replay.Template.Lang, "cpp")
 	}
-	if replay.Create.ProjectName != "demo" {
-		t.Fatalf("replay.Create.ProjectName = %q, want %q", replay.Create.ProjectName, "demo")
+	if replay.Project.Name != "demo" {
+		t.Fatalf("replay.Project.Name = %q, want %q", replay.Project.Name, "demo")
 	}
-	if replay.Create.TargetDir != "demo" {
-		t.Fatalf("replay.Create.TargetDir = %q, want %q", replay.Create.TargetDir, "demo")
+	if replay.Project.TargetDir != "demo" {
+		t.Fatalf("replay.Project.TargetDir = %q, want %q", replay.Project.TargetDir, "demo")
 	}
-	if replay.Create.GitMode != scaffold.GitModeNone {
-		t.Fatalf("replay.Create.GitMode = %q, want %q", replay.Create.GitMode, scaffold.GitModeNone)
+	if replay.Git.Mode != domain.GitModeNone {
+		t.Fatalf("replay.Git.Mode = %q, want %q", replay.Git.Mode, domain.GitModeNone)
 	}
-	if got := replay.TemplateInputs["author"]; got != "alice" {
-		t.Fatalf("replay.TemplateInputs[author] = %q, want %q", got, "alice")
+	if got := replay.Inputs["author"]; got != "alice" {
+		t.Fatalf("replay.Inputs[author] = %q, want %q", got, "alice")
 	}
-	if len(replay.TemplateInputs) != 1 {
-		t.Fatalf("len(replay.TemplateInputs) = %d, want %d", len(replay.TemplateInputs), 1)
+	if len(replay.Inputs) != 1 {
+		t.Fatalf("len(replay.Inputs) = %d, want %d", len(replay.Inputs), 1)
 	}
 
 	readme, err := os.ReadFile(filepath.Join(workDir, "demo", "README.md"))
@@ -374,7 +402,7 @@ func TestInitCmd_ReportsProjectNameResolutionError(t *testing.T) {
 		t.Fatalf("RemoveAll(%q) error = %v", tmp, err)
 	}
 
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newInitCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go"})
 

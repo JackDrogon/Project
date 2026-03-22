@@ -3,25 +3,30 @@ package main
 import (
 	"fmt"
 
-	"github.com/JackDrogon/project/pkg/version"
-
+	"github.com/JackDrogon/project/internal/adapters/buildinfo"
+	appversion "github.com/JackDrogon/project/internal/app/version"
 	"github.com/spf13/cobra"
 )
+
+var newVersionService = func() *appversion.Service {
+	return appversion.NewService(buildinfo.New())
+}
 
 // newVersionCmd creates the "version" subcommand that prints the build version.
 func newVersionCmd() *cobra.Command {
 	var verbose bool
+	service := newVersionService()
 
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "show version",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if verbose {
-				_, err := fmt.Fprintln(cmd.OutOrStdout(), version.Verbose())
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), service.Verbose())
 				return err
 			}
 
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), version.Info())
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), service.Info())
 			return err
 		},
 	}

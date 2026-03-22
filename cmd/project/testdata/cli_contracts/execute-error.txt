@@ -1,0 +1,17 @@
+Error: accepts 1 arg(s), received 0
+Usage:
+  project new [project_name] [flags]
+
+Flags:
+  -n, --dry-run               Preview files without creating them
+      --force                 Remove existing project directory before scaffolding
+      --git string            Git workflow: none, init-only, init+commit (default: init+commit)
+  -h, --help                  help for new
+  -l, --lang string           Programming language for the project
+  -m, --module string         Module path (e.g. github.com/user/project)
+      --replay string         Load project configuration from a TOML replay file
+      --set stringArray       Set a template-specific input value (key=value)
+      --signoff               Add Signed-off-by trailer to the initial commit
+      --write-replay string   Write resolved project configuration to a TOML file after success
+
+accepts 1 arg(s), received 0

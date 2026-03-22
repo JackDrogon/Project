@@ -9,7 +9,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/JackDrogon/project/pkg/scaffold"
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appcreate "github.com/JackDrogon/project/internal/app/create"
+	domain "github.com/JackDrogon/project/internal/domain/scaffold"
 )
 
 func requireOrderedSubstrings(t *testing.T, got string, want []string) {
@@ -25,19 +27,19 @@ func requireOrderedSubstrings(t *testing.T, got string, want []string) {
 	}
 }
 
-func writeReplayFileForTest(t *testing.T, replay scaffold.ReplayFile) string {
+func writeReplayTOMLForTest(t *testing.T, replay protocoltoml.Replay) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "replay.json")
-	if err := scaffold.WriteReplayFile(path, replay); err != nil {
-		t.Fatalf("WriteReplayFile(%q) error = %v", path, err)
+	path := filepath.Join(t.TempDir(), "replay.toml")
+	if err := protocoltoml.WriteReplay(path, replay); err != nil {
+		t.Fatalf("WriteReplay(%q) error = %v", path, err)
 	}
 
 	return path
 }
 
 func TestNewCmd_RequiresLang(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"demo"})
 
@@ -61,7 +63,7 @@ func TestNewCmd_RejectsInvalidArgCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+			creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 			cmd := newNewCmd(creator)
 			cmd.SetArgs(tt.args)
 
@@ -83,7 +85,7 @@ func TestNewCmd_CreatesProjectFromArgument(t *testing.T) {
 	}
 	workDir := withTempWorkingDir(t, "workspace")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "demo"})
 
@@ -115,7 +117,7 @@ func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 	}
 	workDir := withTempWorkingDir(t, "workspace")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "github.com/JackDrogon/agent-village"})
 
@@ -142,7 +144,7 @@ func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 
 func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template-manifest.json":        {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"},{"name":"author","template_var":"Author"},{"name":"year","template_var":"Year"}]}`)},
+		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
 		"go/README.md":                              {Data: []byte("# README\n")},
 		"go/cmd":                                    {Mode: os.ModeDir},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: os.ModeDir},
@@ -152,7 +154,7 @@ func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 	var out bytes.Buffer
 
-	creator := scaffold.NewCreator(fsys, &out)
+	creator := appcreate.NewCreator(fsys, &out)
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", "demo"})
 
@@ -160,7 +162,7 @@ func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	vars := scaffold.NewTemplateVars("demo", "example.com/demo")
+	vars := appcreate.NewTemplateVars("demo", "example.com/demo")
 	got := out.String()
 	requireOrderedSubstrings(t, got, []string{
 		"Creating project with language: go, project name: demo\n",
@@ -198,7 +200,7 @@ func TestNewCmd_GoModuleArgumentWithMajorVersionSuffixUsesRepositoryName(t *test
 	}
 	workDir := withTempWorkingDir(t, "workspace")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "github.com/acme/agent-village/v2"})
 
@@ -228,7 +230,7 @@ func TestNewCmd_GoModuleArgumentWithMajorVersionSuffixUsesRepositoryName(t *test
 }
 
 func TestNewCmd_InvalidDerivedProjectNameReturnsResolveError(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "github.com/acme/9agent"})
 
@@ -247,18 +249,21 @@ func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
 		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
-		Command: scaffold.ReplayCommandNew,
-		Lang:    "go",
-		Create: scaffold.ReplayFileCreate{
-			ProjectName: "replayed-demo",
-			TargetDir:   "replayed-demo",
-			GitMode:     scaffold.GitModeNone,
+	replayPath := writeReplayTOMLForTest(t, protocoltoml.Replay{
+		Version:  protocoltoml.ReplayVersion,
+		Mode:     string(appcreate.CommandNew),
+		Template: protocoltoml.ReplayTemplate{Lang: "go"},
+		Project: protocoltoml.ReplayProject{
+			Name:       "replayed-demo",
+			TargetDir:  "replayed-demo",
+			ModulePath: "example.com/replayed-demo",
 		},
-		TemplateInputs: map[string]string{"module_path": "example.com/replayed-demo"},
+		Git:     protocoltoml.ReplayGit{Mode: domain.GitModeNone},
+		Options: protocoltoml.ReplayOptions{},
+		Inputs:  map[string]string{"module_path": "example.com/replayed-demo"},
 	})
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
@@ -285,18 +290,21 @@ func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
 
 func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
-		Command: scaffold.ReplayCommandInit,
-		Lang:    "go",
-		Create: scaffold.ReplayFileCreate{
-			ProjectName: "replayed-demo",
-			TargetDir:   "replayed-demo",
-			GitMode:     scaffold.GitModeNone,
+	replayPath := writeReplayTOMLForTest(t, protocoltoml.Replay{
+		Version:  protocoltoml.ReplayVersion,
+		Mode:     string(appcreate.CommandInit),
+		Template: protocoltoml.ReplayTemplate{Lang: "go"},
+		Project: protocoltoml.ReplayProject{
+			Name:       "replayed-demo",
+			TargetDir:  "replayed-demo",
+			ModulePath: "example.com/replayed-demo",
 		},
-		TemplateInputs: map[string]string{"module_path": "example.com/replayed-demo"},
+		Git:     protocoltoml.ReplayGit{Mode: domain.GitModeNone},
+		Options: protocoltoml.ReplayOptions{},
+		Inputs:  map[string]string{"module_path": "example.com/replayed-demo"},
 	})
 
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
@@ -315,6 +323,29 @@ func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	}
 }
 
+func TestNewCmd_ReplayRejectsLegacyJSONContent(t *testing.T) {
+	workDir := withTempWorkingDir(t, "workspace")
+	replayPath := filepath.Join(t.TempDir(), "replay.toml")
+	if err := os.WriteFile(replayPath, []byte(`{"schema_version":1,"command":"new"}`), 0644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", replayPath, err)
+	}
+
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := newNewCmd(creator)
+	cmd.SetArgs([]string{"--replay", replayPath})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "legacy JSON") {
+		t.Fatalf("Execute() error = %v, want legacy JSON rejection", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(workDir, "replayed-demo")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy JSON input should fail before project creation, stat err = %v", statErr)
+	}
+}
+
 func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/go.mod.tmpl":     {Data: []byte("module {{.ModulePath}}\n")},
@@ -323,20 +354,24 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 		"cpp/README.md.tmpl": {Data: []byte("# {{.ProjectName}}\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := writeReplayFileForTest(t, scaffold.ReplayFile{
-		Command: scaffold.ReplayCommandNew,
-		Lang:    "cpp",
-		Create: scaffold.ReplayFileCreate{
-			ProjectName: "replay-name",
-			TargetDir:   "replay-dir",
-			GitMode:     scaffold.GitModeInitOnly,
-			Signoff:     true,
-			Force:       true,
+	replayPath := writeReplayTOMLForTest(t, protocoltoml.Replay{
+		Version:  protocoltoml.ReplayVersion,
+		Mode:     string(appcreate.CommandNew),
+		Template: protocoltoml.ReplayTemplate{Lang: "cpp"},
+		Project: protocoltoml.ReplayProject{
+			Name:       "replay-name",
+			TargetDir:  "replay-dir",
+			ModulePath: "example.com/from-replay",
 		},
-		TemplateInputs: map[string]string{"module_path": "example.com/from-replay"},
+		Git: protocoltoml.ReplayGit{
+			Mode:    domain.GitModeInitOnly,
+			Signoff: true,
+		},
+		Options: protocoltoml.ReplayOptions{Force: true},
+		Inputs:  map[string]string{"module_path": "example.com/from-replay"},
 	})
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--replay", replayPath, "--lang", "go", "--module", "example.com/from-cli", "--git", "none", "--signoff=false", "cli-demo"})
 
@@ -369,9 +404,9 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 }
 
 func TestNewCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
-	creator := scaffold.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
-	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.json"), "demo"})
+	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.toml"), "demo"})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -384,13 +419,13 @@ func TestNewCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
 
 func TestNewCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"},{"name":"go_version","template_var":"GoVersion"}]}`)},
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n")},
 		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
 	}
 	withTempWorkingDir(t, "workspace")
-	replayPath := filepath.Join(t.TempDir(), "replay.json")
+	replayPath := filepath.Join(t.TempDir(), "replay.toml")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--write-replay", replayPath, "demo"})
 
@@ -398,52 +433,52 @@ func TestNewCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	replay, err := scaffold.ReadReplayFile(replayPath)
+	replay, err := protocoltoml.ReadReplay(replayPath)
 	if err != nil {
-		t.Fatalf("ReadReplayFile(%q) error = %v", replayPath, err)
+		t.Fatalf("ReadReplay(%q) error = %v", replayPath, err)
 	}
 
-	if replay.Command != scaffold.ReplayCommandNew {
-		t.Fatalf("replay.Command = %q, want %q", replay.Command, scaffold.ReplayCommandNew)
+	if replay.Mode != string(appcreate.CommandNew) {
+		t.Fatalf("replay.Mode = %q, want %q", replay.Mode, appcreate.CommandNew)
 	}
-	if replay.Lang != "go" {
-		t.Fatalf("replay.Lang = %q, want %q", replay.Lang, "go")
+	if replay.Template.Lang != "go" {
+		t.Fatalf("replay.Template.Lang = %q, want %q", replay.Template.Lang, "go")
 	}
-	if replay.Create.ProjectName != "demo" {
-		t.Fatalf("replay.Create.ProjectName = %q, want %q", replay.Create.ProjectName, "demo")
+	if replay.Project.Name != "demo" {
+		t.Fatalf("replay.Project.Name = %q, want %q", replay.Project.Name, "demo")
 	}
-	if replay.Create.TargetDir != "demo" {
-		t.Fatalf("replay.Create.TargetDir = %q, want %q", replay.Create.TargetDir, "demo")
+	if replay.Project.TargetDir != "demo" {
+		t.Fatalf("replay.Project.TargetDir = %q, want %q", replay.Project.TargetDir, "demo")
 	}
-	if replay.Create.GitMode != scaffold.GitModeNone {
-		t.Fatalf("replay.Create.GitMode = %q, want %q", replay.Create.GitMode, scaffold.GitModeNone)
+	if replay.Git.Mode != domain.GitModeNone {
+		t.Fatalf("replay.Git.Mode = %q, want %q", replay.Git.Mode, domain.GitModeNone)
 	}
-	if replay.Create.Signoff {
-		t.Fatal("replay.Create.Signoff = true, want false")
+	if replay.Git.Signoff {
+		t.Fatal("replay.Git.Signoff = true, want false")
 	}
-	if replay.Create.Force {
-		t.Fatal("replay.Create.Force = true, want false")
+	if replay.Options.Force {
+		t.Fatal("replay.Options.Force = true, want false")
 	}
-	if got := replay.TemplateInputs["module_path"]; got != "example.com/demo" {
-		t.Fatalf("replay.TemplateInputs[module_path] = %q, want %q", got, "example.com/demo")
+	if got := replay.Inputs["module_path"]; got != "example.com/demo" {
+		t.Fatalf("replay.Inputs[module_path] = %q, want %q", got, "example.com/demo")
 	}
-	if got := replay.TemplateInputs["go_version"]; got != "1.25" {
-		t.Fatalf("replay.TemplateInputs[go_version] = %q, want %q", got, "1.25")
+	if got := replay.Inputs["go_version"]; got != "1.25" {
+		t.Fatalf("replay.Inputs[go_version] = %q, want %q", got, "1.25")
 	}
-	if len(replay.TemplateInputs) != 2 {
-		t.Fatalf("len(replay.TemplateInputs) = %d, want %d", len(replay.TemplateInputs), 2)
+	if len(replay.Inputs) != 2 {
+		t.Fatalf("len(replay.Inputs) = %d, want %d", len(replay.Inputs), 2)
 	}
 }
 
 func TestNewCmd_WriteReplayFailureReturnsWrappedError(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template-manifest.json": {Data: []byte(`{"schema_version":1,"name":"go","description":"Go starter","inputs":[{"name":"module_path","template_var":"ModulePath"}]}`)},
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 		"go/main.go.tmpl":                    {Data: []byte("package main\n")},
 	}
 	workDir := withTempWorkingDir(t, "workspace")
-	replayPath := filepath.Join(t.TempDir(), "missing", "replay.json")
+	replayPath := filepath.Join(t.TempDir(), "missing", "replay.toml")
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 	cmd := newNewCmd(creator)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--write-replay", replayPath, "demo"})
 

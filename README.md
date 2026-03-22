@@ -60,8 +60,8 @@ This will:
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
-| `--replay` | | Load project configuration from a JSON replay file |
-| `--write-replay` | | Write resolved replay to a JSON file after success |
+| `--replay` | | Load project configuration from a TOML replay file |
+| `--write-replay` | | Write resolved replay to a TOML file after success |
 | `--set` | | Set a template-specific input value (`--set key=value`) |
 | `--no-git` | | Deprecated alias for `--git none` |
 
@@ -72,13 +72,13 @@ This will:
 project new -l go myapp -m github.com/myorg/myapp
 
 # Create a project using a replay file
-project new --replay .project-replay.json
+project new --replay .project-replay.toml
 
 # Override replay values with CLI flags
-project new --replay .project-replay.json --set go_version=1.22
+project new --replay .project-replay.toml --set go_version=1.22
 
 # Save resolved replay to a file
-project new -l go myapp --write-replay .project-replay.json
+project new -l go myapp --write-replay .project-replay.toml
 
 # Preview what files would be created
 project new -l go myapp -n
@@ -110,32 +110,38 @@ actions:
 
 ## Scaffolding Contracts
 
-### Template Manifest (`.project-template-manifest.json`)
+### Template Manifest (`.project-template-manifest.toml`)
 
-Templates may include a `.project-template-manifest.json` manifest at their root to define metadata and input variables. This is a reserved file and is never copied to the target project. The current schema version is `1`.
+Templates may include a `.project-template-manifest.toml` manifest at their root to define metadata and input variables. This is a reserved file and is never copied to the target project. The current schema version is `2`.
 
 Example manifest:
-```json
-{
-  "schema_version": 1,
-  "name": "go",
-  "description": "Production-ready Go CLI starter",
-  "inputs": [
-    {
-      "name": "go_version",
-      "template_var": "GoVersion"
-    }
-  ]
-}
+```toml
+version = 2
+name = "go"
+description = "Production-ready Go CLI starter"
+
+[[inputs]]
+key = "go_version"
+template_var = "GoVersion"
+required = false
 ```
 
-### Replay File (`.project-replay.json`)
+### Replay File (`.project-replay.toml`)
 
-Using `--write-replay` produces a JSON file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.
+Using `--write-replay` produces a TOML file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.
 
 **Contract Rules:**
 - **Precedence**: Explicit CLI flags and `--set` arguments always take precedence over values in a replay file.
 - **Derived Defaults**: Runtime-derived values (like the current `year` or system `author`) are not persisted in the replay file unless they were explicitly provided via CLI or replay.
+
+### Third-party YAML Allowlist
+
+The following third-party configuration files are explicitly supported and included in the Go template:
+
+.github/workflows/ci.yml
+codecov.yml
+.golangci.yml
+.goreleaser.yml.tmpl
 
 ## Template Variables
 
@@ -152,14 +158,13 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 
 ## Template Discovery
 
-- In structured `list --detail` and `inspect` output, `description`, `manifest_version`, `input_names`, and `inputs` come from `.project-template-manifest.json`, while `variables`, `file_count`, `template_count`, and `files` are derived from inspecting the embedded template tree.
+- In structured `list --detail` and `inspect` output, `description`, `manifest_version`, `input_names`, and `inputs` come from `.project-template-manifest.toml`, while `variables`, `file_count`, `template_count`, and `files` are derived from inspecting the embedded template tree.
 - `project list` prints available language names.
 - `project list --detail` prints file count, template count, and template variables per language.
-- `project list --json` prints machine-readable output.
-- `project list --yaml` prints machine-readable YAML output.
+- `project list --toml` prints machine-readable TOML output.
 - `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
 - `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
-- `project inspect <lang> --json|--yaml` prints structured output.
+- `project inspect <lang> --toml` prints structured output.
 
 ## Shell Completion
 
@@ -226,9 +231,9 @@ just tidy           # go mod tidy
 
 ### Adding a new language template
 
-1. Create a directory under `pkg/templates/` with the language name (e.g., `pkg/templates/rust/`)
+1. Create a directory under `internal/adapters/templatesrc/` with the language name (e.g., `internal/adapters/templatesrc/rust/`)
 2. Add template files; use `.tmpl` suffix for files that need variable substitution
-3. Update the `//go:embed` directive in `pkg/templates/embed.go` to include the new directory:
+3. Update the `//go:embed` directive in `internal/adapters/templatesrc/embed.go` to include the new directory:
    ```go
    //go:embed all:cpp all:go all:rust
    var FS embed.FS

@@ -1,0 +1,24 @@
+Creating project with language: go, project name: demo
+Dry-run mode: no files will be created
+template: go
+description: Go starter
+target_dir: demo
+resolved inputs:
+  project_name: demo
+  module_path: example.com/demo
+  go_version: 1.25
+  author: cli-contract
+  year: 2042
+  git_mode: none
+explicit overrides:
+  module_path: example.com/demo
+  go_version: 1.25
+  author: cli-contract
+  year: 2042
+  git_mode: none
+actions:
+  copy go/README.md -> demo/README.md
+  create demo/cmd/
+  create demo/cmd/demo/
+  render go/cmd/{{.ProjectNameLower}}/main.go.tmpl -> demo/cmd/demo/main.go
+  render go/go.mod.tmpl -> demo/go.mod

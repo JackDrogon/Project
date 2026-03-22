@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/JackDrogon/project/pkg/scaffold"
+	appcreate "github.com/JackDrogon/project/internal/app/create"
 )
 
 func TestNewRootCmd(t *testing.T) {
@@ -13,7 +13,7 @@ func TestNewRootCmd(t *testing.T) {
 		"go/Makefile": {Data: []byte("build:")},
 	}
 
-	creator := scaffold.NewCreator(fsys, &bytes.Buffer{})
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 
 	// Basic smoke test: verify the command tree can be built without panicking
 	cmd := newRootCmd(creator)

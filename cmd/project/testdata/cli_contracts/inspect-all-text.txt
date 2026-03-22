@@ -1,0 +1,12 @@
+name: go
+description: Go starter
+manifest_version: 2
+inputs: module_path->ModulePath, go_version->GoVersion
+files: 3
+templates: 2
+variables: ModulePath, ProjectNameLower
+mode: all
+shown: 3
+- .gitignore -> .gitignore (copy)
+- cmd/{{.ProjectNameLower}}/main.go.tmpl -> cmd/{{.ProjectNameLower}}/main.go (render)
+- go.mod.tmpl -> go.mod (render)

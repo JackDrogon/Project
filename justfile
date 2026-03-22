@@ -4,7 +4,7 @@
 # Run `just` or `just --list` to see available recipes
 
 tag := `git describe --abbrev=0 --always --tags`
-ldflags := "-X 'github.com/JackDrogon/project/pkg/version.Tag=" + tag + "'"
+ldflags := "-X 'github.com/JackDrogon/project/internal/adapters/buildinfo.Tag=" + tag + "'"
 
 # ─────────────────────────────────────────────────────────────────────
 # Aliases (shortcuts for frequent tasks)

@@ -1,0 +1,8 @@
+version = 2
+name = "cpp"
+description = "CMake-based C++ starter"
+
+[[inputs]]
+key = "author"
+template_var = "Author"
+required = false

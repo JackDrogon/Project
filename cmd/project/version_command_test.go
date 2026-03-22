@@ -5,14 +5,37 @@ import (
 	"strings"
 	"testing"
 
-	projectversion "github.com/JackDrogon/project/pkg/version"
+	appversion "github.com/JackDrogon/project/internal/app/version"
 )
 
-func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
-	oldTag := projectversion.Tag
-	projectversion.Tag = "test-tag"
+type stubVersionProvider struct {
+	info    string
+	verbose string
+}
+
+func (s stubVersionProvider) Info() string {
+	return s.info
+}
+
+func (s stubVersionProvider) Verbose() string {
+	return s.verbose
+}
+
+func useVersionServiceFactory(t *testing.T, provider stubVersionProvider) {
+	t.Helper()
+	oldFactory := newVersionService
+	newVersionService = func() *appversion.Service {
+		return appversion.NewService(provider)
+	}
 	t.Cleanup(func() {
-		projectversion.Tag = oldTag
+		newVersionService = oldFactory
+	})
+}
+
+func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
+	useVersionServiceFactory(t, stubVersionProvider{
+		info:    "test-tag",
+		verbose: "Tag:      test-tag\nDirty:    false",
 	})
 
 	t.Run("default", func(t *testing.T) {

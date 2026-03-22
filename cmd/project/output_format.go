@@ -1,31 +1,14 @@
 package main
 
-import (
-	"fmt"
-	"strconv"
-)
-
 const (
 	outputFormatText = "text"
-	outputFormatJSON = "json"
-	outputFormatYAML = "yaml"
+	outputFormatTOML = "toml"
 )
 
-func selectedOutputFormat(asJSON, asYAML bool) (string, error) {
-	if asJSON && asYAML {
-		return "", fmt.Errorf("--json and --yaml cannot be used together")
+func selectedOutputFormat(asTOML bool) string {
+	if asTOML {
+		return outputFormatTOML
 	}
 
-	if asJSON {
-		return outputFormatJSON, nil
-	}
-	if asYAML {
-		return outputFormatYAML, nil
-	}
-
-	return outputFormatText, nil
-}
-
-func yamlQuote(s string) string {
-	return strconv.Quote(s)
+	return outputFormatText
 }

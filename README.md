@@ -1,6 +1,19 @@
 # Project
 
-A CLI scaffolding tool that creates new projects from embedded templates. All templates are compiled into a single binary — no external files needed at runtime.
+`project` is a Go CLI scaffolding tool that creates new projects from embedded templates. All templates are compiled into a single binary, so there are no external template files to ship or locate at runtime.
+
+## Command Overview
+
+The CLI currently ships with these subcommands:
+
+| Command | Purpose |
+|---------|---------|
+| `project new [project_name]` | Scaffold a new project in a fresh target directory |
+| `project init [target_dir]` | Scaffold a project into the current directory or an explicit target directory |
+| `project list` | List supported template languages |
+| `project inspect <lang>` | Inspect one embedded template and its render/copy behavior |
+| `project version` | Print the build version |
+| `project completion <shell>` | Generate shell completion scripts |
 
 ## Supported Languages
 
@@ -11,7 +24,7 @@ Run `project list` to see all available languages.
 
 ## Installation
 
-Requires Go 1.21+.
+Requires Go 1.25+.
 
 ```bash
 # Install directly from GitHub
@@ -33,9 +46,36 @@ just build
 just install
 ```
 
+## Quick Start
+
+If you are new to the CLI, this is the shortest path from installation to a generated project:
+
+```bash
+# 1) See which templates are available
+project list
+
+# 2) Inspect one template before generating anything
+project inspect go
+
+# 3a) Create a fresh project directory
+project new -l go myapp
+
+# 3b) Or scaffold into a target path
+project init -l go nested/myapp
+```
+
+Typical flow:
+
+1. Run `project list` to choose a language template.
+2. Run `project inspect <lang>` to see which files are rendered or copied.
+3. Use `project new` when you want a brand-new project directory.
+4. Use `project init` when you want to scaffold into the current empty directory or another target directory that does not exist yet or is already empty.
+
+If you want to preview file operations first, add `--dry-run` to either `project new` or `project init`.
+
 ## Usage
 
-### Create a new project
+### Create a new project with `new`
 
 ```bash
 project new -l go myapp
@@ -50,13 +90,30 @@ This will:
 2. Render template variables (e.g., project name, module path) in `.tmpl` files
 3. Run git setup based on `--git` mode (default `init+commit`)
 
+### Initialize in place or in a target directory with `init`
+
+Use `init` when you want the project name to come from the directory you are working in, or when you want to scaffold into a specific target path. The destination must either not exist yet or already exist as an empty directory.
+
+```bash
+# Initialize in the current directory
+project init -l go
+
+# Initialize in a nested target directory
+project init -l go nested/myapp
+
+# Initialize a C++ starter without git setup
+project init -l cpp --git none demo-cpp
+```
+
+Like `new`, `init` supports `--module`, `--git`, `--dry-run`, `--replay`, `--write-replay`, and repeated `--set key=value` overrides.
+
 ### Flags
 
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--lang` | `-l` | Programming language (required unless provided via `--replay`) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name, or to the positional Go module path when you pass one directly) |
-| `--force` | | Remove and recreate existing project directory |
+| `--force` | | `new` only: remove and recreate an existing project directory |
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
@@ -64,6 +121,12 @@ This will:
 | `--write-replay` | | Write resolved replay to a TOML file after success |
 | `--set` | | Set a template-specific input value (`--set key=value`) |
 | `--no-git` | | Deprecated alias for `--git none` |
+
+Notes:
+
+- `--write-replay` cannot be combined with `--dry-run`
+- `--signoff` is only valid when the git workflow creates an initial commit
+- `--no-git` is deprecated; prefer `--git none`
 
 ### Examples
 
@@ -82,6 +145,9 @@ project new -l go myapp --write-replay .project-replay.toml
 
 # Preview what files would be created
 project new -l go myapp -n
+
+# Preview an init workflow without touching the filesystem
+project init -l go --git none -n nested/myapp
 ```
 
 ## Dry-run Execution Plan
@@ -123,7 +189,7 @@ description = "Production-ready Go CLI starter"
 [[inputs]]
 key = "go_version"
 template_var = "GoVersion"
-required = false
+required = true
 ```
 
 ### Replay File (`.project-replay.toml`)
@@ -133,15 +199,16 @@ Using `--write-replay` produces a TOML file containing the final resolved config
 **Contract Rules:**
 - **Precedence**: Explicit CLI flags and `--set` arguments always take precedence over values in a replay file.
 - **Derived Defaults**: Runtime-derived values (like the current `year` or system `author`) are not persisted in the replay file unless they were explicitly provided via CLI or replay.
+- **Command Match**: A replay captured from `new` must be replayed through `project new`, and a replay captured from `init` must be replayed through `project init`.
 
 ### Third-party YAML Allowlist
 
 The following third-party configuration files are explicitly supported and included in the Go template:
 
-.github/workflows/ci.yml
-codecov.yml
-.golangci.yml
-.goreleaser.yml.tmpl
+- `.github/workflows/ci.yml`
+- `codecov.yml`
+- `.golangci.yml`
+- `.goreleaser.yml.tmpl`
 
 ## Template Variables
 
@@ -165,6 +232,32 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 - `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
 - `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
 - `project inspect <lang> --toml` prints structured output.
+
+Examples:
+
+```bash
+# Plain language list
+project list
+
+# Detailed summary with manifest metadata
+project list --detail
+
+# Machine-readable output
+project list --toml
+
+# Inspect one template
+project inspect go
+
+# Show only rendered files
+project inspect go --mode render
+
+# Structured inspection output
+project inspect go --toml
+```
+
+## Version Output
+
+`project version` prints the human-readable build version. Use `project version --verbose` to include detailed fields such as the tag, revision, and dirty state.
 
 ## Shell Completion
 
@@ -224,7 +317,7 @@ just test-v         # Run tests with verbose output
 just lint           # Run golangci-lint
 just fmt            # Format code
 just cover          # Generate coverage report (coverage.html)
-just pre-commit     # fmt → lint → test
+just pre-commit     # generate → fmt → lint → test
 just run <args>     # Build and run (e.g., just run new -l go myapp)
 just tidy           # go mod tidy
 ```

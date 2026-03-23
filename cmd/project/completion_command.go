@@ -4,6 +4,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func buildCompletionCommand(commandDependencies) *cobra.Command {
+	return &cobra.Command{
+		Use:                   "completion [bash|zsh|fish|powershell]",
+		Short:                 "Generate shell completion script",
+		Long:                  completionLong,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
+			switch args[0] {
+			case "bash":
+				return cmd.Root().GenBashCompletionV2(out, true)
+			case "zsh":
+				return cmd.Root().GenZshCompletion(out)
+			case "fish":
+				return cmd.Root().GenFishCompletion(out, true)
+			}
+			return cmd.Root().GenPowerShellCompletionWithDesc(out)
+		},
+	}
+}
+
+func init() {
+	registerOrderedCommand(commandKeyCompletion, commandOrderCompletion, buildCompletionCommand)
+}
+
 const completionLong = `Generate shell completion scripts for project.
 
 To load completions:
@@ -42,24 +69,5 @@ PowerShell:
 `
 
 func newCompletionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:                   "completion [bash|zsh|fish|powershell]",
-		Short:                 "Generate shell completion script",
-		Long:                  completionLong,
-		DisableFlagsInUseLine: true,
-		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := cmd.OutOrStdout()
-			switch args[0] {
-			case "bash":
-				return cmd.Root().GenBashCompletionV2(out, true)
-			case "zsh":
-				return cmd.Root().GenZshCompletion(out)
-			case "fish":
-				return cmd.Root().GenFishCompletion(out, true)
-			}
-			return cmd.Root().GenPowerShellCompletionWithDesc(out)
-		},
-	}
+	return buildCompletionCommand(commandDependencies{})
 }

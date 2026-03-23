@@ -40,7 +40,7 @@ func writeReplayTOMLForTest(t *testing.T, replay protocoltoml.Replay) string {
 
 func TestNewCmd_RequiresLang(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"demo"})
 
 	err := cmd.Execute()
@@ -64,7 +64,7 @@ func TestNewCmd_RejectsInvalidArgCount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-			cmd := newNewCmd(creator)
+			cmd := requireSubcommand(t, creator, commandKeyNew)
 			cmd.SetArgs(tt.args)
 
 			err := cmd.Execute()
@@ -86,7 +86,7 @@ func TestNewCmd_CreatesProjectFromArgument(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -118,7 +118,7 @@ func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "github.com/JackDrogon/agent-village"})
 
 	if err := cmd.Execute(); err != nil {
@@ -155,7 +155,7 @@ func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	var out bytes.Buffer
 
 	creator := appcreate.NewCreator(fsys, &out)
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", "demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -201,7 +201,7 @@ func TestNewCmd_GoModuleArgumentWithMajorVersionSuffixUsesRepositoryName(t *test
 	workDir := withTempWorkingDir(t, "workspace")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "github.com/acme/agent-village/v2"})
 
 	if err := cmd.Execute(); err != nil {
@@ -231,7 +231,7 @@ func TestNewCmd_GoModuleArgumentWithMajorVersionSuffixUsesRepositoryName(t *test
 
 func TestNewCmd_InvalidDerivedProjectNameReturnsResolveError(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "github.com/acme/9agent"})
 
 	err := cmd.Execute()
@@ -264,7 +264,7 @@ func TestNewCmd_ReplayAllowsOmittedLangAndProjectArg(t *testing.T) {
 	})
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
 	if err := cmd.Execute(); err != nil {
@@ -305,7 +305,7 @@ func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	})
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
 	err := cmd.Execute()
@@ -331,7 +331,7 @@ func TestNewCmd_ReplayRejectsLegacyJSONContent(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
 	err := cmd.Execute()
@@ -372,7 +372,7 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 	})
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--replay", replayPath, "--lang", "go", "--module", "example.com/from-cli", "--git", "none", "--signoff=false", "cli-demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -405,7 +405,7 @@ func TestNewCmd_ReplayCLIFlagsAndPositionalArgTakePrecedence(t *testing.T) {
 
 func TestNewCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.toml"), "demo"})
 
 	err := cmd.Execute()
@@ -426,7 +426,7 @@ func TestNewCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	replayPath := filepath.Join(t.TempDir(), "replay.toml")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--write-replay", replayPath, "demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -479,7 +479,7 @@ func TestNewCmd_WriteReplayFailureReturnsWrappedError(t *testing.T) {
 	replayPath := filepath.Join(t.TempDir(), "missing", "replay.toml")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--write-replay", replayPath, "demo"})
 
 	err := cmd.Execute()

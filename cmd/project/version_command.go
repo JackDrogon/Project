@@ -8,12 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var newVersionService = func() *appversion.Service {
-	return appversion.NewService(buildinfo.New())
-}
-
-// newVersionCmd creates the "version" subcommand that prints the build version.
-func newVersionCmd() *cobra.Command {
+func buildVersionCommand(commandDependencies) *cobra.Command {
 	var verbose bool
 	service := newVersionService()
 
@@ -33,4 +28,17 @@ func newVersionCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed version info")
 	return cmd
+}
+
+func init() {
+	registerOrderedCommand(commandKeyVersion, commandOrderVersion, buildVersionCommand)
+}
+
+var newVersionService = func() *appversion.Service {
+	return appversion.NewService(buildinfo.New())
+}
+
+// newVersionCmd creates the "version" subcommand that prints the build version.
+func newVersionCmd() *cobra.Command {
+	return buildVersionCommand(commandDependencies{})
 }

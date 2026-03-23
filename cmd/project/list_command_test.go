@@ -64,7 +64,7 @@ func TestListCmdOutputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			cmd := newListCmd(creator)
+			cmd := requireSubcommand(t, creator, commandKeyList)
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 			cmd.SetArgs(tt.args)
@@ -104,7 +104,7 @@ func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := newListCmd(creator)
+			cmd := requireSubcommand(t, creator, commandKeyList)
 			cmd.SetArgs(tt.args)
 
 			err := cmd.Execute()
@@ -138,7 +138,7 @@ func TestInspectCmdOutputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			cmd := newInspectCmd(creator)
+			cmd := requireSubcommand(t, creator, commandKeyInspect)
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 			cmd.SetArgs(tt.args)

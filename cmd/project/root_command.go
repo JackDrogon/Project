@@ -14,19 +14,13 @@ var stderrWriter io.Writer = os.Stderr
 
 // newRootCmd builds the command tree with all subcommands registered explicitly.
 func newRootCmd(creator *appcreate.Creator) *cobra.Command {
+	deps := commandDependencies{creator: creator}
 	rootCmd := &cobra.Command{
 		Use:   "project",
 		Short: "project is a tool to create new project",
 	}
 
-	rootCmd.AddCommand(
-		newNewCmd(creator),
-		newInitCmd(creator),
-		newListCmd(creator),
-		newInspectCmd(creator),
-		newVersionCmd(),
-		newCompletionCmd(),
-	)
+	addRegisteredCommands(rootCmd, deps)
 
 	return rootCmd
 }

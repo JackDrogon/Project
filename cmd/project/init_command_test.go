@@ -44,7 +44,7 @@ func TestInitCmd_DefaultsToCurrentDirectory(t *testing.T) {
 	workDir := withTempWorkingDir(t, "demo")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git"})
 
 	if err := cmd.Execute(); err != nil {
@@ -67,7 +67,7 @@ func TestInitCmd_UsesExplicitTargetDirectory(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", filepath.Join("nested", "demo")})
 
 	if err := cmd.Execute(); err != nil {
@@ -97,7 +97,7 @@ func TestInitCmd_RejectsNonEmptyDirectory(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", "demo"})
 
 	err := cmd.Execute()
@@ -111,7 +111,7 @@ func TestInitCmd_RejectsNonEmptyDirectory(t *testing.T) {
 
 func TestInitCmd_RequiresLang(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--git", "none"})
 
 	err := cmd.Execute()
@@ -125,7 +125,7 @@ func TestInitCmd_RequiresLang(t *testing.T) {
 
 func TestInitCmd_RejectsTooManyArgs(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "one", "two"})
 
 	err := cmd.Execute()
@@ -144,7 +144,7 @@ func TestInitCmd_PropagatesGitOptionConflict(t *testing.T) {
 	withTempWorkingDir(t, "workspace")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--no-git", "--git", "init-only"})
 
 	err := cmd.Execute()
@@ -170,7 +170,7 @@ func TestInitCmd_DryRunRejectsNonEmptyDirectory(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--dry-run", "demo"})
 
 	err := cmd.Execute()
@@ -198,7 +198,7 @@ func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 	var out bytes.Buffer
 
 	creator := appcreate.NewCreator(fsys, &out)
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	targetDir := filepath.Join("nested", "demo")
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", targetDir})
 
@@ -239,7 +239,7 @@ func TestInitCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 
 func TestInitCmd_RejectsWriteReplayWithDryRun(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--write-replay", filepath.Join(t.TempDir(), "replay.toml")})
 
 	err := cmd.Execute()
@@ -268,7 +268,7 @@ func TestInitCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 	})
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
 	err := cmd.Execute()
@@ -294,7 +294,7 @@ func TestInitCmd_ReplayRejectsLegacyJSONContent(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--replay", replayPath})
 
 	err := cmd.Execute()
@@ -318,7 +318,7 @@ func TestInitCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	replayPath := filepath.Join(t.TempDir(), "replay.toml")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "cpp", "--git", "none", "--set", "author=alice", "--write-replay", replayPath, "demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -403,7 +403,7 @@ func TestInitCmd_ReportsProjectNameResolutionError(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	cmd.SetArgs([]string{"--lang", "go"})
 
 	err = cmd.Execute()

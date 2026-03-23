@@ -111,7 +111,7 @@ func TestCLIContract_NewDryRunText(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 	var out bytes.Buffer
 	creator := newCLIContractDryRunCreator(&out)
-	cmd := newNewCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyNew)
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--set", "author=cli-contract", "--set", "year=2042", "demo"})
 
 	if err := cmd.Execute(); err != nil {
@@ -128,7 +128,7 @@ func TestCLIContract_InitDryRunText(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 	var out bytes.Buffer
 	creator := newCLIContractDryRunCreator(&out)
-	cmd := newInitCmd(creator)
+	cmd := requireSubcommand(t, creator, commandKeyInit)
 	targetDir := filepath.Join("nested", "demo")
 	cmd.SetArgs([]string{"--lang", "go", "--dry-run", "--git", "none", "--module", "example.com/demo", "--set", "go_version=1.25", "--set", "author=cli-contract", "--set", "year=2042", targetDir})
 
@@ -145,7 +145,7 @@ func TestCLIContract_InitDryRunText(t *testing.T) {
 func TestCLIContract_ListText(t *testing.T) {
 	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := newListCmd(appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}))
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 
@@ -159,7 +159,7 @@ func TestCLIContract_ListText(t *testing.T) {
 func TestCLIContract_ListDetailText(t *testing.T) {
 	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := newListCmd(appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}))
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail"})
@@ -174,7 +174,7 @@ func TestCLIContract_ListDetailText(t *testing.T) {
 func TestCLIContract_InspectText(t *testing.T) {
 	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := newInspectCmd(appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}))
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"go"})
@@ -189,7 +189,7 @@ func TestCLIContract_InspectText(t *testing.T) {
 func TestCLIContract_InspectRenderText(t *testing.T) {
 	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := newInspectCmd(appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}))
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"go", "--mode", "render"})

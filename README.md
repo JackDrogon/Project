@@ -19,6 +19,7 @@ The CLI currently ships with these subcommands:
 
 - **Go** — structured CLI scaffold with `cmd/<projectname-lower>`, `internal/`, tests, `.golangci.yml`, GitHub Actions CI, GoReleaser config, Codecov config, contributor docs, `README.md`, and `justfile`
 - **C++** — `CMakeLists.txt`, `src/main.cc`, `include/`, `dev-tools/`, `justfile`
+- **Rust** — `Cargo.toml`, `src/lib.rs`, `src/main.rs`, `.cargo/config.toml`, `rustfmt.toml`, `clippy.toml`, `dprint.json`, `typos.toml`, `.editorconfig`, CI workflow, Dependabot config, `CONTRIBUTING.md`, `SECURITY.md`, `.env.example`, `README.md`, and `justfile`
 
 Run `project list` to see all available languages.
 
@@ -81,6 +82,7 @@ If you want to preview file operations first, add `--dry-run` to either `project
 project new -l go myapp
 project new -l go github.com/myorg/myapp
 project new -l cpp myapp
+project new -l rust myapp
 ```
 
 For Go projects, you can pass either a local project name or a full module path as the positional argument. When you pass a module path directly, `project` derives the output directory from the repository name: `project new -l go github.com/myorg/myapp` creates `./myapp` with `module github.com/myorg/myapp`, and `project new -l go github.com/myorg/myapp/v2` still creates `./myapp` with `module github.com/myorg/myapp/v2`.
@@ -148,6 +150,9 @@ project new -l go myapp -n
 
 # Preview an init workflow without touching the filesystem
 project init -l go --git none -n nested/myapp
+
+# Create a Rust starter
+project new -l rust myapp
 ```
 
 ## Dry-run Execution Plan

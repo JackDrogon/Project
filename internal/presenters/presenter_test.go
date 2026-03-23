@@ -63,14 +63,14 @@ func TestPresenter_WriteLangs(t *testing.T) {
 		{
 			name:   "text format",
 			format: "text",
-			langs:  []string{"cpp", "go"},
-			want:   []string{"cpp\ngo\n"},
+			langs:  []string{"cpp", "go", "rust"},
+			want:   []string{"cpp\ngo\nrust\n"},
 		},
 		{
 			name:   "toml format",
 			format: "toml",
-			langs:  []string{"cpp", "go"},
-			want:   []string{"languages = ['cpp', 'go']", "languages = [\"cpp\", \"go\"]"},
+			langs:  []string{"cpp", "go", "rust"},
+			want:   []string{"languages = ['cpp', 'go', 'rust']", "languages = [\"cpp\", \"go\", \"rust\"]"},
 		},
 	}
 

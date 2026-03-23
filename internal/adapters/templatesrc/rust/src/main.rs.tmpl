@@ -1,0 +1,7 @@
+fn app_name() -> &'static str {
+    "{{.ProjectName}}"
+}
+
+fn main() {
+    println!("Hello, {}!", app_name());
+}

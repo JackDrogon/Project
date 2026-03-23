@@ -50,6 +50,12 @@ func TestModeForPath_KnownModes(t *testing.T) {
 		"go/.project-template-manifest.toml":       0o664,
 		"go/cmd/{{.ProjectNameLower}}":             0o775,
 		"go/internal/version/version_test.go.tmpl": 0o664,
+		"rust/.project-template-manifest.toml":     0o664,
+		"rust/dprint.json":                         0o664,
+		"rust/Cargo.toml.tmpl":                     0o664,
+		"rust/justfile.tmpl":                       0o764,
+		"rust/typos.toml":                          0o664,
+		"rust/src":                                 0o775,
 	}
 
 	for path, want := range tests {

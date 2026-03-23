@@ -16,16 +16,17 @@ func (f failingFS) ReadDir(string) ([]fs.DirEntry, error) { return nil, f.err }
 
 func TestServiceListLangs(t *testing.T) {
 	svc := NewService(fstest.MapFS{
-		"go/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"go\"\n")},
-		"cpp/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"cpp\"\n")},
+		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\n")},
+		"cpp/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"cpp\"\n")},
+		"rust/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"rust\"\n")},
 	}, nil)
 
 	got, err := svc.ListLangs()
 	if err != nil {
 		t.Fatalf("ListLangs() error = %v", err)
 	}
-	if !reflect.DeepEqual(got, []string{"cpp", "go"}) {
-		t.Fatalf("ListLangs() = %v, want [cpp go]", got)
+	if !reflect.DeepEqual(got, []string{"cpp", "go", "rust"}) {
+		t.Fatalf("ListLangs() = %v, want [cpp go rust]", got)
 	}
 }
 
@@ -101,10 +102,27 @@ func TestServiceInspect_Errors(t *testing.T) {
 
 func TestServiceListSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
-		"go/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
-		"go/go.mod.tmpl":                      {Data: []byte("module {{.ModulePath}}\n")},
-		"cpp/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"cpp\"\ndescription = \"C++ starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n")},
-		"cpp/README.md.tmpl":                  {Data: []byte("By {{.Author}}\n")},
+		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
+		"go/go.mod.tmpl":                       {Data: []byte("module {{.ModulePath}}\n")},
+		"cpp/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"cpp\"\ndescription = \"C++ starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n")},
+		"cpp/README.md.tmpl":                   {Data: []byte("By {{.Author}}\n")},
+		"rust/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"rust\"\ndescription = \"Rust starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
+		"rust/.cargo/config.toml":              {Data: []byte("[alias]\ndocs = \"doc --workspace --all-features --no-deps\"\n")},
+		"rust/.editorconfig":                   {Data: []byte("root = true\n")},
+		"rust/.env.example":                    {Data: []byte("APP_ENV=development\n")},
+		"rust/.github/dependabot.yml":          {Data: []byte("version: 2\n")},
+		"rust/.github/workflows/ci.yml":        {Data: []byte("name: ci\n")},
+		"rust/CONTRIBUTING.md.tmpl":            {Data: []byte("# Contributing to {{.ProjectName}}\n")},
+		"rust/Cargo.toml.tmpl":                 {Data: []byte("[package]\nname = \"{{.ProjectName}}\"\nauthors = [\"{{.Author}}\"]\n")},
+		"rust/README.md.tmpl":                  {Data: []byte("# {{.ProjectName}}\nGenerated in {{.Year}}\n")},
+		"rust/SECURITY.md.tmpl":                {Data: []byte("# Security Policy\n{{.ProjectName}}\n")},
+		"rust/clippy.toml":                     {Data: []byte("allow-dbg-in-tests = true\n")},
+		"rust/dprint.json":                     {Data: []byte("{\n  \"includes\": [\"**/*.toml\"]\n}\n")},
+		"rust/justfile.tmpl":                   {Data: []byte("build:\n    cargo build\n")},
+		"rust/rustfmt.toml":                    {Data: []byte("wrap_comments = true\n")},
+		"rust/src/lib.rs.tmpl":                 {Data: []byte("pub fn greet(name: &str) -> String { format!(\"Hello, {name}!\") }\n")},
+		"rust/src/main.rs.tmpl":                {Data: []byte("fn app_name() -> &'static str { \"{{.ProjectName}}\" }\n")},
+		"rust/typos.toml":                      {Data: []byte("[files]\nextend-exclude = [\"target\"]\n")},
 	}
 	svc := NewService(fsys, nil)
 
@@ -112,11 +130,11 @@ func TestServiceListSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSummaries() error = %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("ListSummaries() len = %d, want 2", len(got))
+	if len(got) != 3 {
+		t.Fatalf("ListSummaries() len = %d, want 3", len(got))
 	}
-	if got[0].Name != "cpp" || got[1].Name != "go" {
-		t.Fatalf("ListSummaries() names = %#v, want sorted [cpp go]", got)
+	if !reflect.DeepEqual([]string{got[0].Name, got[1].Name, got[2].Name}, []string{"cpp", "go", "rust"}) {
+		t.Fatalf("ListSummaries() names = %#v, want sorted [cpp go rust]", got)
 	}
 }
 

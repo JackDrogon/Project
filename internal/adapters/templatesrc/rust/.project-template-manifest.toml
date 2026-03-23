@@ -1,0 +1,13 @@
+version = 2
+name = "rust"
+description = "Cargo-based Rust starter"
+
+[[inputs]]
+key = "author"
+template_var = "Author"
+required = false
+
+[[inputs]]
+key = "year"
+template_var = "Year"
+required = false

@@ -110,6 +110,72 @@ func TestNewCmd_CreatesProjectFromArgument(t *testing.T) {
 	}
 }
 
+func TestNewCmd_CreatesRustProjectFromArgument(t *testing.T) {
+	fsys := fstest.MapFS{
+		"rust/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"rust\"\ndescription = \"Cargo-based Rust starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
+		"rust/.github":                         {Mode: os.ModeDir},
+		"rust/.github/dependabot.yml":          {Data: []byte("version: 2\n")},
+		"rust/.github/workflows":               {Mode: os.ModeDir},
+		"rust/.github/workflows/ci.yml":        {Data: []byte("name: ci\n")},
+		"rust/.gitignore":                      {Data: []byte("/target/\n")},
+		"rust/CONTRIBUTING.md.tmpl":            {Data: []byte("# Contributing to {{.ProjectName}}\n")},
+		"rust/Cargo.toml.tmpl":                 {Data: []byte("[package]\nname = \"{{.ProjectName}}\"\nauthors = [\"{{.Author}}\"]\n")},
+		"rust/README.md.tmpl":                  {Data: []byte("# {{.ProjectName}}\nGenerated in {{.Year}}\n")},
+		"rust/SECURITY.md.tmpl":                {Data: []byte("# Security Policy\n{{.ProjectName}}\n")},
+		"rust/dprint.json":                     {Data: []byte("{\n  \"includes\": [\"**/*.toml\"]\n}\n")},
+		"rust/justfile.tmpl":                   {Data: []byte("test:\n    cargo test --all-features\n")},
+		"rust/src/lib.rs.tmpl":                 {Data: []byte("pub fn greet(name: &str) -> String { format!(\"Hello, {name}!\") }\n")},
+		"rust/src/main.rs.tmpl":                {Data: []byte("fn app_name() -> &'static str { \"{{.ProjectName}}\" }\nfn main() { println!(\"Hello, {}!\", app_name()); }\n")},
+		"rust/typos.toml":                      {Data: []byte("[files]\nextend-exclude = [\"target\"]\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
+	cmd := requireSubcommand(t, creator, commandKeyNew)
+	cmd.SetArgs([]string{"--lang", "rust", "--git", "none", "demo-rust"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	cargoToml, err := os.ReadFile(filepath.Join(workDir, "demo-rust", "Cargo.toml"))
+	if err != nil {
+		t.Fatalf("ReadFile(Cargo.toml) error = %v", err)
+	}
+	if !strings.Contains(string(cargoToml), "name = \"demo-rust\"") {
+		t.Fatalf("Cargo.toml = %q, want rendered package name", string(cargoToml))
+	}
+
+	mainRS, err := os.ReadFile(filepath.Join(workDir, "demo-rust", "src", "main.rs"))
+	if err != nil {
+		t.Fatalf("ReadFile(src/main.rs) error = %v", err)
+	}
+	if !strings.Contains(string(mainRS), `"demo-rust"`) {
+		t.Fatalf("src/main.rs content = %q, want rendered project name", string(mainRS))
+	}
+
+	readme, err := os.ReadFile(filepath.Join(workDir, "demo-rust", "README.md"))
+	if err != nil {
+		t.Fatalf("ReadFile(README.md) error = %v", err)
+	}
+	if !strings.Contains(string(readme), "# demo-rust") {
+		t.Fatalf("README.md content = %q, want rendered title", string(readme))
+	}
+
+	if _, err := os.Stat(filepath.Join(workDir, "demo-rust", "dprint.json")); err != nil {
+		t.Fatalf("Stat(dprint.json) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-rust", "typos.toml")); err != nil {
+		t.Fatalf("Stat(typos.toml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-rust", ".github", "workflows", "ci.yml")); err != nil {
+		t.Fatalf("Stat(.github/workflows/ci.yml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-rust", "justfile")); err != nil {
+		t.Fatalf("Stat(justfile) error = %v", err)
+	}
+}
+
 func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\n")},
@@ -558,6 +624,14 @@ func TestResolveNewProjectArgs_FallbacksAndErrors(t *testing.T) {
 		{
 			name:            "non-go language uses literal arg",
 			lang:            "cpp",
+			arg:             "github.com/acme/agent-village",
+			wantProjectName: "github.com/acme/agent-village",
+			wantTargetDir:   "github.com/acme/agent-village",
+			wantModulePath:  "",
+		},
+		{
+			name:            "rust also uses literal arg",
+			lang:            "rust",
 			arg:             "github.com/acme/agent-village",
 			wantProjectName: "github.com/acme/agent-village",
 			wantTargetDir:   "github.com/acme/agent-village",

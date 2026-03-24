@@ -11,7 +11,11 @@ type Presenter struct {
 }
 
 func NewPresenter(spec OutputSpec) (*Presenter, error) {
-	formatter, err := newDefaultFormatterFactory().Build(spec)
+	return NewPresenterWithFactory(spec, newDefaultFormatterFactory())
+}
+
+func NewPresenterWithFactory(spec OutputSpec, factory FormatterFactory) (*Presenter, error) {
+	formatter, err := factory.Build(spec)
 	if err != nil {
 		return nil, err
 	}

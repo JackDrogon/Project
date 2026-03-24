@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -13,6 +14,38 @@ type failingFS struct{ err error }
 
 func (f failingFS) Open(string) (fs.File, error)          { return nil, f.err }
 func (f failingFS) ReadDir(string) ([]fs.DirEntry, error) { return nil, f.err }
+
+type stubRepoAssetRegistry struct {
+	known  []string
+	groups map[string]FileGroup
+	assets []string
+}
+
+func (r stubRepoAssetRegistry) KnownAssets() []string      { return append([]string(nil), r.known...) }
+func (r stubRepoAssetRegistry) HasAsset(asset string) bool { return slices.Contains(r.known, asset) }
+func (r stubRepoAssetRegistry) AssetsForFiles([]InspectionFile) []string {
+	return append([]string(nil), r.assets...)
+}
+
+func (r stubRepoAssetRegistry) GroupForSource(source string) FileGroup {
+	if group, ok := r.groups[source]; ok {
+		return group
+	}
+	return FileGroupLanguage
+}
+
+type stubGovernancePolicy struct {
+	tier string
+	rank map[string]int
+}
+
+func (p stubGovernancePolicy) Tier(Inspection) string { return p.tier }
+func (p stubGovernancePolicy) Rank(tier string) int {
+	if rank, ok := p.rank[tier]; ok {
+		return rank
+	}
+	return 0
+}
 
 func TestServiceListLangs(t *testing.T) {
 	svc := NewService(fstest.MapFS{
@@ -258,6 +291,54 @@ func TestServiceQuerySummaries(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "invalid --min-governance") {
 			t.Fatalf("QuerySummaries() error = %v, want governance validation error", err)
+		}
+	})
+}
+
+func TestServiceWithInjectedDependencies(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
+		"go/.gitignore":                             {Data: []byte("bin/\n")},
+		"go/go.mod.tmpl":                            {Data: []byte("module {{.ModulePath}}\n")},
+		"go/cmd/{{.ProjectNameLower}}":              {Mode: fs.ModeDir | 0o755},
+		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+
+	deps := Dependencies{
+		RepoAssets: stubRepoAssetRegistry{
+			known:  []string{"custom"},
+			groups: map[string]FileGroup{"go.mod.tmpl": FileGroupRepo},
+			assets: []string{"custom"},
+		},
+		InspectModes: newInspectModePolicy(),
+		Governance: stubGovernancePolicy{
+			tier: "custom-tier",
+			rank: map[string]int{"custom-tier": 9, "minimal": 1},
+		},
+	}
+
+	svc := NewServiceWithDeps(fsys, nil, deps)
+
+	t.Run("custom repo assets affect inspection", func(t *testing.T) {
+		got, err := svc.QueryInspection(InspectionQuery{Lang: "go", Mode: InspectModeAll})
+		if err != nil {
+			t.Fatalf("QueryInspection() error = %v", err)
+		}
+		if !reflect.DeepEqual(got.RepoAssets, []string{"custom"}) {
+			t.Fatalf("QueryInspection() repo assets = %#v, want [custom]", got.RepoAssets)
+		}
+		if len(got.RepoFiles()) != 1 || got.RepoFiles()[0].Source != "go.mod.tmpl" {
+			t.Fatalf("QueryInspection() repo files = %#v, want go.mod as repo file", got.RepoFiles())
+		}
+	})
+
+	t.Run("custom governance affects summaries", func(t *testing.T) {
+		got, err := svc.QuerySummaries(DefaultSummaryQuery())
+		if err != nil {
+			t.Fatalf("QuerySummaries() error = %v", err)
+		}
+		if len(got) != 1 || got[0].GovernanceTier != "custom-tier" {
+			t.Fatalf("QuerySummaries() = %#v, want governance tier custom-tier", got)
 		}
 	})
 }

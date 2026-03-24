@@ -1,25 +1,14 @@
 package catalog
 
 import (
-	"context"
 	"fmt"
 	"io/fs"
 	"slices"
 	"sort"
-	"strings"
-	"sync"
-
-	"golang.org/x/sync/errgroup"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	"github.com/JackDrogon/project/internal/adapters/templatefs"
 	domain "github.com/JackDrogon/project/internal/scaffold"
-)
-
-const (
-	InspectModeAll    = "all"
-	InspectModeRender = "render"
-	InspectModeCopy   = "copy"
 )
 
 type ManifestLoader interface {
@@ -35,54 +24,14 @@ func (fn manifestLoaderFunc) Load(fsys fs.FS, lang string) (protocoltoml.Manifes
 type Service struct {
 	fsys           fs.FS
 	manifestLoader ManifestLoader
-}
-
-// Summary provides a high-level overview of a template's metadata.
-// It includes the template name, description, file counts, and extracted variables.
-type Summary struct {
-	Name            string
-	Description     string
-	ManifestVersion int
-	InputNames      []string
-	FileCount       int
-	TemplateCount   int
-	Variables       []string
-	RepoAssets      []string
-	RepoFileCount   int
-	GovernanceTier  string
-}
-
-// FileDetail represents metadata about a single file in a template.
-// It tracks the source path, output path, and whether the file requires template rendering.
-type FileDetail struct {
-	Source     string
-	Output     string
-	IsTemplate bool
-}
-
-// Inspection contains comprehensive analysis results for a template.
-// It extends Summary with detailed file listings and manifest inputs, optionally filtered by inspection mode.
-type Inspection struct {
-	Name            string
-	Description     string
-	ManifestVersion int
-	Inputs          []domain.ManifestInput
-	FileCount       int
-	TemplateCount   int
-	Variables       []string
-	RepoAssets      []string
-	Mode            string
-	ShownCount      int
-	RepoFiles       []FileDetail
-	LanguageFiles   []FileDetail
-	Files           []FileDetail
+	analyzer       Analyzer
 }
 
 func NewService(fsys fs.FS, loader ManifestLoader) *Service {
 	if loader == nil {
 		loader = manifestLoaderFunc(protocoltoml.LoadManifest)
 	}
-	return &Service{fsys: fsys, manifestLoader: loader}
+	return &Service{fsys: fsys, manifestLoader: loader, analyzer: newTemplateAnalyzer(fsys, loader)}
 }
 
 func (s *Service) ListLangs() ([]string, error) {
@@ -107,153 +56,79 @@ func (s *Service) ListSummaries() ([]Summary, error) {
 		return nil, err
 	}
 
-	var mu sync.Mutex
-	results := make([]Summary, 0, len(langs))
-	g, _ := errgroup.WithContext(context.Background())
-
-	for _, lang := range langs {
-		lang := lang
-		g.Go(func() error {
-			inspection, err := s.Inspect(lang, InspectModeAll)
-			if err != nil {
-				return err
-			}
-
-			mu.Lock()
-			results = append(results, Summary{
-				Name:            inspection.Name,
-				Description:     inspection.Description,
-				ManifestVersion: inspection.ManifestVersion,
-				InputNames:      inputNames(inspection.Inputs),
-				FileCount:       inspection.FileCount,
-				TemplateCount:   inspection.TemplateCount,
-				Variables:       append([]string(nil), inspection.Variables...),
-				RepoAssets:      append([]string(nil), inspection.RepoAssets...),
-				RepoFileCount:   len(inspection.RepoFiles),
-				GovernanceTier:  governanceTierForInspection(inspection),
-			})
-			mu.Unlock()
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
+	results, err := projectLangs(langs, s.analyzer, summaryProjector{})
+	if err != nil {
 		return nil, err
 	}
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Name < results[j].Name
-	})
-
 	return results, nil
 }
 
-func (s *Service) Inspect(lang, mode string) (Inspection, error) {
-	manifest, found, err := s.manifestLoader.Load(s.fsys, lang)
-	if err != nil {
-		return Inspection{}, err
-	}
-	if !found {
-		return Inspection{}, fmt.Errorf("unsupported language: %s", lang)
-	}
-
-	details, err := templatefs.CollectDetails(s.fsys, lang, templatefs.Manifest{
-		SchemaVersion: manifest.Version,
-		Name:          manifest.Name,
-		Description:   manifest.Description,
-		Inputs:        manifestInputsToDomain(manifest.Inputs),
-	})
+func (s *Service) Inspect(lang string, mode InspectMode) (Inspection, error) {
+	analysis, err := s.analyzer.Analyze(lang)
 	if err != nil {
 		return Inspection{}, err
 	}
 
-	normalized, err := normalizeInspectMode(mode)
-	if err != nil {
-		return Inspection{}, err
-	}
-
-	files := make([]FileDetail, 0, len(details.Files))
-	for _, file := range details.Files {
-		switch normalized {
-		case InspectModeAll:
-			files = append(files, fileDetailFromTemplatefs(file))
-		case InspectModeRender:
-			if file.IsTemplate {
-				files = append(files, fileDetailFromTemplatefs(file))
-			}
-		case InspectModeCopy:
-			if !file.IsTemplate {
-				files = append(files, fileDetailFromTemplatefs(file))
-			}
-		}
-	}
-
-	repoFiles, languageFiles := partitionInspectionFiles(files)
-
-	return Inspection{
-		Name:            details.Name,
-		Description:     details.Description,
-		ManifestVersion: details.ManifestVersion,
-		Inputs:          append([]domain.ManifestInput(nil), details.Inputs...),
-		FileCount:       details.FileCount,
-		TemplateCount:   details.TemplateCount,
-		Variables:       append([]string(nil), details.Variables...),
-		RepoAssets:      repoAssetsFromTemplateFiles(details.Files),
-		Mode:            normalized,
-		ShownCount:      len(files),
-		RepoFiles:       repoFiles,
-		LanguageFiles:   languageFiles,
-		Files:           files,
-	}, nil
+	return inspectionProjector{mode: mode}.Project(analysis)
 }
 
 var repoAssetLabelsByPath = map[string]string{
-	".editorconfig":            "editorconfig",
-	".github/dependabot.yml":   "dependabot",
-	".github/workflows/ci.yml": "ci",
-	".gitignore":               "gitignore",
-	".golangci.yml":            "golangci",
-	".goreleaser.yml.tmpl":     "goreleaser",
-	"codecov.yml":              "codecov",
-	"CONTRIBUTING.md.tmpl":     "contributing",
-	"SECURITY.md.tmpl":         "security",
-	"justfile.tmpl":            "justfile",
-	"typos.toml":               "typos",
+	"editorconfig": ".editorconfig",
+	"dependabot":   ".github/dependabot.yml",
+	"ci":           ".github/workflows/ci.yml",
+	"gitignore":    ".gitignore",
+	"golangci":     ".golangci.yml",
+	"goreleaser":   ".goreleaser.yml.tmpl",
+	"codecov":      "codecov.yml",
+	"contributing": "CONTRIBUTING.md.tmpl",
+	"security":     "SECURITY.md.tmpl",
+	"justfile":     "justfile.tmpl",
+	"typos":        "typos.toml",
 }
 
-func repoAssetsFromTemplateFiles(files []templatefs.FileDetail) []string {
+var repoAssetPathSet = func() map[string]struct{} {
+	paths := make(map[string]struct{}, len(repoAssetLabelsByPath))
+	for _, path := range repoAssetLabelsByPath {
+		paths[path] = struct{}{}
+	}
+	return paths
+}()
+
+func repoAssetsFromInspectionFiles(files []InspectionFile) []string {
 	seen := make(map[string]struct{})
 	assets := make([]string, 0, len(repoAssetLabelsByPath))
 	for _, file := range files {
-		label, ok := repoAssetLabelsByPath[file.Source]
-		if !ok {
-			continue
+		for label, path := range repoAssetLabelsByPath {
+			if file.Source != path {
+				continue
+			}
+			if _, exists := seen[label]; exists {
+				break
+			}
+			seen[label] = struct{}{}
+			assets = append(assets, label)
+			break
 		}
-		if _, exists := seen[label]; exists {
-			continue
-		}
-		seen[label] = struct{}{}
-		assets = append(assets, label)
 	}
 	sort.Strings(assets)
 	return assets
 }
 
-func partitionInspectionFiles(files []FileDetail) ([]FileDetail, []FileDetail) {
-	repoFiles := make([]FileDetail, 0, len(files))
-	languageFiles := make([]FileDetail, 0, len(files))
-	for _, file := range files {
-		if _, ok := repoAssetLabelsByPath[file.Source]; ok {
-			repoFiles = append(repoFiles, file)
-			continue
-		}
-		languageFiles = append(languageFiles, file)
+func matchesInspectMode(file InspectionFile, mode InspectMode) bool {
+	switch mode {
+	case InspectModeAll:
+		return true
+	case InspectModeRender:
+		return file.Action == FileActionRender
+	case InspectModeCopy:
+		return file.Action == FileActionCopy
+	default:
+		return false
 	}
-	return repoFiles, languageFiles
 }
 
 func governanceTierForInspection(inspection Inspection) string {
-	repoFileCount := len(inspection.RepoFiles)
+	repoFileCount := len(inspection.RepoFiles())
 	hasCI := slices.Contains(inspection.RepoAssets, "ci")
 	hasTypos := slices.Contains(inspection.RepoAssets, "typos")
 	hasDependabot := slices.Contains(inspection.RepoAssets, "dependabot")
@@ -288,20 +163,14 @@ func inputNames(inputs []domain.ManifestInput) []string {
 	return result
 }
 
-func fileDetailFromTemplatefs(file templatefs.FileDetail) FileDetail {
-	return FileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate}
-}
-
-func normalizeInspectMode(mode string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(mode))
-	if normalized == "" {
-		return InspectModeAll, nil
+func inspectionFileFromTemplateDetail(file templatefs.FileDetail) InspectionFile {
+	group := FileGroupLanguage
+	if _, ok := repoAssetPathSet[file.Source]; ok {
+		group = FileGroupRepo
 	}
-
-	switch normalized {
-	case InspectModeAll, InspectModeRender, InspectModeCopy:
-		return normalized, nil
-	default:
-		return "", fmt.Errorf("invalid --mode %q: must be one of %s, %s, %s", mode, InspectModeAll, InspectModeRender, InspectModeCopy)
+	action := FileActionCopy
+	if file.IsTemplate {
+		action = FileActionRender
 	}
+	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: group}
 }

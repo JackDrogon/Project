@@ -88,13 +88,11 @@ func (c *listCommand) run(cmd *cobra.Command, args []string) error {
 
 func (c *listCommand) newListPresenter() (*presenters.Presenter, error) {
 	if c.table {
-		if c.asTOML {
-			return nil, fmt.Errorf("table output is only supported for text format")
+		spec, err := listTableOutputSpec(c.asTOML, c.compact)
+		if err != nil {
+			return nil, err
 		}
-		if c.compact {
-			return nil, fmt.Errorf("--table cannot be combined with --compact")
-		}
-		return presenters.NewTableTextPresenter(), nil
+		return presenters.NewPresenter(spec)
 	}
 	return c.newPresenter()
 }
@@ -143,11 +141,7 @@ func summaryHasAllRepoAssets(summary appcatalog.Summary, assets []string) bool {
 }
 
 func isValidRepoAsset(asset string) bool {
-	return slices.Contains(knownRepoAssets(), asset)
-}
-
-func knownRepoAssets() []string {
-	return []string{"ci", "codecov", "contributing", "dependabot", "editorconfig", "gitignore", "golangci", "goreleaser", "justfile", "security", "typos"}
+	return appcatalog.IsKnownRepoAsset(asset)
 }
 
 func sortSummaries(summaries []appcatalog.Summary, mode string) error {
@@ -187,18 +181,7 @@ func sortSummaries(summaries []appcatalog.Summary, mode string) error {
 }
 
 func governanceSortRank(tier string) int {
-	switch tier {
-	case "rich":
-		return 4
-	case "standard":
-		return 3
-	case "basic":
-		return 2
-	case "minimal":
-		return 1
-	default:
-		return 0
-	}
+	return appcatalog.GovernanceRank(tier)
 }
 
 func init() {

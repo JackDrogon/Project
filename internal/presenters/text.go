@@ -161,9 +161,9 @@ func writeTextInspection(w io.Writer, inspection catalog.Inspection) error {
 	fmt.Fprintf(&b, "variables: %s\n", vars)
 	fmt.Fprintf(&b, "repo_assets: %s\n", repoAssets)
 	fmt.Fprintf(&b, "mode: %s\n", inspection.Mode)
-	fmt.Fprintf(&b, "shown: %d\n", inspection.ShownCount)
-	writeTextInspectionSection(&b, "repo_files", inspection.RepoFiles)
-	writeTextInspectionSection(&b, "language_files", inspection.LanguageFiles)
+	fmt.Fprintf(&b, "shown: %d\n", inspection.ShownCount())
+	writeTextInspectionSection(&b, "repo_files", inspection.RepoFiles())
+	writeTextInspectionSection(&b, "language_files", inspection.LanguageFiles())
 
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -193,12 +193,12 @@ func writeCompactTextInspection(w io.Writer, inspection catalog.Inspection) erro
 	}
 
 	fmt.Fprintf(&b, "%s — %s\n", inspection.Name, description)
-	fmt.Fprintf(&b, "  manifest: v%d | mode: %s | shown: %d | files: %d | templates: %d\n", inspection.ManifestVersion, inspection.Mode, inspection.ShownCount, inspection.FileCount, inspection.TemplateCount)
+	fmt.Fprintf(&b, "  manifest: v%d | mode: %s | shown: %d | files: %d | templates: %d\n", inspection.ManifestVersion, inspection.Mode, inspection.ShownCount(), inspection.FileCount, inspection.TemplateCount)
 	fmt.Fprintf(&b, "  inputs: %s\n", inputs)
 	fmt.Fprintf(&b, "  vars: %s\n", vars)
 	fmt.Fprintf(&b, "  repo_assets: %s\n", repoAssets)
-	writeCompactTextInspectionSection(&b, "repo_files", inspection.RepoFiles)
-	writeCompactTextInspectionSection(&b, "language_files", inspection.LanguageFiles)
+	writeCompactTextInspectionSection(&b, "repo_files", inspection.RepoFiles())
+	writeCompactTextInspectionSection(&b, "language_files", inspection.LanguageFiles())
 
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -214,33 +214,25 @@ func writeTableRow(b *strings.Builder, cells []string, widths []int) {
 	b.WriteByte('\n')
 }
 
-func writeTextInspectionSection(b *strings.Builder, title string, files []catalog.FileDetail) {
+func writeTextInspectionSection(b *strings.Builder, title string, files []catalog.InspectionFile) {
 	fmt.Fprintf(b, "%s:\n", title)
 	if len(files) == 0 {
 		fmt.Fprintln(b, "- (none)")
 		return
 	}
 	for _, file := range files {
-		mode := "copy"
-		if file.IsTemplate {
-			mode = "render"
-		}
-		fmt.Fprintf(b, "- %s -> %s (%s)\n", file.Source, file.Output, mode)
+		fmt.Fprintf(b, "- %s -> %s (%s)\n", file.Source, file.Output, file.Action)
 	}
 }
 
-func writeCompactTextInspectionSection(b *strings.Builder, title string, files []catalog.FileDetail) {
+func writeCompactTextInspectionSection(b *strings.Builder, title string, files []catalog.InspectionFile) {
 	if len(files) == 0 {
 		fmt.Fprintf(b, "  %s: (none)\n", title)
 		return
 	}
 	items := make([]string, 0, len(files))
 	for _, file := range files {
-		mode := "copy"
-		if file.IsTemplate {
-			mode = "render"
-		}
-		items = append(items, fmt.Sprintf("%s -> %s (%s)", file.Source, file.Output, mode))
+		items = append(items, fmt.Sprintf("%s -> %s (%s)", file.Source, file.Output, file.Action))
 	}
 	fmt.Fprintf(b, "  %s:\n", title)
 	for _, item := range items {

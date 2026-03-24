@@ -13,19 +13,19 @@ func TestNewPresenter(t *testing.T) {
 	tests := []struct {
 		name    string
 		format  string
-		compact bool
+		layout  TextLayout
 		wantErr bool
 	}{
-		{"text format", "text", false, false},
-		{"compact text format", "text", true, false},
-		{"toml format", "toml", false, false},
-		{"compact toml rejected", "toml", true, true},
-		{"invalid format", "json", false, true},
+		{"text format", "text", TextLayoutDefault, false},
+		{"compact text format", "text", TextLayoutCompact, false},
+		{"toml format", "toml", TextLayoutDefault, false},
+		{"compact toml rejected", "toml", TextLayoutCompact, true},
+		{"invalid format", "json", TextLayoutDefault, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format, tt.compact)
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: tt.layout})
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("NewPresenter() expected error, got nil")
@@ -93,7 +93,7 @@ func TestPresenter_WriteLangs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format, false)
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -151,7 +151,7 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format, false)
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -182,10 +182,7 @@ func TestPresenter_WriteInspection(t *testing.T) {
 		Variables:       []string{"ModulePath"},
 		RepoAssets:      []string{"ci", "typos"},
 		Mode:            catalog.InspectModeRender,
-		ShownCount:      1,
-		RepoFiles:       []catalog.FileDetail{},
-		LanguageFiles:   []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
-		Files:           []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
+		Files:           []catalog.InspectionFile{{Source: "go.mod.tmpl", Output: "go.mod", Action: catalog.FileActionRender, Group: catalog.FileGroupLanguage}},
 	}
 
 	tests := []struct {
@@ -207,7 +204,7 @@ func TestPresenter_WriteInspection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format, false)
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -250,10 +247,7 @@ func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
 		Variables:       []string{"ModulePath"},
 		RepoAssets:      []string{"ci", "typos"},
 		Mode:            catalog.InspectModeRender,
-		ShownCount:      1,
-		RepoFiles:       []catalog.FileDetail{},
-		LanguageFiles:   []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
-		Files:           []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
+		Files:           []catalog.InspectionFile{{Source: "go.mod.tmpl", Output: "go.mod", Action: catalog.FileActionRender, Group: catalog.FileGroupLanguage}},
 	}
 
 	presenter := NewCompactTextPresenter()

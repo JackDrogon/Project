@@ -13,8 +13,7 @@ type Formatter interface {
 }
 
 type textFormatter struct {
-	compact bool
-	table   bool
+	layout TextLayout
 }
 
 func (f *textFormatter) WriteLangs(w io.Writer, langs []string) error {
@@ -22,17 +21,17 @@ func (f *textFormatter) WriteLangs(w io.Writer, langs []string) error {
 }
 
 func (f *textFormatter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
-	if f.table {
+	if f.layout == TextLayoutTable {
 		return writeTableTextSummaries(w, summaries)
 	}
-	if f.compact {
+	if f.layout == TextLayoutCompact {
 		return writeCompactTextSummaries(w, summaries)
 	}
 	return writeTextSummaries(w, summaries)
 }
 
 func (f *textFormatter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
-	if f.compact {
+	if f.layout == TextLayoutCompact {
 		return writeCompactTextInspection(w, inspection)
 	}
 	return writeTextInspection(w, inspection)

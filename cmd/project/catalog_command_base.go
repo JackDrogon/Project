@@ -17,7 +17,7 @@ func (c *catalogCommandBase) bindSharedFlags(cmd *cobra.Command) {
 }
 
 func (c *catalogCommandBase) newPresenter() (*presenters.Presenter, error) {
-	return presenters.NewPresenter(selectedOutputFormat(c.asTOML), c.compact)
+	return presenters.NewPresenter(defaultCatalogOutputSpec(c.asTOML, c.compact))
 }
 
 func (c *catalogCommandBase) newService() *appcatalog.Service {

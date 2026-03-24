@@ -1,0 +1,162 @@
+package catalog
+
+import (
+	"fmt"
+	"io/fs"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/JackDrogon/project/internal/adapters/templatefs"
+	domain "github.com/JackDrogon/project/internal/scaffold"
+)
+
+type Analyzer interface {
+	Analyze(lang string) (Analysis, error)
+}
+
+type analysisProjector[T any] interface {
+	Project(Analysis) (T, error)
+}
+
+type templateAnalyzer struct {
+	fsys           fs.FS
+	manifestLoader ManifestLoader
+}
+
+type Analysis struct {
+	name            string
+	description     string
+	manifestVersion int
+	inputs          []domain.ManifestInput
+	fileCount       int
+	templateCount   int
+	variables       []string
+	repoAssets      []string
+	files           []InspectionFile
+}
+
+func newTemplateAnalyzer(fsys fs.FS, loader ManifestLoader) Analyzer {
+	return &templateAnalyzer{fsys: fsys, manifestLoader: loader}
+}
+
+func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
+	manifest, found, err := a.manifestLoader.Load(a.fsys, lang)
+	if err != nil {
+		return Analysis{}, err
+	}
+	if !found {
+		return Analysis{}, unsupportedLanguageError(lang)
+	}
+
+	details, err := templatefs.CollectDetails(a.fsys, lang, templatefs.Manifest{
+		SchemaVersion: manifest.Version,
+		Name:          manifest.Name,
+		Description:   manifest.Description,
+		Inputs:        manifestInputsToDomain(manifest.Inputs),
+	})
+	if err != nil {
+		return Analysis{}, err
+	}
+
+	files := make([]InspectionFile, 0, len(details.Files))
+	for _, file := range details.Files {
+		files = append(files, inspectionFileFromTemplateDetail(file))
+	}
+
+	return Analysis{
+		name:            details.Name,
+		description:     details.Description,
+		manifestVersion: details.ManifestVersion,
+		inputs:          append([]domain.ManifestInput(nil), details.Inputs...),
+		fileCount:       details.FileCount,
+		templateCount:   details.TemplateCount,
+		variables:       append([]string(nil), details.Variables...),
+		repoAssets:      repoAssetsFromInspectionFiles(files),
+		files:           files,
+	}, nil
+}
+
+func (a Analysis) ToInspection(mode InspectMode) (Inspection, error) {
+	normalized, err := ParseInspectMode(string(mode))
+	if err != nil {
+		return Inspection{}, err
+	}
+
+	files := make([]InspectionFile, 0, len(a.files))
+	for _, file := range a.files {
+		if matchesInspectMode(file, normalized) {
+			files = append(files, file)
+		}
+	}
+
+	return Inspection{
+		Name:            a.name,
+		Description:     a.description,
+		ManifestVersion: a.manifestVersion,
+		Inputs:          append([]domain.ManifestInput(nil), a.inputs...),
+		FileCount:       a.fileCount,
+		TemplateCount:   a.templateCount,
+		Variables:       append([]string(nil), a.variables...),
+		RepoAssets:      append([]string(nil), a.repoAssets...),
+		Mode:            normalized,
+		Files:           files,
+	}, nil
+}
+
+func (a Analysis) ToSummary() Summary {
+	inspection, _ := a.ToInspection(InspectModeAll)
+	return Summary{
+		Name:            a.name,
+		Description:     a.description,
+		ManifestVersion: a.manifestVersion,
+		InputNames:      inputNames(a.inputs),
+		FileCount:       a.fileCount,
+		TemplateCount:   a.templateCount,
+		Variables:       append([]string(nil), a.variables...),
+		RepoAssets:      append([]string(nil), a.repoAssets...),
+		RepoFileCount:   len(inspection.RepoFiles()),
+		GovernanceTier:  governanceTierForInspection(inspection),
+	}
+}
+
+type summaryProjector struct{}
+
+func (summaryProjector) Project(analysis Analysis) (Summary, error) {
+	return analysis.ToSummary(), nil
+}
+
+type inspectionProjector struct {
+	mode InspectMode
+}
+
+func (p inspectionProjector) Project(analysis Analysis) (Inspection, error) {
+	return analysis.ToInspection(p.mode)
+}
+
+func projectLangs[T any](langs []string, analyzer Analyzer, projector analysisProjector[T]) ([]T, error) {
+	results := make([]T, len(langs))
+	var g errgroup.Group
+	for i, lang := range langs {
+		g.Go(func() error {
+			analysis, err := analyzer.Analyze(lang)
+			if err != nil {
+				return err
+			}
+			projected, err := projector.Project(analysis)
+			if err != nil {
+				return err
+			}
+			results[i] = projected
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		var zero []T
+		return zero, err
+	}
+	return results, nil
+}
+
+func unsupportedLanguageError(lang string) error {
+	return fmt.Errorf("unsupported language: %s", lang)
+}

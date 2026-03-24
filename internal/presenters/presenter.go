@@ -11,24 +11,24 @@ type Presenter struct {
 	formatter Formatter
 }
 
-func NewPresenter(format string, compact bool) (*Presenter, error) {
+func NewPresenter(spec OutputSpec) (*Presenter, error) {
 	var formatter Formatter
-	switch format {
+	switch spec.Format {
 	case "text":
-		formatter = &textFormatter{compact: compact}
+		formatter = &textFormatter{layout: spec.TextLayout}
 	case "toml":
-		if compact {
-			return nil, fmt.Errorf("compact output is only supported for text format")
+		if spec.TextLayout != "" && spec.TextLayout != TextLayoutDefault {
+			return nil, fmt.Errorf("%s output is only supported for text format", spec.TextLayout)
 		}
 		formatter = &tomlFormatter{}
 	default:
-		return nil, fmt.Errorf("unsupported format: %s", format)
+		return nil, fmt.Errorf("unsupported format: %s", spec.Format)
 	}
 	return &Presenter{formatter: formatter}, nil
 }
 
 func NewTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{}}
+	return &Presenter{formatter: &textFormatter{layout: TextLayoutDefault}}
 }
 
 func NewTOMLPresenter() *Presenter {
@@ -36,11 +36,11 @@ func NewTOMLPresenter() *Presenter {
 }
 
 func NewCompactTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{compact: true}}
+	return &Presenter{formatter: &textFormatter{layout: TextLayoutCompact}}
 }
 
 func NewTableTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{table: true}}
+	return &Presenter{formatter: &textFormatter{layout: TextLayoutTable}}
 }
 
 func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {

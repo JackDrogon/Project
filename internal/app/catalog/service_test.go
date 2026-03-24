@@ -62,8 +62,8 @@ func TestServiceInspect(t *testing.T) {
 	if got.Name != "go" || got.Description != "Go starter" || got.ManifestVersion != 2 {
 		t.Fatalf("Inspect() summary = %#v, want manifest metadata preserved", got)
 	}
-	if got.Mode != InspectModeRender || got.ShownCount != 2 {
-		t.Fatalf("Inspect() mode/shown = (%q, %d), want (%q, %d)", got.Mode, got.ShownCount, InspectModeRender, 2)
+	if got.Mode != InspectModeRender || got.ShownCount() != 2 {
+		t.Fatalf("Inspect() mode/shown = (%q, %d), want (%q, %d)", got.Mode, got.ShownCount(), InspectModeRender, 2)
 	}
 	if !reflect.DeepEqual(inputNames(got.Inputs), []string{"module_path", "go_version"}) {
 		t.Fatalf("Inspect() inputs = %#v, want module_path/go_version", got.Inputs)
@@ -94,7 +94,7 @@ func TestServiceInspect_Errors(t *testing.T) {
 			"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\n")},
 		}
 		svc := NewService(fsys, nil)
-		_, err := svc.Inspect("go", "bogus")
+		_, err := svc.Inspect("go", InspectMode("bogus"))
 		if err == nil {
 			t.Fatal("Inspect() expected error, got nil")
 		}

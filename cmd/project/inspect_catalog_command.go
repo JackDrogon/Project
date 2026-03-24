@@ -11,7 +11,7 @@ type inspectCommand struct {
 }
 
 func newInspectCommand() *inspectCommand {
-	return &inspectCommand{filter: appcatalog.InspectModeAll}
+	return &inspectCommand{filter: string(appcatalog.InspectModeAll)}
 }
 
 func (c *inspectCommand) buildCommand() *cobra.Command {
@@ -23,7 +23,7 @@ func (c *inspectCommand) buildCommand() *cobra.Command {
 	}
 
 	c.bindSharedFlags(cmd)
-	cmd.Flags().StringVar(&c.filter, "mode", appcatalog.InspectModeAll, "File mode: all, render, copy")
+	cmd.Flags().StringVar(&c.filter, "mode", string(appcatalog.InspectModeAll), "File mode: all, render, copy")
 	return cmd
 }
 
@@ -33,7 +33,12 @@ func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	inspection, err := c.newService().Inspect(args[0], c.filter)
+	mode, err := appcatalog.ParseInspectMode(c.filter)
+	if err != nil {
+		return err
+	}
+
+	inspection, err := c.newService().Inspect(args[0], mode)
 	if err != nil {
 		return err
 	}

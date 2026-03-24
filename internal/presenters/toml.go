@@ -96,24 +96,24 @@ func writeTOMLInspection(w io.Writer, inspection catalog.Inspection) error {
 		TemplateCount:   inspection.TemplateCount,
 		Variables:       append([]string(nil), inspection.Variables...),
 		RepoAssets:      append([]string(nil), inspection.RepoAssets...),
-		Mode:            inspection.Mode,
-		ShownCount:      inspection.ShownCount,
+		Mode:            string(inspection.Mode),
+		ShownCount:      inspection.ShownCount(),
 		Inputs:          make([]tomlManifestInput, 0, len(inspection.Inputs)),
-		RepoFiles:       make([]tomlFileDetail, 0, len(inspection.RepoFiles)),
-		LanguageFiles:   make([]tomlFileDetail, 0, len(inspection.LanguageFiles)),
+		RepoFiles:       make([]tomlFileDetail, 0, len(inspection.RepoFiles())),
+		LanguageFiles:   make([]tomlFileDetail, 0, len(inspection.LanguageFiles())),
 		Files:           make([]tomlFileDetail, 0, len(inspection.Files)),
 	}
 	for _, input := range inspection.Inputs {
 		encoded.Inputs = append(encoded.Inputs, tomlManifestInput{Name: input.Name, TemplateVar: input.TemplateVar})
 	}
 	for _, file := range inspection.Files {
-		encoded.Files = append(encoded.Files, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate})
+		encoded.Files = append(encoded.Files, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate()})
 	}
-	for _, file := range inspection.RepoFiles {
-		encoded.RepoFiles = append(encoded.RepoFiles, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate})
+	for _, file := range inspection.RepoFiles() {
+		encoded.RepoFiles = append(encoded.RepoFiles, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate()})
 	}
-	for _, file := range inspection.LanguageFiles {
-		encoded.LanguageFiles = append(encoded.LanguageFiles, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate})
+	for _, file := range inspection.LanguageFiles() {
+		encoded.LanguageFiles = append(encoded.LanguageFiles, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate()})
 	}
 
 	content, err := toml.Marshal(encoded)

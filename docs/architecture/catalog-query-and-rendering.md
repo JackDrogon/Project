@@ -53,28 +53,34 @@ Its responsibilities are:
 
 - define Cobra flags and positional arguments
 - validate CLI-only flag combinations
-- build typed query/spec objects
-- call the catalog facade
-- pass results to presenters
+- register command groups and preserve command ordering
+- expose main-package seams for command-level integration tests
+- delegate concrete command implementations to focused subpackages when they grow beyond thin wiring
 
 Important files:
 
-- `catalog_command_spec.go`
-- `catalog_output_spec.go`
 - `catalog_service_factory.go`
+- `catalog_command_registration.go`
 - `scaffold_service_factory.go`
 - `version_service_factory.go`
-- `list_catalog_command.go`
-- `inspect_catalog_command.go`
+- `version_command_registration.go`
+- `completion_command_registration.go`
+
+Command implementations that were contributing to flattening now live under focused subpackages:
+
+- `internal/cli/catalog`
+- `internal/cli/scaffold`
+- `internal/cli/version`
+- `internal/cli/completion`
 
 #### Command spec builders
 
-The command layer currently uses explicit builders:
+Command packages use explicit builders where they own request/spec logic.
 
-- `listCommandSpecBuilder`
-- `inspectCommandSpecBuilder`
-- `newScaffoldCommandSpecBuilder`
-- `initScaffoldCommandSpecBuilder`
+Current examples:
+
+- `internal/cli/catalog`: list/inspect query and output spec builders
+- `internal/cli/scaffold`: `newScaffoldCommandSpecBuilder` and `initScaffoldCommandSpecBuilder`
 
 These builders centralize:
 
@@ -83,7 +89,7 @@ These builders centralize:
 - output spec construction
 - scaffold spec construction
 
-That keeps command `RunE` handlers declarative instead of procedural.
+That keeps command `RunE` handlers declarative instead of procedural while allowing the root command package to stay focused on registration and command wiring.
 
 ### Catalog facade layer: `internal/app/catalog/service.go`
 

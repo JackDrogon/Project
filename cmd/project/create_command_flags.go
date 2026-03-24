@@ -17,10 +17,6 @@ type scaffoldCommandFlags struct {
 	setValues       []string
 }
 
-var newCreateService = func() *appcreate.Service {
-	return appcreate.NewService()
-}
-
 func bindScaffoldCommandFlags(cmd *cobra.Command, flags *scaffoldCommandFlags) {
 	cmd.Flags().StringVarP(&flags.lang, "lang", "l", "", "Programming language for the project")
 	cmd.Flags().StringVarP(&flags.module, "module", "m", "", "Module path (e.g. github.com/user/project)")

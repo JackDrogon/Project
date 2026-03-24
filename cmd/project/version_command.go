@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/JackDrogon/project/internal/adapters/buildinfo"
-	appversion "github.com/JackDrogon/project/internal/app/version"
 	"github.com/spf13/cobra"
 )
 
@@ -32,8 +30,4 @@ func buildVersionCommand(commandDependencies) *cobra.Command {
 
 func init() {
 	registerOrderedCommand(commandKeyVersion, commandOrderVersion, buildVersionCommand)
-}
-
-var newVersionService = func() *appversion.Service {
-	return appversion.NewService(buildinfo.New())
 }

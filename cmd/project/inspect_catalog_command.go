@@ -2,6 +2,7 @@ package main
 
 import (
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
+	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,7 @@ func (c *inspectCommand) buildCommand() *cobra.Command {
 }
 
 func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
-	presenter, err := c.newPresenter()
+	presenter, err := presenters.NewPresenter(inspectOutputSpec(c.asTOML, c.compact))
 	if err != nil {
 		return err
 	}

@@ -12,8 +12,17 @@ type Formatter interface {
 	WriteInspection(w io.Writer, inspection catalog.Inspection) error
 }
 
+type summaryWriter interface {
+	WriteSummaries(w io.Writer, summaries []catalog.Summary) error
+}
+
+type inspectionWriter interface {
+	WriteInspection(w io.Writer, inspection catalog.Inspection) error
+}
+
 type textFormatter struct {
-	layout TextLayout
+	summary    summaryWriter
+	inspection inspectionWriter
 }
 
 func (f *textFormatter) WriteLangs(w io.Writer, langs []string) error {
@@ -21,23 +30,41 @@ func (f *textFormatter) WriteLangs(w io.Writer, langs []string) error {
 }
 
 func (f *textFormatter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
-	if f.layout == TextLayoutTable {
-		return writeTableTextSummaries(w, summaries)
-	}
-	if f.layout == TextLayoutCompact {
-		return writeCompactTextSummaries(w, summaries)
-	}
-	return writeTextSummaries(w, summaries)
+	return f.summary.WriteSummaries(w, summaries)
 }
 
 func (f *textFormatter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
-	if f.layout == TextLayoutCompact {
-		return writeCompactTextInspection(w, inspection)
-	}
-	return writeTextInspection(w, inspection)
+	return f.inspection.WriteInspection(w, inspection)
 }
 
 type tomlFormatter struct{}
+
+type defaultSummaryTextWriter struct{}
+type compactSummaryTextWriter struct{}
+type tableSummaryTextWriter struct{}
+
+type defaultInspectionTextWriter struct{}
+type compactInspectionTextWriter struct{}
+
+func (defaultSummaryTextWriter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
+	return writeTextSummaries(w, summaries)
+}
+
+func (compactSummaryTextWriter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
+	return writeCompactTextSummaries(w, summaries)
+}
+
+func (tableSummaryTextWriter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
+	return writeTableTextSummaries(w, summaries)
+}
+
+func (defaultInspectionTextWriter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
+	return writeTextInspection(w, inspection)
+}
+
+func (compactInspectionTextWriter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
+	return writeCompactTextInspection(w, inspection)
+}
 
 func (f *tomlFormatter) WriteLangs(w io.Writer, langs []string) error {
 	return writeTOMLLangs(w, langs)

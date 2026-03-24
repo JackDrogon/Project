@@ -13,19 +13,20 @@ func TestNewPresenter(t *testing.T) {
 	tests := []struct {
 		name    string
 		format  string
-		layout  TextLayout
+		summary SummaryViewSpec
+		inspect InspectionViewSpec
 		wantErr bool
 	}{
-		{"text format", "text", TextLayoutDefault, false},
-		{"compact text format", "text", TextLayoutCompact, false},
-		{"toml format", "toml", TextLayoutDefault, false},
-		{"compact toml rejected", "toml", TextLayoutCompact, true},
-		{"invalid format", "json", TextLayoutDefault, true},
+		{"text format", "text", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), false},
+		{"compact text format", "text", SummaryViewSpec{TextLayout: TextLayoutCompact}, InspectionViewSpec{TextLayout: TextLayoutCompact}, false},
+		{"toml format", "toml", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), false},
+		{"compact toml rejected", "toml", SummaryViewSpec{TextLayout: TextLayoutCompact}, DefaultInspectionViewSpec(), true},
+		{"invalid format", "json", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: tt.layout})
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, Summary: tt.summary, Inspection: tt.inspect})
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("NewPresenter() expected error, got nil")
@@ -63,6 +64,20 @@ func TestNewTableTextPresenter(t *testing.T) {
 	}
 }
 
+func TestNewPresenter_RejectsInspectionTableLayout(t *testing.T) {
+	_, err := NewPresenter(OutputSpec{
+		Format:     "text",
+		Summary:    DefaultSummaryViewSpec(),
+		Inspection: InspectionViewSpec{TextLayout: TextLayoutTable},
+	})
+	if err == nil {
+		t.Fatal("NewPresenter() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "table output is only supported for summary text views") {
+		t.Fatalf("NewPresenter() error = %v, want inspection table error", err)
+	}
+}
+
 func TestNewTOMLPresenter(t *testing.T) {
 	presenter := NewTOMLPresenter()
 	if presenter == nil {
@@ -93,7 +108,7 @@ func TestPresenter_WriteLangs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -151,7 +166,7 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -204,7 +219,7 @@ func TestPresenter_WriteInspection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(OutputSpec{Format: tt.format, TextLayout: TextLayoutDefault})
+			presenter, err := NewPresenter(OutputSpec{Format: tt.format, Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}

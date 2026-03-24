@@ -25,13 +25,17 @@ type Service struct {
 	fsys           fs.FS
 	manifestLoader ManifestLoader
 	analyzer       Analyzer
+	executor       QueryExecutor
 }
 
 func NewService(fsys fs.FS, loader ManifestLoader) *Service {
 	if loader == nil {
 		loader = manifestLoaderFunc(protocoltoml.LoadManifest)
 	}
-	return &Service{fsys: fsys, manifestLoader: loader, analyzer: newTemplateAnalyzer(fsys, loader)}
+	analyzer := newTemplateAnalyzer(fsys, loader)
+	service := &Service{fsys: fsys, manifestLoader: loader, analyzer: analyzer}
+	service.executor = newQueryExecutor(service, analyzer)
+	return service
 }
 
 func (s *Service) ListLangs() ([]string, error) {
@@ -55,16 +59,7 @@ func (s *Service) ListSummaries() ([]Summary, error) {
 }
 
 func (s *Service) QuerySummaries(query SummaryQuery) ([]Summary, error) {
-	langs, err := s.ListLangs()
-	if err != nil {
-		return nil, err
-	}
-
-	results, err := projectLangs(langs, s.analyzer, summaryProjector{})
-	if err != nil {
-		return nil, err
-	}
-	return query.Apply(results)
+	return s.executor.QuerySummaries(query)
 }
 
 func (s *Service) Inspect(lang string, mode InspectMode) (Inspection, error) {
@@ -72,16 +67,7 @@ func (s *Service) Inspect(lang string, mode InspectMode) (Inspection, error) {
 }
 
 func (s *Service) QueryInspection(query InspectionQuery) (Inspection, error) {
-	if err := query.Validate(); err != nil {
-		return Inspection{}, err
-	}
-
-	analysis, err := s.analyzer.Analyze(query.Lang)
-	if err != nil {
-		return Inspection{}, err
-	}
-
-	return inspectionProjector{mode: query.Mode}.Project(analysis)
+	return s.executor.QueryInspection(query)
 }
 
 var repoAssetLabelsByPath = map[string]string{

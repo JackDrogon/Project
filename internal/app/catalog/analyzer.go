@@ -35,6 +35,31 @@ type Analysis struct {
 	files           []InspectionFile
 }
 
+type AnalysisViewBuilder interface {
+	Summary() Summary
+	Inspection(mode InspectMode) (Inspection, error)
+}
+
+type analysisViewBuilder struct {
+	analysis Analysis
+}
+
+type SummaryBuilder interface {
+	Build() Summary
+}
+
+type InspectionBuilder interface {
+	Build(mode InspectMode) (Inspection, error)
+}
+
+type summaryBuilder struct {
+	analysis Analysis
+}
+
+type inspectionBuilder struct {
+	analysis Analysis
+}
+
 func newTemplateAnalyzer(fsys fs.FS, loader ManifestLoader) Analyzer {
 	return &templateAnalyzer{fsys: fsys, manifestLoader: loader}
 }
@@ -76,7 +101,20 @@ func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
 	}, nil
 }
 
-func (a Analysis) ToInspection(mode InspectMode) (Inspection, error) {
+func (a Analysis) View() AnalysisViewBuilder {
+	return analysisViewBuilder{analysis: a}
+}
+
+func (b analysisViewBuilder) Summary() Summary {
+	return summaryBuilder(b).Build()
+}
+
+func (b analysisViewBuilder) Inspection(mode InspectMode) (Inspection, error) {
+	return inspectionBuilder(b).Build(mode)
+}
+
+func (b inspectionBuilder) Build(mode InspectMode) (Inspection, error) {
+	a := b.analysis
 	normalized, err := ParseInspectMode(string(mode))
 	if err != nil {
 		return Inspection{}, err
@@ -103,8 +141,9 @@ func (a Analysis) ToInspection(mode InspectMode) (Inspection, error) {
 	}, nil
 }
 
-func (a Analysis) ToSummary() Summary {
-	inspection, _ := a.ToInspection(InspectModeAll)
+func (b summaryBuilder) Build() Summary {
+	a := b.analysis
+	inspection, _ := inspectionBuilder{analysis: a}.Build(InspectModeAll)
 	return Summary{
 		Name:            a.name,
 		Description:     a.description,
@@ -122,7 +161,7 @@ func (a Analysis) ToSummary() Summary {
 type summaryProjector struct{}
 
 func (summaryProjector) Project(analysis Analysis) (Summary, error) {
-	return analysis.ToSummary(), nil
+	return analysis.View().Summary(), nil
 }
 
 type inspectionProjector struct {
@@ -130,7 +169,7 @@ type inspectionProjector struct {
 }
 
 func (p inspectionProjector) Project(analysis Analysis) (Inspection, error) {
-	return analysis.ToInspection(p.mode)
+	return analysis.View().Inspection(p.mode)
 }
 
 func projectLangs[T any](langs []string, analyzer Analyzer, projector analysisProjector[T]) ([]T, error) {

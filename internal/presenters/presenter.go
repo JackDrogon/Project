@@ -15,10 +15,21 @@ func NewPresenter(spec OutputSpec) (*Presenter, error) {
 	var formatter Formatter
 	switch spec.Format {
 	case "text":
-		formatter = &textFormatter{layout: spec.TextLayout}
+		summaryWriter, err := newSummaryTextWriter(spec.Summary)
+		if err != nil {
+			return nil, err
+		}
+		inspectionWriter, err := newInspectionTextWriter(spec.Inspection)
+		if err != nil {
+			return nil, err
+		}
+		formatter = &textFormatter{summary: summaryWriter, inspection: inspectionWriter}
 	case "toml":
-		if spec.TextLayout != "" && spec.TextLayout != TextLayoutDefault {
-			return nil, fmt.Errorf("%s output is only supported for text format", spec.TextLayout)
+		if spec.Summary.TextLayout != "" && spec.Summary.TextLayout != TextLayoutDefault {
+			return nil, fmt.Errorf("%s output is only supported for text format", spec.Summary.TextLayout)
+		}
+		if spec.Inspection.TextLayout != "" && spec.Inspection.TextLayout != TextLayoutDefault {
+			return nil, fmt.Errorf("%s output is only supported for text format", spec.Inspection.TextLayout)
 		}
 		formatter = &tomlFormatter{}
 	default:
@@ -28,7 +39,8 @@ func NewPresenter(spec OutputSpec) (*Presenter, error) {
 }
 
 func NewTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{layout: TextLayoutDefault}}
+	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
+	return presenter
 }
 
 func NewTOMLPresenter() *Presenter {
@@ -36,11 +48,39 @@ func NewTOMLPresenter() *Presenter {
 }
 
 func NewCompactTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{layout: TextLayoutCompact}}
+	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutCompact}, Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}})
+	return presenter
 }
 
 func NewTableTextPresenter() *Presenter {
-	return &Presenter{formatter: &textFormatter{layout: TextLayoutTable}}
+	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutTable}, Inspection: DefaultInspectionViewSpec()})
+	return presenter
+}
+
+func newSummaryTextWriter(spec SummaryViewSpec) (summaryWriter, error) {
+	switch spec.TextLayout {
+	case "", TextLayoutDefault:
+		return defaultSummaryTextWriter{}, nil
+	case TextLayoutCompact:
+		return compactSummaryTextWriter{}, nil
+	case TextLayoutTable:
+		return tableSummaryTextWriter{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported summary text layout: %s", spec.TextLayout)
+	}
+}
+
+func newInspectionTextWriter(spec InspectionViewSpec) (inspectionWriter, error) {
+	switch spec.TextLayout {
+	case "", TextLayoutDefault:
+		return defaultInspectionTextWriter{}, nil
+	case TextLayoutCompact:
+		return compactInspectionTextWriter{}, nil
+	case TextLayoutTable:
+		return nil, fmt.Errorf("table output is only supported for summary text views")
+	default:
+		return nil, fmt.Errorf("unsupported inspection text layout: %s", spec.TextLayout)
+	}
 }
 
 func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {

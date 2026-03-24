@@ -11,7 +11,11 @@ func defaultCatalogOutputSpec(asTOML, compact bool) presenters.OutputSpec {
 	if compact {
 		layout = presenters.TextLayoutCompact
 	}
-	return presenters.OutputSpec{Format: selectedOutputFormat(asTOML), TextLayout: layout}
+	return presenters.OutputSpec{
+		Format:     selectedOutputFormat(asTOML),
+		Summary:    presenters.SummaryViewSpec{TextLayout: layout},
+		Inspection: presenters.InspectionViewSpec{TextLayout: layout},
+	}
 }
 
 func listTableOutputSpec(asTOML, compact bool) (presenters.OutputSpec, error) {
@@ -21,5 +25,21 @@ func listTableOutputSpec(asTOML, compact bool) (presenters.OutputSpec, error) {
 	if compact {
 		return presenters.OutputSpec{}, fmt.Errorf("--table cannot be combined with --compact")
 	}
-	return presenters.OutputSpec{Format: outputFormatText, TextLayout: presenters.TextLayoutTable}, nil
+	return presenters.OutputSpec{
+		Format:     outputFormatText,
+		Summary:    presenters.SummaryViewSpec{TextLayout: presenters.TextLayoutTable},
+		Inspection: presenters.DefaultInspectionViewSpec(),
+	}, nil
+}
+
+func inspectOutputSpec(asTOML, compact bool) presenters.OutputSpec {
+	layout := presenters.TextLayoutDefault
+	if compact {
+		layout = presenters.TextLayoutCompact
+	}
+	return presenters.OutputSpec{
+		Format:     selectedOutputFormat(asTOML),
+		Summary:    presenters.DefaultSummaryViewSpec(),
+		Inspection: presenters.InspectionViewSpec{TextLayout: layout},
+	}
 }

@@ -18,6 +18,7 @@ alias c := cover
 alias r := run
 alias i := install
 alias g := generate
+alias s := spellcheck
 
 # ─────────────────────────────────────────────────────────────────────
 # Help
@@ -66,7 +67,7 @@ lint:
 # Format all Go code
 [group('quality')]
 fmt:
-    go fmt ./...
+    gofumpt -l -w .
 
 # Run go vet
 [group('quality')]
@@ -78,10 +79,15 @@ vet:
 generate:
     go generate ./...
 
-# Pre-commit: format → lint → test — run before every commit
+# Pre-commit: generate → format → lint → test → spellcheck — run before every commit
 [group('quality')]
-pre-commit: generate fmt lint test
+pre-commit: generate fmt lint test spellcheck
     @echo "All checks passed."
+
+# Run spelling checks across the repository
+[group('quality')]
+spellcheck:
+    typos .
 
 # ═════════════════════════════════════════════════════════════════════
 #  Test

@@ -277,15 +277,11 @@ func TestCLIContract_InspectRenderText(t *testing.T) {
 }
 
 func TestCLIContract_VersionDefault(t *testing.T) {
-	oldFactory := newVersionService
-	newVersionService = func() *appversion.Service {
+	useVersionServiceFactoryWith(t, func() *appversion.Service {
 		return appversion.NewService(stubVersionProvider{
 			info:    "cli-contract-tag:abcdef0",
 			verbose: "Tag:      cli-contract-tag\nRevision: abcdef0\nDirty:    false",
 		})
-	}
-	t.Cleanup(func() {
-		newVersionService = oldFactory
 	})
 
 	var buf bytes.Buffer

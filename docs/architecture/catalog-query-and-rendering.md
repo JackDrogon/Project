@@ -61,6 +61,9 @@ Important files:
 
 - `catalog_command_spec.go`
 - `catalog_output_spec.go`
+- `catalog_service_factory.go`
+- `scaffold_service_factory.go`
+- `version_service_factory.go`
 - `list_catalog_command.go`
 - `inspect_catalog_command.go`
 
@@ -110,6 +113,13 @@ It exposes the stable API used by `new` and `init` command handlers:
 
 The create facade should coordinate request/spec building and execution, but not hold every resolution rule inline.
 
+Related support files now keep that facade thinner:
+
+- `service_types.go` groups create request/spec and runtime DTOs
+- `service_runtime.go` owns `--set` parsing and replay-backed runtime assembly
+- `service_compat.go` keeps exported compatibility helpers adjacent
+- `replay_codec.go` owns replay merge/write helpers used by the facade
+
 ### Query execution layer: `internal/app/catalog/executor.go`
 
 `QueryExecutor` owns the details of executing typed catalog queries.
@@ -134,6 +144,14 @@ Important pieces:
 - `ScaffoldSettingsResolver`
 - `NewTargetResolver`
 - `InitTargetResolver`
+
+The package is also split by responsibility to reduce single-file complexity while preserving one package boundary:
+
+- `resolver.go`: settings and target resolver implementations
+- `creator.go`: create flow entrypoint and orchestration
+- `creator_destination.go`: destination safety and `--force` handling
+- `creator_templates.go`: template manifest and variable resolution
+- `creator_git.go`: git validation and repository initialization
 
 This lets `new` and `init` share a unified execution path while keeping mode-specific target resolution separate.
 
@@ -247,6 +265,8 @@ And injected through:
 
 - resolve `project init` target/project/module behavior
 - apply current-directory and replay fallback rules
+
+Replay-specific data merging and encoding helpers live alongside the service layer in `replay_codec.go` rather than inside the resolver implementation file.
 
 ### Presenter layer: `internal/presenters/`
 

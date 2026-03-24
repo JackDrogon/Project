@@ -21,14 +21,18 @@ func (s stubVersionProvider) Verbose() string {
 	return s.verbose
 }
 
-func useVersionServiceFactory(t *testing.T, provider stubVersionProvider) {
+func useVersionServiceFactoryWith(t *testing.T, factory func() *appversion.Service) {
 	t.Helper()
 	oldFactory := newVersionService
-	newVersionService = func() *appversion.Service {
-		return appversion.NewService(provider)
-	}
+	newVersionService = factory
 	t.Cleanup(func() {
 		newVersionService = oldFactory
+	})
+}
+
+func useVersionServiceFactory(t *testing.T, provider stubVersionProvider) {
+	useVersionServiceFactoryWith(t, func() *appversion.Service {
+		return appversion.NewService(provider)
 	})
 }
 

@@ -51,6 +51,10 @@ func (s *Service) ListLangs() ([]string, error) {
 }
 
 func (s *Service) ListSummaries() ([]Summary, error) {
+	return s.QuerySummaries(DefaultSummaryQuery())
+}
+
+func (s *Service) QuerySummaries(query SummaryQuery) ([]Summary, error) {
 	langs, err := s.ListLangs()
 	if err != nil {
 		return nil, err
@@ -60,7 +64,7 @@ func (s *Service) ListSummaries() ([]Summary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return results, nil
+	return query.Apply(results)
 }
 
 func (s *Service) Inspect(lang string, mode InspectMode) (Inspection, error) {

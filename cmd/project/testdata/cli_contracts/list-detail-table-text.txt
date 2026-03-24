@@ -1,0 +1,5 @@
+NAME  GOVERNANCE  REPO_FILES  FILES  TEMPLATES  INPUTS                  REPO_ASSETS                                                              
+----  ----------  ----------  -----  ---------  ----------------------  -------------------------------------------------------------------------
+cpp   standard    6           8      3          author                  ci,contributing,dependabot,editorconfig,gitignore,typos                  
+go    standard    5           7      2          module_path,go_version  ci,dependabot,editorconfig,gitignore,typos                               
+rust  rich        8           17     7          author,year             ci,contributing,dependabot,editorconfig,gitignore,justfile,security,typos

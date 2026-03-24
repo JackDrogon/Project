@@ -1,0 +1,20 @@
+cpp [standard]
+  desc: C++ starter
+  counts: files=8 templates=3 repo_files=6 manifest=v2
+  inputs: author
+  vars: Author, ProjectName
+  repo: ci, contributing, dependabot, editorconfig, gitignore, typos
+
+go [standard]
+  desc: Go starter
+  counts: files=7 templates=2 repo_files=5 manifest=v2
+  inputs: module_path, go_version
+  vars: ModulePath, ProjectNameLower
+  repo: ci, dependabot, editorconfig, gitignore, typos
+
+rust [rich]
+  desc: Cargo-based Rust starter
+  counts: files=17 templates=7 repo_files=8 manifest=v2
+  inputs: author, year
+  vars: Author, ProjectName, Year
+  repo: ci, contributing, dependabot, editorconfig, gitignore, justfile, security, typos

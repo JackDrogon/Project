@@ -13,16 +13,19 @@ func TestNewPresenter(t *testing.T) {
 	tests := []struct {
 		name    string
 		format  string
+		compact bool
 		wantErr bool
 	}{
-		{"text format", "text", false},
-		{"toml format", "toml", false},
-		{"invalid format", "json", true},
+		{"text format", "text", false, false},
+		{"compact text format", "text", true, false},
+		{"toml format", "toml", false, false},
+		{"compact toml rejected", "toml", true, true},
+		{"invalid format", "json", false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format)
+			presenter, err := NewPresenter(tt.format, tt.compact)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("NewPresenter() expected error, got nil")
@@ -43,6 +46,20 @@ func TestNewTextPresenter(t *testing.T) {
 	presenter := NewTextPresenter()
 	if presenter == nil {
 		t.Fatal("NewTextPresenter() = nil")
+	}
+}
+
+func TestNewCompactTextPresenter(t *testing.T) {
+	presenter := NewCompactTextPresenter()
+	if presenter == nil {
+		t.Fatal("NewCompactTextPresenter() = nil")
+	}
+}
+
+func TestNewTableTextPresenter(t *testing.T) {
+	presenter := NewTableTextPresenter()
+	if presenter == nil {
+		t.Fatal("NewTableTextPresenter() = nil")
 	}
 }
 
@@ -76,7 +93,7 @@ func TestPresenter_WriteLangs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format)
+			presenter, err := NewPresenter(tt.format, false)
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -110,6 +127,9 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 		FileCount:       3,
 		TemplateCount:   2,
 		Variables:       []string{"ModulePath"},
+		RepoAssets:      []string{"ci", "typos"},
+		RepoFileCount:   2,
+		GovernanceTier:  "basic",
 	}}
 
 	tests := []struct {
@@ -120,18 +140,18 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 		{
 			name:   "text format",
 			format: "text",
-			want:   []string{"go", `desc="Go starter"`, "manifest=v2", "inputs=[module_path]", "files=3", "templates=2", "vars=[ModulePath]"},
+			want:   []string{"go", `desc="Go starter"`, "manifest=v2", "inputs=[module_path]", "files=3", "templates=2", "vars=[ModulePath]", "repo=[ci, typos]", "repo_files=2", "governance=basic"},
 		},
 		{
 			name:   "toml format",
 			format: "toml",
-			want:   []string{"[[templates]]", "name = 'go'", "manifest_version = 2", "input_names = ['module_path']"},
+			want:   []string{"[[templates]]", "name = 'go'", "manifest_version = 2", "input_names = ['module_path']", "repo_assets = ['ci', 'typos']", "repo_file_count = 2", "governance_tier = 'basic'"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format)
+			presenter, err := NewPresenter(tt.format, false)
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -160,8 +180,11 @@ func TestPresenter_WriteInspection(t *testing.T) {
 		FileCount:       3,
 		TemplateCount:   2,
 		Variables:       []string{"ModulePath"},
+		RepoAssets:      []string{"ci", "typos"},
 		Mode:            catalog.InspectModeRender,
 		ShownCount:      1,
+		RepoFiles:       []catalog.FileDetail{},
+		LanguageFiles:   []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
 		Files:           []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
 	}
 
@@ -173,18 +196,18 @@ func TestPresenter_WriteInspection(t *testing.T) {
 		{
 			name:   "text format",
 			format: "text",
-			want:   []string{"name: go", "description: Go starter", "manifest_version: 2", "inputs: module_path->ModulePath", "shown: 1", "- go.mod.tmpl -> go.mod (render)"},
+			want:   []string{"name: go", "description: Go starter", "manifest_version: 2", "inputs: module_path->ModulePath", "repo_assets: ci, typos", "shown: 1", "repo_files:", "- (none)", "language_files:", "- go.mod.tmpl -> go.mod (render)"},
 		},
 		{
 			name:   "toml format",
 			format: "toml",
-			want:   []string{"name = 'go'", "shown_count = 1", "source = 'go.mod.tmpl'"},
+			want:   []string{"name = 'go'", "repo_assets = ['ci', 'typos']", "shown_count = 1", "[[language_files]]", "source = 'go.mod.tmpl'"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(tt.format)
+			presenter, err := NewPresenter(tt.format, false)
 			if err != nil {
 				t.Fatalf("NewPresenter() error = %v", err)
 			}
@@ -201,5 +224,76 @@ func TestPresenter_WriteInspection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
+	summaries := []catalog.Summary{{
+		Name:            "go",
+		Description:     "Go starter",
+		ManifestVersion: 2,
+		InputNames:      []string{"module_path"},
+		FileCount:       3,
+		TemplateCount:   2,
+		Variables:       []string{"ModulePath"},
+		RepoAssets:      []string{"ci", "typos"},
+		RepoFileCount:   2,
+		GovernanceTier:  "basic",
+	}}
+	inspection := catalog.Inspection{
+		Name:            "go",
+		Description:     "Go starter",
+		ManifestVersion: 2,
+		Inputs:          []scaffold.ManifestInput{{Name: "module_path", TemplateVar: "ModulePath"}},
+		FileCount:       3,
+		TemplateCount:   2,
+		Variables:       []string{"ModulePath"},
+		RepoAssets:      []string{"ci", "typos"},
+		Mode:            catalog.InspectModeRender,
+		ShownCount:      1,
+		RepoFiles:       []catalog.FileDetail{},
+		LanguageFiles:   []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
+		Files:           []catalog.FileDetail{{Source: "go.mod.tmpl", Output: "go.mod", IsTemplate: true}},
+	}
+
+	presenter := NewCompactTextPresenter()
+	var summaryBuf bytes.Buffer
+	if err := presenter.WriteSummaries(&summaryBuf, summaries); err != nil {
+		t.Fatalf("WriteSummaries() error = %v", err)
+	}
+	summaryOut := summaryBuf.String()
+	for _, want := range []string{"go [basic]", "counts: files=3 templates=2 repo_files=2 manifest=v2", "repo: ci, typos"} {
+		if !strings.Contains(summaryOut, want) {
+			t.Fatalf("compact summary output = %q, want contains %q", summaryOut, want)
+		}
+	}
+
+	var inspectBuf bytes.Buffer
+	if err := presenter.WriteInspection(&inspectBuf, inspection); err != nil {
+		t.Fatalf("WriteInspection() error = %v", err)
+	}
+	inspectOut := inspectBuf.String()
+	for _, want := range []string{"go — Go starter", "manifest: v2 | mode: render | shown: 1 | files: 3 | templates: 2", "repo_files: (none)", "language_files:", "go.mod.tmpl -> go.mod (render)"} {
+		if !strings.Contains(inspectOut, want) {
+			t.Fatalf("compact inspection output = %q, want contains %q", inspectOut, want)
+		}
+	}
+}
+
+func TestPresenter_WriteTableTextSummaries(t *testing.T) {
+	summaries := []catalog.Summary{
+		{Name: "go", RepoFileCount: 5, FileCount: 7, TemplateCount: 2, GovernanceTier: "standard", InputNames: []string{"module_path", "go_version"}, RepoAssets: []string{"ci", "typos"}},
+		{Name: "rust", RepoFileCount: 8, FileCount: 17, TemplateCount: 7, GovernanceTier: "rich", InputNames: []string{"author", "year"}, RepoAssets: []string{"ci", "security", "typos"}},
+	}
+	presenter := NewTableTextPresenter()
+	var buf bytes.Buffer
+	if err := presenter.WriteSummaries(&buf, summaries); err != nil {
+		t.Fatalf("WriteSummaries() error = %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{"NAME", "GOVERNANCE", "REPO_FILES", "go", "rust", "standard", "rich", "module_path,go_version", "ci,security,typos"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("table summary output = %q, want contains %q", got, want)
+		}
 	}
 }

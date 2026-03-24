@@ -1,0 +1,13 @@
+[files]
+extend-exclude = [
+  ".git",
+  "build",
+  "dev-tools",
+]
+
+[default]
+extend-ignore-re = [
+  "(?i)0x[0-9a-f]{8}",
+  "(?i)0x[0-9a-f]{40}",
+  "(?i)0x[0-9a-f]{64}",
+]

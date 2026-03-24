@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  cpp:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ python3
+
+      - name: Run lint checks
+        run: just lint
+
+      - name: Run typos
+        uses: crate-ci/typos@v1.35.5
+
+      - name: Build project
+        run: just build

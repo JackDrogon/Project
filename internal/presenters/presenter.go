@@ -11,12 +11,15 @@ type Presenter struct {
 	formatter Formatter
 }
 
-func NewPresenter(format string) (*Presenter, error) {
+func NewPresenter(format string, compact bool) (*Presenter, error) {
 	var formatter Formatter
 	switch format {
 	case "text":
-		formatter = &textFormatter{}
+		formatter = &textFormatter{compact: compact}
 	case "toml":
+		if compact {
+			return nil, fmt.Errorf("compact output is only supported for text format")
+		}
 		formatter = &tomlFormatter{}
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", format)
@@ -30,6 +33,14 @@ func NewTextPresenter() *Presenter {
 
 func NewTOMLPresenter() *Presenter {
 	return &Presenter{formatter: &tomlFormatter{}}
+}
+
+func NewCompactTextPresenter() *Presenter {
+	return &Presenter{formatter: &textFormatter{compact: true}}
+}
+
+func NewTableTextPresenter() *Presenter {
+	return &Presenter{formatter: &textFormatter{table: true}}
 }
 
 func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {

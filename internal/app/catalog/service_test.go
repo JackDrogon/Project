@@ -44,8 +44,12 @@ func TestServiceListLangs_PropagatesReadErrors(t *testing.T) {
 func TestServiceInspect(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = true\n")},
+		"go/.editorconfig":                          {Data: []byte("root = true\n")},
+		"go/.github/workflows/ci.yml":               {Data: []byte("name: CI\n")},
+		"go/.github/dependabot.yml":                 {Data: []byte("version: 2\n")},
 		"go/.gitignore":                             {Data: []byte("bin/\n")},
 		"go/go.mod.tmpl":                            {Data: []byte("module {{.ModulePath}}\n")},
+		"go/typos.toml":                             {Data: []byte("[files]\nextend-exclude = [\"bin\"]\n")},
 		"go/cmd/{{.ProjectNameLower}}":              {Mode: fs.ModeDir | 0o755},
 		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
 	}
@@ -103,9 +107,19 @@ func TestServiceInspect_Errors(t *testing.T) {
 func TestServiceListSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
+		"go/.editorconfig":                     {Data: []byte("root = true\n")},
+		"go/.github/dependabot.yml":            {Data: []byte("version: 2\n")},
+		"go/.github/workflows/ci.yml":          {Data: []byte("name: CI\n")},
 		"go/go.mod.tmpl":                       {Data: []byte("module {{.ModulePath}}\n")},
+		"go/typos.toml":                        {Data: []byte("[files]\nextend-exclude = [\"bin\"]\n")},
 		"cpp/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"cpp\"\ndescription = \"C++ starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n")},
+		"cpp/.editorconfig":                    {Data: []byte("root = true\n")},
+		"cpp/.github/dependabot.yml":           {Data: []byte("version: 2\n")},
+		"cpp/.github/workflows/ci.yml":         {Data: []byte("name: ci\n")},
+		"cpp/.gitignore":                       {Data: []byte("/build/\n")},
+		"cpp/CONTRIBUTING.md.tmpl":             {Data: []byte("# Contributing to {{.ProjectName}}\n")},
 		"cpp/README.md.tmpl":                   {Data: []byte("By {{.Author}}\n")},
+		"cpp/typos.toml":                       {Data: []byte("[files]\nextend-exclude = [\"build\"]\n")},
 		"rust/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"rust\"\ndescription = \"Rust starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
 		"rust/.cargo/config.toml":              {Data: []byte("[alias]\ndocs = \"doc --workspace --all-features --no-deps\"\n")},
 		"rust/.editorconfig":                   {Data: []byte("root = true\n")},

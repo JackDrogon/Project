@@ -1,0 +1,1 @@
+rust	desc="Cargo-based Rust starter"	manifest=v2	inputs=[author, year]	files=17	templates=7	vars=[Author, ProjectName, Year]	repo=[ci, contributing, dependabot, editorconfig, gitignore, justfile, security, typos]	repo_files=8	governance=rich

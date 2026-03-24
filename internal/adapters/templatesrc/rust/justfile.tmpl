@@ -16,6 +16,7 @@ alias l := lint
 alias c := check
 alias d := docs
 alias s := spellcheck
+alias pc := pre-commit
 
 # Show all available recipes
 [private]
@@ -82,6 +83,10 @@ check:
     typos .
     cargo clippy --all-targets --all-features -- -D warnings
     cargo test --all-features
+
+# Run the same checks before committing
+[group('test')]
+pre-commit: check
 
 # Build local API documentation
 [group('test')]

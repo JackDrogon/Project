@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -46,6 +47,9 @@ type Summary struct {
 	FileCount       int
 	TemplateCount   int
 	Variables       []string
+	RepoAssets      []string
+	RepoFileCount   int
+	GovernanceTier  string
 }
 
 // FileDetail represents metadata about a single file in a template.
@@ -66,8 +70,11 @@ type Inspection struct {
 	FileCount       int
 	TemplateCount   int
 	Variables       []string
+	RepoAssets      []string
 	Mode            string
 	ShownCount      int
+	RepoFiles       []FileDetail
+	LanguageFiles   []FileDetail
 	Files           []FileDetail
 }
 
@@ -121,6 +128,9 @@ func (s *Service) ListSummaries() ([]Summary, error) {
 				FileCount:       inspection.FileCount,
 				TemplateCount:   inspection.TemplateCount,
 				Variables:       append([]string(nil), inspection.Variables...),
+				RepoAssets:      append([]string(nil), inspection.RepoAssets...),
+				RepoFileCount:   len(inspection.RepoFiles),
+				GovernanceTier:  governanceTierForInspection(inspection),
 			})
 			mu.Unlock()
 			return nil
@@ -178,6 +188,8 @@ func (s *Service) Inspect(lang, mode string) (Inspection, error) {
 		}
 	}
 
+	repoFiles, languageFiles := partitionInspectionFiles(files)
+
 	return Inspection{
 		Name:            details.Name,
 		Description:     details.Description,
@@ -186,10 +198,78 @@ func (s *Service) Inspect(lang, mode string) (Inspection, error) {
 		FileCount:       details.FileCount,
 		TemplateCount:   details.TemplateCount,
 		Variables:       append([]string(nil), details.Variables...),
+		RepoAssets:      repoAssetsFromTemplateFiles(details.Files),
 		Mode:            normalized,
 		ShownCount:      len(files),
+		RepoFiles:       repoFiles,
+		LanguageFiles:   languageFiles,
 		Files:           files,
 	}, nil
+}
+
+var repoAssetLabelsByPath = map[string]string{
+	".editorconfig":            "editorconfig",
+	".github/dependabot.yml":   "dependabot",
+	".github/workflows/ci.yml": "ci",
+	".gitignore":               "gitignore",
+	".golangci.yml":            "golangci",
+	".goreleaser.yml.tmpl":     "goreleaser",
+	"codecov.yml":              "codecov",
+	"CONTRIBUTING.md.tmpl":     "contributing",
+	"SECURITY.md.tmpl":         "security",
+	"justfile.tmpl":            "justfile",
+	"typos.toml":               "typos",
+}
+
+func repoAssetsFromTemplateFiles(files []templatefs.FileDetail) []string {
+	seen := make(map[string]struct{})
+	assets := make([]string, 0, len(repoAssetLabelsByPath))
+	for _, file := range files {
+		label, ok := repoAssetLabelsByPath[file.Source]
+		if !ok {
+			continue
+		}
+		if _, exists := seen[label]; exists {
+			continue
+		}
+		seen[label] = struct{}{}
+		assets = append(assets, label)
+	}
+	sort.Strings(assets)
+	return assets
+}
+
+func partitionInspectionFiles(files []FileDetail) ([]FileDetail, []FileDetail) {
+	repoFiles := make([]FileDetail, 0, len(files))
+	languageFiles := make([]FileDetail, 0, len(files))
+	for _, file := range files {
+		if _, ok := repoAssetLabelsByPath[file.Source]; ok {
+			repoFiles = append(repoFiles, file)
+			continue
+		}
+		languageFiles = append(languageFiles, file)
+	}
+	return repoFiles, languageFiles
+}
+
+func governanceTierForInspection(inspection Inspection) string {
+	repoFileCount := len(inspection.RepoFiles)
+	hasCI := slices.Contains(inspection.RepoAssets, "ci")
+	hasTypos := slices.Contains(inspection.RepoAssets, "typos")
+	hasDependabot := slices.Contains(inspection.RepoAssets, "dependabot")
+	hasContributing := slices.Contains(inspection.RepoAssets, "contributing")
+	hasSecurity := slices.Contains(inspection.RepoAssets, "security")
+
+	switch {
+	case repoFileCount >= 8 || (hasCI && hasTypos && hasDependabot && hasContributing && hasSecurity):
+		return "rich"
+	case repoFileCount >= 5 && hasCI && hasTypos:
+		return "standard"
+	case repoFileCount > 0:
+		return "basic"
+	default:
+		return "minimal"
+	}
 }
 
 func manifestInputsToDomain(inputs []protocoltoml.ManifestInput) []domain.ManifestInput {

@@ -23,6 +23,7 @@ just fmt-repo
 just lint
 just spellcheck
 just check
+just pre-commit
 just docs
 ```
 
@@ -35,4 +36,5 @@ Copy `.env.example` to `.env` if you want a local place to track runtime variabl
 - Generated for {{.Author}} in {{.Year}}.
 - Uses Cargo for builds, tests, and linting.
 - Includes rustfmt, clippy, dprint, typos, editor, dependabot, and CI configuration inspired by larger Rust projects.
+- Install [`typos`](https://github.com/crate-ci/typos) locally if you want `just spellcheck`, `just check`, or `just pre-commit` to pass.
 - Build artifacts are written to `target/`.

@@ -171,6 +171,66 @@ func TestCLIContract_ListDetailText(t *testing.T) {
 	assertCLIContractGolden(t, "list-detail-text.txt", buf.String())
 }
 
+func TestCLIContract_ListDetailCompactText(t *testing.T) {
+	useCatalogServiceFactory(t, newCommandTestCatalogService)
+	var buf bytes.Buffer
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--detail", "--compact"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertCLIContractGolden(t, "list-detail-compact-text.txt", buf.String())
+}
+
+func TestCLIContract_ListDetailTableText(t *testing.T) {
+	useCatalogServiceFactory(t, newCommandTestCatalogService)
+	var buf bytes.Buffer
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--detail", "--table"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertCLIContractGolden(t, "list-detail-table-text.txt", buf.String())
+}
+
+func TestCLIContract_ListDetailGovernanceSortText(t *testing.T) {
+	useCatalogServiceFactory(t, newCommandTestCatalogService)
+	var buf bytes.Buffer
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--detail", "--sort", "governance"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertCLIContractGolden(t, "list-detail-governance-text.txt", buf.String())
+}
+
+func TestCLIContract_ListDetailRichFilterText(t *testing.T) {
+	useCatalogServiceFactory(t, newCommandTestCatalogService)
+	var buf bytes.Buffer
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--detail", "--min-governance", "rich"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertCLIContractGolden(t, "list-detail-rich-text.txt", buf.String())
+}
+
 func TestCLIContract_InspectText(t *testing.T) {
 	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
@@ -184,6 +244,21 @@ func TestCLIContract_InspectText(t *testing.T) {
 	}
 
 	assertCLIContractGolden(t, "inspect-all-text.txt", buf.String())
+}
+
+func TestCLIContract_InspectCompactText(t *testing.T) {
+	useCatalogServiceFactory(t, newCommandTestCatalogService)
+	var buf bytes.Buffer
+	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"go", "--compact"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	assertCLIContractGolden(t, "inspect-all-compact-text.txt", buf.String())
 }
 
 func TestCLIContract_InspectRenderText(t *testing.T) {

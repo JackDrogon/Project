@@ -44,10 +44,15 @@ func TestModeForPath_CoversAllTemplatePaths(t *testing.T) {
 
 func TestModeForPath_KnownModes(t *testing.T) {
 	tests := map[string]fs.FileMode{
+		"cpp/.github/workflows/ci.yml":             0o664,
+		"cpp/CONTRIBUTING.md.tmpl":                 0o664,
+		"cpp/typos.toml":                           0o664,
 		"cpp/dev-tools/apply-format":               0o755,
 		"cpp/dev-tools/git-pre-commit-format":      0o755,
+		"go/.github/dependabot.yml":                0o664,
 		"go/.goreleaser.yml.tmpl":                  0o664,
 		"go/.project-template-manifest.toml":       0o664,
+		"go/typos.toml":                            0o664,
 		"go/cmd/{{.ProjectNameLower}}":             0o775,
 		"go/internal/version/version_test.go.tmpl": 0o664,
 		"rust/.project-template-manifest.toml":     0o664,

@@ -18,6 +18,8 @@ alias f := fmt
 alias r := run
 alias pc := pre-commit
 alias rs := release-snapshot
+alias s := spellcheck
+alias ck := check
 
 # Show all available recipes
 [private]
@@ -63,6 +65,11 @@ fmt:
 tidy:
     go mod tidy
 
+# Run spelling checks across the repository
+[group('quality')]
+spellcheck:
+    typos .
+
 # ═════════════════════════════════════════════════════════════════════
 #  Test
 # ═════════════════════════════════════════════════════════════════════
@@ -83,9 +90,13 @@ cover:
     go test -coverprofile=coverage.out ./...
     go tool cover -func=coverage.out
 
-# Run formatting, linting, and tests in sequence
+# Run the full local verification suite
 [group('test')]
-pre-commit: fmt lint test
+check: fmt lint test spellcheck
+
+# Run formatting, linting, tests, and spellcheck in sequence
+[group('test')]
+pre-commit: check
 
 # Build release artifacts without publishing
 [group('test')]

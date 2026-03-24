@@ -12,17 +12,29 @@ type Formatter interface {
 	WriteInspection(w io.Writer, inspection catalog.Inspection) error
 }
 
-type textFormatter struct{}
+type textFormatter struct {
+	compact bool
+	table   bool
+}
 
 func (f *textFormatter) WriteLangs(w io.Writer, langs []string) error {
 	return writeTextLangs(w, langs)
 }
 
 func (f *textFormatter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
+	if f.table {
+		return writeTableTextSummaries(w, summaries)
+	}
+	if f.compact {
+		return writeCompactTextSummaries(w, summaries)
+	}
 	return writeTextSummaries(w, summaries)
 }
 
 func (f *textFormatter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
+	if f.compact {
+		return writeCompactTextInspection(w, inspection)
+	}
 	return writeTextInspection(w, inspection)
 }
 

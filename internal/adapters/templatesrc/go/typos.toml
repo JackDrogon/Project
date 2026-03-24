@@ -1,0 +1,16 @@
+[files]
+extend-exclude = [
+  ".git",
+  "bin",
+  "coverage.out",
+]
+
+[default]
+extend-ignore-re = [
+  "(?i)0x[0-9a-f]{8}",
+  "(?i)0x[0-9a-f]{40}",
+  "(?i)0x[0-9a-f]{64}",
+]
+
+[default.extend-words]
+ser = "ser"

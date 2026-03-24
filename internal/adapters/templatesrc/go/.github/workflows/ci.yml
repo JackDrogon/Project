@@ -54,3 +54,6 @@ jobs:
         with:
           version: v2.11.3
           args: --timeout=5m
+
+      - name: Run typos
+        uses: crate-ci/typos@v1.35.5

@@ -1,0 +1,14 @@
+go — Go starter
+  manifest: v2 | mode: all | shown: 7 | files: 7 | templates: 2
+  inputs: module_path->ModulePath, go_version->GoVersion
+  vars: ModulePath, ProjectNameLower
+  repo_assets: ci, dependabot, editorconfig, gitignore, typos
+  repo_files:
+    - .editorconfig -> .editorconfig (copy)
+    - .github/dependabot.yml -> .github/dependabot.yml (copy)
+    - .github/workflows/ci.yml -> .github/workflows/ci.yml (copy)
+    - .gitignore -> .gitignore (copy)
+    - typos.toml -> typos.toml (copy)
+  language_files:
+    - cmd/{{.ProjectNameLower}}/main.go.tmpl -> cmd/{{.ProjectNameLower}}/main.go (render)
+    - go.mod.tmpl -> go.mod (render)

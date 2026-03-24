@@ -176,6 +176,91 @@ func TestNewCmd_CreatesRustProjectFromArgument(t *testing.T) {
 	}
 }
 
+func TestNewCmd_CreatesGoProjectWithRepoLevelFiles(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
+		"go/.editorconfig":                   {Data: []byte("root = true\n")},
+		"go/.github":                         {Mode: os.ModeDir},
+		"go/.github/dependabot.yml":          {Data: []byte("version: 2\n")},
+		"go/.github/workflows":               {Mode: os.ModeDir},
+		"go/.github/workflows/ci.yml":        {Data: []byte("name: CI\n")},
+		"go/.gitignore":                      {Data: []byte("bin/\n")},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\n")},
+		"go/justfile.tmpl":                   {Data: []byte("pre-commit:\n    go test ./...\n")},
+		"go/main.go.tmpl":                    {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+		"go/typos.toml":                      {Data: []byte("[files]\nextend-exclude = [\"bin\"]\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
+	cmd := requireSubcommand(t, creator, commandKeyNew)
+	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "--module", "example.com/demo-go", "demo-go"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(workDir, "demo-go", ".editorconfig")); err != nil {
+		t.Fatalf("Stat(.editorconfig) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-go", ".github", "dependabot.yml")); err != nil {
+		t.Fatalf("Stat(.github/dependabot.yml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-go", ".github", "workflows", "ci.yml")); err != nil {
+		t.Fatalf("Stat(.github/workflows/ci.yml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-go", "typos.toml")); err != nil {
+		t.Fatalf("Stat(typos.toml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-go", "justfile")); err != nil {
+		t.Fatalf("Stat(justfile) error = %v", err)
+	}
+}
+
+func TestNewCmd_CreatesCppProjectWithRepoLevelFiles(t *testing.T) {
+	fsys := fstest.MapFS{
+		"cpp/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"cpp\"\ndescription = \"C++ starter\"\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n")},
+		"cpp/.editorconfig":                   {Data: []byte("root = true\n")},
+		"cpp/.github":                         {Mode: os.ModeDir},
+		"cpp/.github/dependabot.yml":          {Data: []byte("version: 2\n")},
+		"cpp/.github/workflows":               {Mode: os.ModeDir},
+		"cpp/.github/workflows/ci.yml":        {Data: []byte("name: ci\n")},
+		"cpp/.gitignore":                      {Data: []byte("/build/\n")},
+		"cpp/CONTRIBUTING.md.tmpl":            {Data: []byte("# Contributing to {{.ProjectName}}\n")},
+		"cpp/CMakeLists.txt.tmpl":             {Data: []byte("cmake_minimum_required(VERSION 3.20)\nproject({{.ProjectName}})\nadd_executable({{.ProjectName}} src/main.cc)\n")},
+		"cpp/README.md.tmpl":                  {Data: []byte("# {{.ProjectName}}\n")},
+		"cpp/justfile.tmpl":                   {Data: []byte("build:\n    cmake -S . -B build\n")},
+		"cpp/src":                             {Mode: os.ModeDir},
+		"cpp/src/main.cc.tmpl":                {Data: []byte("int main() { return 0; }\n")},
+		"cpp/typos.toml":                      {Data: []byte("[files]\nextend-exclude = [\"build\"]\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
+	cmd := requireSubcommand(t, creator, commandKeyNew)
+	cmd.SetArgs([]string{"--lang", "cpp", "--git", "none", "demo-cpp"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(workDir, "demo-cpp", ".editorconfig")); err != nil {
+		t.Fatalf("Stat(.editorconfig) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-cpp", ".github", "dependabot.yml")); err != nil {
+		t.Fatalf("Stat(.github/dependabot.yml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-cpp", ".github", "workflows", "ci.yml")); err != nil {
+		t.Fatalf("Stat(.github/workflows/ci.yml) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-cpp", "CONTRIBUTING.md")); err != nil {
+		t.Fatalf("Stat(CONTRIBUTING.md) error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo-cpp", "typos.toml")); err != nil {
+		t.Fatalf("Stat(typos.toml) error = %v", err)
+	}
+}
+
 func TestNewCmd_GoModuleArgumentDerivesProjectNameAndModulePath(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/go.mod.tmpl":  {Data: []byte("module {{.ModulePath}}\n")},

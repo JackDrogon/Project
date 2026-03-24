@@ -9,6 +9,10 @@
 
 alias b := build
 alias r := run
+alias l := lint
+alias s := spellcheck
+alias c := check
+alias pc := pre-commit
 
 # Show all available recipes
 [private]
@@ -28,6 +32,29 @@ build:
 [group('build')]
 clean:
     rm -rf build
+
+# ═════════════════════════════════════════════════════════════════════
+#  Quality
+# ═════════════════════════════════════════════════════════════════════
+
+# Run C++ lint checks against the starter sources
+[group('quality')]
+lint:
+    python3 dev-tools/cpplint.py src/main.cc
+    python3 dev-tools/check-style.py src/main.cc
+
+# Run spelling checks across the repository
+[group('quality')]
+spellcheck:
+    typos .
+
+# Run the full local verification suite
+[group('quality')]
+check: lint spellcheck build
+
+# Run the same checks before committing
+[group('quality')]
+pre-commit: check
 
 # ═════════════════════════════════════════════════════════════════════
 #  Run

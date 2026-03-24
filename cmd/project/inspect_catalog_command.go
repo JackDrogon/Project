@@ -38,7 +38,8 @@ func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	inspection, err := c.newService().Inspect(args[0], mode)
+	query := appcatalog.InspectionQuery{Lang: args[0], Mode: mode}
+	inspection, err := c.newService().QueryInspection(query)
 	if err != nil {
 		return err
 	}

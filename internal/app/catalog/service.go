@@ -68,12 +68,20 @@ func (s *Service) QuerySummaries(query SummaryQuery) ([]Summary, error) {
 }
 
 func (s *Service) Inspect(lang string, mode InspectMode) (Inspection, error) {
-	analysis, err := s.analyzer.Analyze(lang)
+	return s.QueryInspection(InspectionQuery{Lang: lang, Mode: mode})
+}
+
+func (s *Service) QueryInspection(query InspectionQuery) (Inspection, error) {
+	if err := query.Validate(); err != nil {
+		return Inspection{}, err
+	}
+
+	analysis, err := s.analyzer.Analyze(query.Lang)
 	if err != nil {
 		return Inspection{}, err
 	}
 
-	return inspectionProjector{mode: mode}.Project(analysis)
+	return inspectionProjector{mode: query.Mode}.Project(analysis)
 }
 
 var repoAssetLabelsByPath = map[string]string{

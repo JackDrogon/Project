@@ -104,6 +104,37 @@ func TestServiceInspect_Errors(t *testing.T) {
 	})
 }
 
+func TestServiceQueryInspection(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = true\n")},
+		"go/.gitignore":                             {Data: []byte("bin/\n")},
+		"go/go.mod.tmpl":                            {Data: []byte("module {{.ModulePath}}\n")},
+		"go/cmd/{{.ProjectNameLower}}":              {Mode: fs.ModeDir | 0o755},
+		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
+	}
+	svc := NewService(fsys, nil)
+
+	t.Run("render mode query", func(t *testing.T) {
+		got, err := svc.QueryInspection(InspectionQuery{Lang: "go", Mode: InspectModeRender})
+		if err != nil {
+			t.Fatalf("QueryInspection() error = %v", err)
+		}
+		if got.Mode != InspectModeRender || got.ShownCount() != 2 {
+			t.Fatalf("QueryInspection() mode/shown = (%q, %d), want (%q, %d)", got.Mode, got.ShownCount(), InspectModeRender, 2)
+		}
+	})
+
+	t.Run("query validation", func(t *testing.T) {
+		_, err := svc.QueryInspection(InspectionQuery{Lang: "go", Mode: InspectMode("bogus")})
+		if err == nil {
+			t.Fatal("QueryInspection() expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "invalid --mode") {
+			t.Fatalf("QueryInspection() error = %v, want mode validation error", err)
+		}
+	})
+}
+
 func TestServiceListSummaries(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},

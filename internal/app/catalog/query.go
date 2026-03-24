@@ -20,6 +20,23 @@ type SummaryQuery struct {
 	RequiredAssets []string
 }
 
+type InspectionQuery struct {
+	Lang string
+	Mode InspectMode
+}
+
+func DefaultInspectionQuery(lang string) InspectionQuery {
+	return InspectionQuery{Lang: lang, Mode: InspectModeAll}
+}
+
+func (q InspectionQuery) Validate() error {
+	if q.Lang == "" {
+		return fmt.Errorf("inspection query requires a language")
+	}
+	_, err := ParseInspectMode(string(q.Mode))
+	return err
+}
+
 func DefaultSummaryQuery() SummaryQuery {
 	return SummaryQuery{SortBy: SummarySortName}
 }

@@ -26,11 +26,7 @@ func (c *initCommand) buildCommand() *cobra.Command {
 }
 
 func (c *initCommand) run(cmd *cobra.Command, args []string) error {
-	return c.execute(cmd, args, appcreate.CommandInit, c.buildOptions)
-}
-
-func (c *initCommand) buildOptions(service *appcreate.Service, cmd *cobra.Command, args []string) (appcreate.Options, error) {
-	return service.BuildInitOptions(c.flags.initRequest(cmd, args))
+	return c.execute(cmd, args, initScaffoldCommandSpecBuilder{flags: &c.flags})
 }
 
 func init() {

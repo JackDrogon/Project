@@ -289,7 +289,7 @@ func TestCLIContract_VersionDefault(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	cmd := newVersionCmd()
+	cmd := buildVersionCommand(commandDependencies{})
 	cmd.SetOut(&buf)
 
 	if err := cmd.Execute(); err != nil {

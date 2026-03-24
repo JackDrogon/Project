@@ -37,8 +37,3 @@ func init() {
 var newVersionService = func() *appversion.Service {
 	return appversion.NewService(buildinfo.New())
 }
-
-// newVersionCmd creates the "version" subcommand that prints the build version.
-func newVersionCmd() *cobra.Command {
-	return buildVersionCommand(commandDependencies{})
-}

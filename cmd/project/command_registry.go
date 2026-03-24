@@ -69,25 +69,6 @@ func registeredCommandProviders() []commandProvider {
 	return providers
 }
 
-func registeredCommandProvider(key commandKey) (commandProvider, bool) {
-	for _, provider := range registeredCommandProviders() {
-		if provider.key() == key {
-			return provider, true
-		}
-	}
-
-	return nil, false
-}
-
-func buildRegisteredCommand(deps commandDependencies, key commandKey) (*cobra.Command, bool) {
-	provider, ok := registeredCommandProvider(key)
-	if !ok {
-		return nil, false
-	}
-
-	return provider.buildCommand(deps), true
-}
-
 func addRegisteredCommands(root *cobra.Command, deps commandDependencies) {
 	for _, provider := range registeredCommandProviders() {
 		root.AddCommand(provider.buildCommand(deps))

@@ -21,14 +21,13 @@ func (c *scaffoldCommandBase) bindSharedFlags(cmd *cobra.Command) {
 func (c *scaffoldCommandBase) execute(
 	cmd *cobra.Command,
 	args []string,
-	command appcreate.Command,
-	buildOptions func(*appcreate.Service, *cobra.Command, []string) (appcreate.Options, error),
+	builder scaffoldCommandSpecBuilder,
 ) error {
 	service := newCreateService()
-	options, err := buildOptions(service, cmd, args)
+	spec, err := builder.Build(service, cmd, args)
 	if err != nil {
 		return err
 	}
 
-	return service.ScaffoldAndMaybeWriteReplay(c.creator, c.flags.toAppFlags(), command, options)
+	return service.ExecuteScaffoldSpec(c.creator, spec)
 }

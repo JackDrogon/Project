@@ -17,7 +17,7 @@ func TestNewService(t *testing.T) {
 
 func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 	svc := NewService()
-	replayPath := writeReplayForServiceTest(t, protocoltoml.Replay{
+	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
 		Mode:     string(CommandNew),
 		Template: protocoltoml.ReplayTemplate{Lang: "cpp"},
@@ -35,38 +35,23 @@ func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 	})
 
 	opts, err := svc.BuildNewOptions(NewRequest{
-		Flags: Flags{
-			ReplayPath: replayPath,
-			SetValues:  []string{"author=from-cli"},
-		},
+		Flags: Flags{ReplayPath: replayPath, SetValues: []string{"author=from-cli"}},
 	})
 	if err != nil {
 		t.Fatalf("BuildNewOptions() error = %v", err)
 	}
 
-	if opts.Lang != "cpp" {
-		t.Fatalf("opts.Lang = %q, want %q", opts.Lang, "cpp")
-	}
-	if opts.ProjectName != "replayed-demo" {
-		t.Fatalf("opts.ProjectName = %q, want %q", opts.ProjectName, "replayed-demo")
-	}
-	if opts.TargetDir != "replayed-demo" {
-		t.Fatalf("opts.TargetDir = %q, want %q", opts.TargetDir, "replayed-demo")
+	if opts.Lang != "cpp" || opts.ProjectName != "replayed-demo" || opts.TargetDir != "replayed-demo" {
+		t.Fatalf("opts = %#v, want replay name/target/lang", opts)
 	}
 	if opts.ModulePath != "example.com/replayed-demo" {
-		t.Fatalf("opts.ModulePath = %q, want %q", opts.ModulePath, "example.com/replayed-demo")
+		t.Fatalf("opts.ModulePath = %q, want replay module", opts.ModulePath)
 	}
-	if opts.GitMode != domain.GitModeInitOnly {
-		t.Fatalf("opts.GitMode = %q, want %q", opts.GitMode, domain.GitModeInitOnly)
-	}
-	if !opts.Signoff {
-		t.Fatal("opts.Signoff = false, want true")
-	}
-	if !opts.Force {
-		t.Fatal("opts.Force = false, want true")
+	if opts.GitMode != domain.GitModeInitOnly || !opts.Signoff || !opts.Force {
+		t.Fatalf("opts = %#v, want replay git/signoff/force", opts)
 	}
 	if got := opts.TemplateInputValues["author"]; got != "from-cli" {
-		t.Fatalf("opts.TemplateInputValues[author] = %q, want %q", got, "from-cli")
+		t.Fatalf("opts.TemplateInputValues[author] = %q, want from-cli", got)
 	}
 	if _, exists := opts.TemplateInputValues["module_path"]; exists {
 		t.Fatal("opts.TemplateInputValues[module_path] should be resolved outside template inputs")
@@ -75,7 +60,7 @@ func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 
 func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 	svc := NewService()
-	replayPath := writeReplayForServiceTest(t, protocoltoml.Replay{
+	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
 		Mode:     string(CommandNew),
 		Template: protocoltoml.ReplayTemplate{Lang: "cpp"},
@@ -101,50 +86,32 @@ func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 			ReplayPath: replayPath,
 			SetValues:  []string{"author=from-cli"},
 		},
-		Changed: Changed{
-			Lang:    true,
-			Module:  true,
-			Signoff: true,
-			Git:     true,
-			Force:   true,
-		},
-		Force:  true,
-		Arg:    "cli-demo",
-		HasArg: true,
+		Changed: Changed{Lang: true, Module: true, Signoff: true, Git: true, Force: true},
+		Force:   true,
+		Arg:     "cli-demo",
+		HasArg:  true,
 	})
 	if err != nil {
 		t.Fatalf("BuildNewOptions() error = %v", err)
 	}
 
-	if opts.Lang != "go" {
-		t.Fatalf("opts.Lang = %q, want %q", opts.Lang, "go")
+	if opts.Lang != "go" || opts.ProjectName != "cli-demo" || opts.TargetDir != "cli-demo" {
+		t.Fatalf("opts = %#v, want CLI lang/project/target", opts)
 	}
-	if opts.ProjectName != "cli-demo" {
-		t.Fatalf("opts.ProjectName = %q, want %q", opts.ProjectName, "cli-demo")
+	if opts.ModulePath != "example.com/from-cli" || opts.GitMode != domain.GitModeNone {
+		t.Fatalf("opts = %#v, want CLI module/git", opts)
 	}
-	if opts.TargetDir != "cli-demo" {
-		t.Fatalf("opts.TargetDir = %q, want %q", opts.TargetDir, "cli-demo")
-	}
-	if opts.ModulePath != "example.com/from-cli" {
-		t.Fatalf("opts.ModulePath = %q, want %q", opts.ModulePath, "example.com/from-cli")
-	}
-	if opts.GitMode != domain.GitModeNone {
-		t.Fatalf("opts.GitMode = %q, want %q", opts.GitMode, domain.GitModeNone)
-	}
-	if opts.Signoff {
-		t.Fatal("opts.Signoff = true, want false")
-	}
-	if !opts.Force {
-		t.Fatal("opts.Force = false, want true")
+	if opts.Signoff || !opts.Force {
+		t.Fatalf("opts = %#v, want signoff=false force=true", opts)
 	}
 	if got := opts.TemplateInputValues["author"]; got != "from-cli" {
-		t.Fatalf("opts.TemplateInputValues[author] = %q, want %q", got, "from-cli")
+		t.Fatalf("opts.TemplateInputValues[author] = %q, want from-cli", got)
 	}
 }
 
 func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *testing.T) {
 	svc := NewService()
-	replayPath := writeReplayForServiceTest(t, protocoltoml.Replay{
+	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
 		Mode:     string(CommandInit),
 		Template: protocoltoml.ReplayTemplate{Lang: "cpp"},
@@ -170,52 +137,24 @@ func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *test
 			ReplayPath: replayPath,
 			SetValues:  []string{"author=from-cli"},
 		},
-		Changed: Changed{
-			Lang:    true,
-			Module:  true,
-			Signoff: true,
-			Git:     true,
-		},
-		Arg:    targetDir,
-		HasArg: true,
+		Changed: Changed{Lang: true, Module: true, Signoff: true, Git: true},
+		Arg:     targetDir,
+		HasArg:  true,
 	})
 	if err != nil {
 		t.Fatalf("BuildInitOptions() error = %v", err)
 	}
 
-	if opts.Lang != "go" {
-		t.Fatalf("opts.Lang = %q, want %q", opts.Lang, "go")
+	if opts.Lang != "go" || opts.ProjectName != "demo" || opts.TargetDir != targetDir {
+		t.Fatalf("opts = %#v, want init target derived from CLI", opts)
 	}
-	if opts.ProjectName != "demo" {
-		t.Fatalf("opts.ProjectName = %q, want %q", opts.ProjectName, "demo")
+	if opts.ModulePath != "example.com/from-cli" || opts.GitMode != domain.GitModeNone {
+		t.Fatalf("opts = %#v, want CLI module/git override", opts)
 	}
-	if opts.TargetDir != targetDir {
-		t.Fatalf("opts.TargetDir = %q, want %q", opts.TargetDir, targetDir)
-	}
-	if opts.ModulePath != "example.com/from-cli" {
-		t.Fatalf("opts.ModulePath = %q, want %q", opts.ModulePath, "example.com/from-cli")
-	}
-	if opts.GitMode != domain.GitModeNone {
-		t.Fatalf("opts.GitMode = %q, want %q", opts.GitMode, domain.GitModeNone)
-	}
-	if opts.Signoff {
-		t.Fatal("opts.Signoff = true, want false")
-	}
-	if !opts.AllowExistingEmptyDir {
-		t.Fatal("opts.AllowExistingEmptyDir = false, want true")
+	if opts.Signoff || !opts.AllowExistingEmptyDir {
+		t.Fatalf("opts = %#v, want signoff=false allowExistingEmptyDir=true", opts)
 	}
 	if got := opts.TemplateInputValues["author"]; got != "from-cli" {
-		t.Fatalf("opts.TemplateInputValues[author] = %q, want %q", got, "from-cli")
+		t.Fatalf("opts.TemplateInputValues[author] = %q, want from-cli", got)
 	}
-}
-
-func writeReplayForServiceTest(t *testing.T, replay protocoltoml.Replay) string {
-	t.Helper()
-
-	path := filepath.Join(t.TempDir(), "replay.toml")
-	if err := protocoltoml.WriteReplay(path, replay); err != nil {
-		t.Fatalf("WriteReplay(%q) error = %v", path, err)
-	}
-
-	return path
 }

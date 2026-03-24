@@ -377,7 +377,7 @@ func TestProjectNameFromTargetDirFailsWhenCWDIsMissing(t *testing.T) {
 		t.Fatalf("RemoveAll(%q) error = %v", tmp, err)
 	}
 
-	_, err = projectNameFromTargetDir(".")
+	_, err = appcreate.ProjectNameFromTargetDir(".")
 	if err == nil {
 		t.Fatal("projectNameFromTargetDir() expected error, got nil")
 	}

@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	appcreate "github.com/JackDrogon/project/internal/app/create"
 )
 
 func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *testing.T) {
@@ -42,12 +44,12 @@ func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *
 		t.Run(tt.name, func(t *testing.T) {
 			flags := scaffoldCommandFlags{setValues: tt.setValues}
 
-			_, err := flags.parseSetValues()
+			_, err := appcreate.NewService().ParseSetValues(flags.toAppFlags())
 			if err == nil {
-				t.Fatal("parseSetValues() expected error, got nil")
+				t.Fatal("ParseSetValues() expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("parseSetValues() error = %v, want contains %q", err, tt.wantErr)
+				t.Fatalf("ParseSetValues() error = %v, want contains %q", err, tt.wantErr)
 			}
 		})
 	}

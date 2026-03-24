@@ -40,7 +40,7 @@ func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
 
 	t.Run("default", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := newVersionCmd()
+		cmd := buildVersionCommand(commandDependencies{})
 		cmd.SetOut(&buf)
 		cmd.SetArgs(nil)
 
@@ -54,7 +54,7 @@ func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
 
 	t.Run("verbose", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := newVersionCmd()
+		cmd := buildVersionCommand(commandDependencies{})
 		cmd.SetOut(&buf)
 		cmd.SetArgs([]string{"--verbose"})
 

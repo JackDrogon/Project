@@ -678,7 +678,7 @@ func TestResolveNewProjectArgs_GoModuleVersionHeuristic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			projectName, targetDir, modulePath, err := resolveNewProjectArgs("go", "", tt.arg)
+			projectName, targetDir, modulePath, err := appcreate.ResolveNewProjectArgs("go", "", tt.arg)
 			if err != nil {
 				t.Fatalf("resolveNewProjectArgs() error = %v", err)
 			}
@@ -741,7 +741,7 @@ func TestResolveNewProjectArgs_FallbacksAndErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			projectName, targetDir, modulePath, err := resolveNewProjectArgs(tt.lang, tt.module, tt.arg)
+			projectName, targetDir, modulePath, err := appcreate.ResolveNewProjectArgs(tt.lang, tt.module, tt.arg)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatal("resolveNewProjectArgs() expected error, got nil")
@@ -781,7 +781,7 @@ func TestProjectNameFromGoModulePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := projectNameFromGoModulePath(tt.modulePath); got != tt.want {
+			if got := appcreate.ProjectNameFromGoModulePath(tt.modulePath); got != tt.want {
 				t.Fatalf("projectNameFromGoModulePath(%q) = %q, want %q", tt.modulePath, got, tt.want)
 			}
 		})

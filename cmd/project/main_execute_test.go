@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/JackDrogon/project/internal/adapters/buildinfo"
+	appcreate "github.com/JackDrogon/project/internal/app/create"
 )
 
 type exitPanic struct {
@@ -72,7 +73,7 @@ func TestExecute_ExitsOnError(t *testing.T) {
 		stderrWriter = oldStderr
 	})
 
-	creator := newCommandCreatorFromFS(fstest.MapFS{}, io.Discard)
+	creator := appcreate.NewCreator(fstest.MapFS{}, io.Discard)
 
 	defer func() {
 		r := recover()

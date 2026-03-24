@@ -15,7 +15,3 @@ func newCommandCreator(out io.Writer) *appcreate.Creator {
 	}
 	return appcreate.NewCreatorWithDeps(source.FS(), out, nil, resolveMode)
 }
-
-func newCommandCreatorFromFS(sourceFS fs.FS, out io.Writer) *appcreate.Creator {
-	return appcreate.NewCreator(sourceFS, out)
-}

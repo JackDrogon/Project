@@ -67,7 +67,3 @@ PowerShell:
   PS> project completion powershell > project.ps1
   # and source this file from your PowerShell profile.
 `
-
-func newCompletionCmd() *cobra.Command {
-	return buildCompletionCommand(commandDependencies{})
-}

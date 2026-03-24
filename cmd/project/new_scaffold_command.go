@@ -36,11 +36,7 @@ func (c *newCommand) validateArgs(cmd *cobra.Command, args []string) error {
 }
 
 func (c *newCommand) run(cmd *cobra.Command, args []string) error {
-	return c.execute(cmd, args, appcreate.CommandNew, c.buildOptions)
-}
-
-func (c *newCommand) buildOptions(service *appcreate.Service, cmd *cobra.Command, args []string) (appcreate.Options, error) {
-	return service.BuildNewOptions(c.flags.newRequest(cmd, c.force, args))
+	return c.execute(cmd, args, newScaffoldCommandSpecBuilder{flags: &c.flags, force: &c.force})
 }
 
 func init() {

@@ -91,7 +91,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 		if rustIndex == -1 || cppIndex == -1 || goIndex == -1 {
 			t.Fatalf("output = %q, want rust/cpp/go detail rows", got)
 		}
-		if !(rustIndex < cppIndex && cppIndex < goIndex) {
+		if rustIndex >= cppIndex || cppIndex >= goIndex {
 			t.Fatalf("governance order = %q, want rust before cpp before go", got)
 		}
 	})
@@ -114,7 +114,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 		if rustIndex == -1 || cppIndex == -1 || goIndex == -1 {
 			t.Fatalf("output = %q, want rust/cpp/go detail rows", got)
 		}
-		if !(rustIndex < cppIndex && cppIndex < goIndex) {
+		if rustIndex >= cppIndex || cppIndex >= goIndex {
 			t.Fatalf("repo-files order = %q, want rust before cpp before go", got)
 		}
 	})

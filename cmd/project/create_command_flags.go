@@ -34,10 +34,6 @@ func bindScaffoldCommandFlags(cmd *cobra.Command, flags *scaffoldCommandFlags) {
 	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 }
 
-func (flags scaffoldCommandFlags) parseSetValues() (map[string]string, error) {
-	return newCreateService().ParseSetValues(flags.toAppFlags())
-}
-
 func (flags scaffoldCommandFlags) toAppFlags() appcreate.Flags {
 	return appcreate.Flags{
 		Lang:            flags.lang,

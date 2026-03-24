@@ -17,7 +17,7 @@ func TestCompletionCmd_GeneratesAllShells(t *testing.T) {
 			root := &cobra.Command{Use: "project"}
 			root.SetOut(&buf)
 			root.SetErr(&buf)
-			root.AddCommand(newCompletionCmd())
+			root.AddCommand(buildCompletionCommand(commandDependencies{}))
 			root.SetArgs([]string{"completion", shell})
 
 			if err := root.Execute(); err != nil {
@@ -35,7 +35,7 @@ func TestCompletionCmd_RejectsInvalidShell(t *testing.T) {
 	root := &cobra.Command{Use: "project"}
 	root.SetOut(&buf)
 	root.SetErr(&buf)
-	root.AddCommand(newCompletionCmd())
+	root.AddCommand(buildCompletionCommand(commandDependencies{}))
 	root.SetArgs([]string{"completion", "invalid"})
 
 	err := root.Execute()

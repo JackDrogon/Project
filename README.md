@@ -242,6 +242,7 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 - `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
 - `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
 - `project inspect <lang> --toml` prints structured output.
+- Architecture notes for the catalog/query/rendering pipeline live in `docs/architecture/catalog-query-and-rendering.md`.
 
 Examples:
 

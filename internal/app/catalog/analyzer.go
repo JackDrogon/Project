@@ -21,9 +21,11 @@ type analysisProjector[T any] interface {
 type templateAnalyzer struct {
 	fsys           fs.FS
 	manifestLoader ManifestLoader
+	deps           Dependencies
 }
 
 type Analysis struct {
+	deps            Dependencies
 	name            string
 	description     string
 	manifestVersion int
@@ -60,8 +62,8 @@ type inspectionBuilder struct {
 	analysis Analysis
 }
 
-func newTemplateAnalyzer(fsys fs.FS, loader ManifestLoader) Analyzer {
-	return &templateAnalyzer{fsys: fsys, manifestLoader: loader}
+func newTemplateAnalyzerWithDeps(fsys fs.FS, loader ManifestLoader, deps Dependencies) Analyzer {
+	return &templateAnalyzer{fsys: fsys, manifestLoader: loader, deps: deps.withDefaults()}
 }
 
 func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
@@ -85,10 +87,11 @@ func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
 
 	files := make([]InspectionFile, 0, len(details.Files))
 	for _, file := range details.Files {
-		files = append(files, inspectionFileFromTemplateDetail(file))
+		files = append(files, inspectionFileFromTemplateDetailWithRegistry(file, a.deps.RepoAssets))
 	}
 
 	return Analysis{
+		deps:            a.deps,
 		name:            details.Name,
 		description:     details.Description,
 		manifestVersion: details.ManifestVersion,
@@ -96,7 +99,7 @@ func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
 		fileCount:       details.FileCount,
 		templateCount:   details.TemplateCount,
 		variables:       append([]string(nil), details.Variables...),
-		repoAssets:      defaultRepoAssetRegistry.AssetsForFiles(files),
+		repoAssets:      a.deps.RepoAssets.AssetsForFiles(files),
 		files:           files,
 	}, nil
 }
@@ -122,7 +125,7 @@ func (b inspectionBuilder) Build(mode InspectMode) (Inspection, error) {
 
 	files := make([]InspectionFile, 0, len(a.files))
 	for _, file := range a.files {
-		if defaultInspectModeMatcher.Matches(file, normalized) {
+		if a.deps.InspectModes.Matches(file, normalized) {
 			files = append(files, file)
 		}
 	}
@@ -154,7 +157,7 @@ func (b summaryBuilder) Build() Summary {
 		Variables:       append([]string(nil), a.variables...),
 		RepoAssets:      append([]string(nil), a.repoAssets...),
 		RepoFileCount:   len(inspection.RepoFiles()),
-		GovernanceTier:  defaultGovernanceEvaluator.Tier(inspection),
+		GovernanceTier:  a.deps.Governance.Tier(inspection),
 	}
 }
 

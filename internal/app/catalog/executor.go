@@ -8,14 +8,15 @@ type QueryExecutor interface {
 type queryExecutor struct {
 	langSource LanguageSource
 	analyzer   Analyzer
+	deps       Dependencies
 }
 
 type LanguageSource interface {
 	ListLangs() ([]string, error)
 }
 
-func newQueryExecutor(langSource LanguageSource, analyzer Analyzer) QueryExecutor {
-	return &queryExecutor{langSource: langSource, analyzer: analyzer}
+func newQueryExecutor(langSource LanguageSource, analyzer Analyzer, deps Dependencies) QueryExecutor {
+	return &queryExecutor{langSource: langSource, analyzer: analyzer, deps: deps.withDefaults()}
 }
 
 func (e *queryExecutor) QuerySummaries(query SummaryQuery) ([]Summary, error) {

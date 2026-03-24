@@ -1,7 +1,6 @@
 package main
 
 import (
-	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
 	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -12,7 +11,7 @@ type inspectCommand struct {
 }
 
 func newInspectCommand() *inspectCommand {
-	return &inspectCommand{filter: string(appcatalog.InspectModeAll)}
+	return &inspectCommand{filter: "all"}
 }
 
 func (c *inspectCommand) buildCommand() *cobra.Command {
@@ -24,23 +23,20 @@ func (c *inspectCommand) buildCommand() *cobra.Command {
 	}
 
 	c.bindSharedFlags(cmd)
-	cmd.Flags().StringVar(&c.filter, "mode", string(appcatalog.InspectModeAll), "File mode: all, render, copy")
+	cmd.Flags().StringVar(&c.filter, "mode", "all", "File mode: all, render, copy")
 	return cmd
 }
 
 func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
-	presenter, err := presenters.NewPresenter(inspectOutputSpec(c.asTOML, c.compact))
+	spec, err := inspectCommandSpecBuilder{asTOML: c.asTOML, compact: c.compact, lang: args[0], mode: c.filter}.Build()
 	if err != nil {
 		return err
 	}
-
-	mode, err := appcatalog.ParseInspectMode(c.filter)
+	presenter, err := presenters.NewPresenter(spec.outputSpec)
 	if err != nil {
 		return err
 	}
-
-	query := appcatalog.InspectionQuery{Lang: args[0], Mode: mode}
-	inspection, err := c.newService().QueryInspection(query)
+	inspection, err := c.newService().QueryInspection(spec.query)
 	if err != nil {
 		return err
 	}

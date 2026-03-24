@@ -29,3 +29,16 @@ func DefaultSummaryViewSpec() SummaryViewSpec {
 func DefaultInspectionViewSpec() InspectionViewSpec {
 	return InspectionViewSpec{TextLayout: TextLayoutDefault}
 }
+
+func (s OutputSpec) withDefaults() OutputSpec {
+	if s.Format == "" {
+		s.Format = "text"
+	}
+	if s.Summary.TextLayout == "" {
+		s.Summary = DefaultSummaryViewSpec()
+	}
+	if s.Inspection.TextLayout == "" {
+		s.Inspection = DefaultInspectionViewSpec()
+	}
+	return s
+}

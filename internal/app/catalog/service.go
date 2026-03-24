@@ -23,36 +23,23 @@ func (fn manifestLoaderFunc) Load(fsys fs.FS, lang string) (protocoltoml.Manifes
 type Service struct {
 	fsys           fs.FS
 	manifestLoader ManifestLoader
+	deps           Dependencies
 	analyzer       Analyzer
 	executor       QueryExecutor
 }
 
-var defaultRepoAssetRegistry = newRepoAssetRegistry(map[string]string{
-	"editorconfig": ".editorconfig",
-	"dependabot":   ".github/dependabot.yml",
-	"ci":           ".github/workflows/ci.yml",
-	"gitignore":    ".gitignore",
-	"golangci":     ".golangci.yml",
-	"goreleaser":   ".goreleaser.yml.tmpl",
-	"codecov":      "codecov.yml",
-	"contributing": "CONTRIBUTING.md.tmpl",
-	"security":     "SECURITY.md.tmpl",
-	"justfile":     "justfile.tmpl",
-	"typos":        "typos.toml",
-})
-
-var (
-	defaultInspectModeMatcher  = newInspectModePolicy()
-	defaultGovernanceEvaluator = newGovernancePolicy()
-)
-
 func NewService(fsys fs.FS, loader ManifestLoader) *Service {
+	return NewServiceWithDeps(fsys, loader, DefaultDependencies())
+}
+
+func NewServiceWithDeps(fsys fs.FS, loader ManifestLoader, deps Dependencies) *Service {
 	if loader == nil {
 		loader = manifestLoaderFunc(protocoltoml.LoadManifest)
 	}
-	analyzer := newTemplateAnalyzer(fsys, loader)
-	service := &Service{fsys: fsys, manifestLoader: loader, analyzer: analyzer}
-	service.executor = newQueryExecutor(service, analyzer)
+	deps = deps.withDefaults()
+	analyzer := newTemplateAnalyzerWithDeps(fsys, loader, deps)
+	service := &Service{fsys: fsys, manifestLoader: loader, deps: deps, analyzer: analyzer}
+	service.executor = newQueryExecutor(service, analyzer, deps)
 	return service
 }
 
@@ -104,10 +91,10 @@ func inputNames(inputs []domain.ManifestInput) []string {
 	return result
 }
 
-func inspectionFileFromTemplateDetail(file templatefs.FileDetail) InspectionFile {
+func inspectionFileFromTemplateDetailWithRegistry(file templatefs.FileDetail, registry RepoAssetRegistry) InspectionFile {
 	action := FileActionCopy
 	if file.IsTemplate {
 		action = FileActionRender
 	}
-	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: defaultRepoAssetRegistry.GroupForSource(file.Source)}
+	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: registry.GroupForSource(file.Source)}
 }

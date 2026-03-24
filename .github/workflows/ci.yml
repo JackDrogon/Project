@@ -31,7 +31,7 @@ jobs:
         run: go fmt ./...
 
       - name: Spellcheck
-        uses: crate-ci/typos@v1.35.5
+        uses: crate-ci/typos@v1.44.0
 
       - name: Vet
         run: go vet ./...

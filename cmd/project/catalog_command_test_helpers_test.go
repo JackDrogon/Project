@@ -69,4 +69,9 @@ func newCommandTestCatalogService() *appcatalog.Service {
 	return appcatalog.NewService(fsys, nil)
 }
 
+type failingCatalogFS struct{ err error }
+
+func (f failingCatalogFS) Open(string) (fs.File, error)          { return nil, f.err }
+func (f failingCatalogFS) ReadDir(string) ([]fs.DirEntry, error) { return nil, f.err }
+
 var _ = bytes.Buffer{}

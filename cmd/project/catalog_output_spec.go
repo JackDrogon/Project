@@ -6,6 +6,11 @@ import (
 	"github.com/JackDrogon/project/internal/presenters"
 )
 
+const (
+	outputFormatText = "text"
+	outputFormatTOML = "toml"
+)
+
 func defaultCatalogOutputSpec(asTOML, compact bool) presenters.OutputSpec {
 	layout := presenters.TextLayoutDefault
 	if compact {
@@ -42,4 +47,12 @@ func inspectOutputSpec(asTOML, compact bool) presenters.OutputSpec {
 		Summary:    presenters.DefaultSummaryViewSpec(),
 		Inspection: presenters.InspectionViewSpec{TextLayout: layout},
 	}
+}
+
+func selectedOutputFormat(asTOML bool) string {
+	if asTOML {
+		return outputFormatTOML
+	}
+
+	return outputFormatText
 }

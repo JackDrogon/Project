@@ -11,7 +11,7 @@ type Presenter struct {
 }
 
 func NewPresenter(spec OutputSpec) (*Presenter, error) {
-	formatter, err := newDefaultFactory().Build(spec)
+	formatter, err := newDefaultFormatterFactory().Build(spec)
 	if err != nil {
 		return nil, err
 	}

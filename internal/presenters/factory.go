@@ -2,26 +2,26 @@ package presenters
 
 import "fmt"
 
-type Factory interface {
+type FormatterFactory interface {
 	Build(OutputSpec) (Formatter, error)
 }
 
-type TextWriterRegistry interface {
+type TextFormatterRegistry interface {
 	SummaryWriter(SummaryViewSpec) (summaryWriter, error)
 	InspectionWriter(InspectionViewSpec) (inspectionWriter, error)
 }
 
-type textWriterRegistry struct{}
+type defaultTextFormatterRegistry struct{}
 
-type formatterFactory struct {
-	textRegistry TextWriterRegistry
+type defaultFormatterFactory struct {
+	textRegistry TextFormatterRegistry
 }
 
-func newDefaultFactory() Factory {
-	return formatterFactory{textRegistry: textWriterRegistry{}}
+func newDefaultFormatterFactory() FormatterFactory {
+	return defaultFormatterFactory{textRegistry: defaultTextFormatterRegistry{}}
 }
 
-func (f formatterFactory) Build(spec OutputSpec) (Formatter, error) {
+func (f defaultFormatterFactory) Build(spec OutputSpec) (Formatter, error) {
 	formatted := spec.withDefaults()
 	switch formatted.Format {
 	case "text":
@@ -47,7 +47,7 @@ func (f formatterFactory) Build(spec OutputSpec) (Formatter, error) {
 	}
 }
 
-func (textWriterRegistry) SummaryWriter(spec SummaryViewSpec) (summaryWriter, error) {
+func (defaultTextFormatterRegistry) SummaryWriter(spec SummaryViewSpec) (summaryWriter, error) {
 	switch spec.TextLayout {
 	case TextLayoutDefault:
 		return defaultSummaryTextWriter{}, nil
@@ -60,7 +60,7 @@ func (textWriterRegistry) SummaryWriter(spec SummaryViewSpec) (summaryWriter, er
 	}
 }
 
-func (textWriterRegistry) InspectionWriter(spec InspectionViewSpec) (inspectionWriter, error) {
+func (defaultTextFormatterRegistry) InspectionWriter(spec InspectionViewSpec) (inspectionWriter, error) {
 	switch spec.TextLayout {
 	case TextLayoutDefault:
 		return defaultInspectionTextWriter{}, nil

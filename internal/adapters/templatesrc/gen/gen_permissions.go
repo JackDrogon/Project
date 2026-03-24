@@ -137,7 +137,7 @@ func generateFile(permissions map[string]fs.FileMode) error {
 	}
 
 	outputPath := "permissions_generated.go"
-	if err := os.WriteFile(outputPath, formatted, 0644); err != nil {
+	if err := os.WriteFile(outputPath, formatted, 0o644); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 

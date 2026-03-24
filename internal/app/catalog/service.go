@@ -3,7 +3,6 @@ package catalog
 import (
 	"fmt"
 	"io/fs"
-	"slices"
 	"sort"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
@@ -27,6 +26,25 @@ type Service struct {
 	analyzer       Analyzer
 	executor       QueryExecutor
 }
+
+var defaultRepoAssetRegistry = newRepoAssetRegistry(map[string]string{
+	"editorconfig": ".editorconfig",
+	"dependabot":   ".github/dependabot.yml",
+	"ci":           ".github/workflows/ci.yml",
+	"gitignore":    ".gitignore",
+	"golangci":     ".golangci.yml",
+	"goreleaser":   ".goreleaser.yml.tmpl",
+	"codecov":      "codecov.yml",
+	"contributing": "CONTRIBUTING.md.tmpl",
+	"security":     "SECURITY.md.tmpl",
+	"justfile":     "justfile.tmpl",
+	"typos":        "typos.toml",
+})
+
+var (
+	defaultInspectModeMatcher  = newInspectModePolicy()
+	defaultGovernanceEvaluator = newGovernancePolicy()
+)
 
 func NewService(fsys fs.FS, loader ManifestLoader) *Service {
 	if loader == nil {
@@ -70,81 +88,6 @@ func (s *Service) QueryInspection(query InspectionQuery) (Inspection, error) {
 	return s.executor.QueryInspection(query)
 }
 
-var repoAssetLabelsByPath = map[string]string{
-	"editorconfig": ".editorconfig",
-	"dependabot":   ".github/dependabot.yml",
-	"ci":           ".github/workflows/ci.yml",
-	"gitignore":    ".gitignore",
-	"golangci":     ".golangci.yml",
-	"goreleaser":   ".goreleaser.yml.tmpl",
-	"codecov":      "codecov.yml",
-	"contributing": "CONTRIBUTING.md.tmpl",
-	"security":     "SECURITY.md.tmpl",
-	"justfile":     "justfile.tmpl",
-	"typos":        "typos.toml",
-}
-
-var repoAssetPathSet = func() map[string]struct{} {
-	paths := make(map[string]struct{}, len(repoAssetLabelsByPath))
-	for _, path := range repoAssetLabelsByPath {
-		paths[path] = struct{}{}
-	}
-	return paths
-}()
-
-func repoAssetsFromInspectionFiles(files []InspectionFile) []string {
-	seen := make(map[string]struct{})
-	assets := make([]string, 0, len(repoAssetLabelsByPath))
-	for _, file := range files {
-		for label, path := range repoAssetLabelsByPath {
-			if file.Source != path {
-				continue
-			}
-			if _, exists := seen[label]; exists {
-				break
-			}
-			seen[label] = struct{}{}
-			assets = append(assets, label)
-			break
-		}
-	}
-	sort.Strings(assets)
-	return assets
-}
-
-func matchesInspectMode(file InspectionFile, mode InspectMode) bool {
-	switch mode {
-	case InspectModeAll:
-		return true
-	case InspectModeRender:
-		return file.Action == FileActionRender
-	case InspectModeCopy:
-		return file.Action == FileActionCopy
-	default:
-		return false
-	}
-}
-
-func governanceTierForInspection(inspection Inspection) string {
-	repoFileCount := len(inspection.RepoFiles())
-	hasCI := slices.Contains(inspection.RepoAssets, "ci")
-	hasTypos := slices.Contains(inspection.RepoAssets, "typos")
-	hasDependabot := slices.Contains(inspection.RepoAssets, "dependabot")
-	hasContributing := slices.Contains(inspection.RepoAssets, "contributing")
-	hasSecurity := slices.Contains(inspection.RepoAssets, "security")
-
-	switch {
-	case repoFileCount >= 8 || (hasCI && hasTypos && hasDependabot && hasContributing && hasSecurity):
-		return "rich"
-	case repoFileCount >= 5 && hasCI && hasTypos:
-		return "standard"
-	case repoFileCount > 0:
-		return "basic"
-	default:
-		return "minimal"
-	}
-}
-
 func manifestInputsToDomain(inputs []protocoltoml.ManifestInput) []domain.ManifestInput {
 	result := make([]domain.ManifestInput, 0, len(inputs))
 	for _, input := range inputs {
@@ -162,13 +105,9 @@ func inputNames(inputs []domain.ManifestInput) []string {
 }
 
 func inspectionFileFromTemplateDetail(file templatefs.FileDetail) InspectionFile {
-	group := FileGroupLanguage
-	if _, ok := repoAssetPathSet[file.Source]; ok {
-		group = FileGroupRepo
-	}
 	action := FileActionCopy
 	if file.IsTemplate {
 		action = FileActionRender
 	}
-	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: group}
+	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: defaultRepoAssetRegistry.GroupForSource(file.Source)}
 }

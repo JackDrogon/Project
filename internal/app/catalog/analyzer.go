@@ -96,7 +96,7 @@ func (a *templateAnalyzer) Analyze(lang string) (Analysis, error) {
 		fileCount:       details.FileCount,
 		templateCount:   details.TemplateCount,
 		variables:       append([]string(nil), details.Variables...),
-		repoAssets:      repoAssetsFromInspectionFiles(files),
+		repoAssets:      defaultRepoAssetRegistry.AssetsForFiles(files),
 		files:           files,
 	}, nil
 }
@@ -122,7 +122,7 @@ func (b inspectionBuilder) Build(mode InspectMode) (Inspection, error) {
 
 	files := make([]InspectionFile, 0, len(a.files))
 	for _, file := range a.files {
-		if matchesInspectMode(file, normalized) {
+		if defaultInspectModeMatcher.Matches(file, normalized) {
 			files = append(files, file)
 		}
 	}
@@ -154,7 +154,7 @@ func (b summaryBuilder) Build() Summary {
 		Variables:       append([]string(nil), a.variables...),
 		RepoAssets:      append([]string(nil), a.repoAssets...),
 		RepoFileCount:   len(inspection.RepoFiles()),
-		GovernanceTier:  governanceTierForInspection(inspection),
+		GovernanceTier:  defaultGovernanceEvaluator.Tier(inspection),
 	}
 }
 

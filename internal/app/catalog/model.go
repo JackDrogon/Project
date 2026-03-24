@@ -2,7 +2,6 @@ package catalog
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -94,32 +93,15 @@ func ParseInspectMode(mode string) (InspectMode, error) {
 }
 
 func KnownRepoAssets() []string {
-	assets := make([]string, 0, len(repoAssetLabelsByPath))
-	for asset := range repoAssetLabelsByPath {
-		assets = append(assets, asset)
-	}
-	sort.Strings(assets)
-	return assets
+	return defaultRepoAssetRegistry.KnownAssets()
 }
 
 func IsKnownRepoAsset(asset string) bool {
-	_, ok := repoAssetLabelsByPath[asset]
-	return ok
+	return defaultRepoAssetRegistry.HasAsset(asset)
 }
 
 func GovernanceRank(tier string) int {
-	switch tier {
-	case "rich":
-		return 4
-	case "standard":
-		return 3
-	case "basic":
-		return 2
-	case "minimal":
-		return 1
-	default:
-		return 0
-	}
+	return defaultGovernanceEvaluator.Rank(tier)
 }
 
 func filesByGroup(files []InspectionFile, group FileGroup) []InspectionFile {

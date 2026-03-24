@@ -24,8 +24,10 @@ var (
 
 const initialCommitMessage = "Initial commit"
 
-type Options = domain.CreateRequest
-type GitMode = domain.GitMode
+type (
+	Options = domain.CreateRequest
+	GitMode = domain.GitMode
+)
 
 type Creator struct {
 	fsys        fs.FS

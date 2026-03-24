@@ -9,8 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var exitFunc = os.Exit
-var stderrWriter io.Writer = os.Stderr
+var (
+	exitFunc               = os.Exit
+	stderrWriter io.Writer = os.Stderr
+)
 
 // newRootCmd builds the command tree with all subcommands registered explicitly.
 func newRootCmd(creator *appcreate.Creator) *cobra.Command {

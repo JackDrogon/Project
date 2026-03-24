@@ -477,7 +477,7 @@ func TestNewCmd_ReplayRejectsMismatchedCommand(t *testing.T) {
 func TestNewCmd_ReplayRejectsLegacyJSONContent(t *testing.T) {
 	workDir := withTempWorkingDir(t, "workspace")
 	replayPath := filepath.Join(t.TempDir(), "replay.toml")
-	if err := os.WriteFile(replayPath, []byte(`{"schema_version":1,"command":"new"}`), 0644); err != nil {
+	if err := os.WriteFile(replayPath, []byte(`{"schema_version":1,"command":"new"}`), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", replayPath, err)
 	}
 

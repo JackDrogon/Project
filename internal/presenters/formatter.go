@@ -39,12 +39,16 @@ func (f *textFormatter) WriteInspection(w io.Writer, inspection catalog.Inspecti
 
 type tomlFormatter struct{}
 
-type defaultSummaryTextWriter struct{}
-type compactSummaryTextWriter struct{}
-type tableSummaryTextWriter struct{}
+type (
+	defaultSummaryTextWriter struct{}
+	compactSummaryTextWriter struct{}
+	tableSummaryTextWriter   struct{}
+)
 
-type defaultInspectionTextWriter struct{}
-type compactInspectionTextWriter struct{}
+type (
+	defaultInspectionTextWriter struct{}
+	compactInspectionTextWriter struct{}
+)
 
 func (defaultSummaryTextWriter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
 	return writeTextSummaries(w, summaries)

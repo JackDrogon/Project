@@ -6,8 +6,10 @@ import (
 	"strings"
 )
 
-var validProjectName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
-var validModulePath = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._~/-]*$`)
+var (
+	validProjectName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
+	validModulePath  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._~/-]*$`)
+)
 
 const maxProjectNameLen = 255
 

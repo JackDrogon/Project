@@ -14,30 +14,6 @@ import (
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
-func requireOrderedSubstrings(t *testing.T, got string, want []string) {
-	t.Helper()
-
-	searchFrom := 0
-	for _, fragment := range want {
-		idx := strings.Index(got[searchFrom:], fragment)
-		if idx == -1 {
-			t.Fatalf("output = %q, want contains %q", got, fragment)
-		}
-		searchFrom += idx + len(fragment)
-	}
-}
-
-func writeReplayTOMLForTest(t *testing.T, replay protocoltoml.Replay) string {
-	t.Helper()
-
-	path := filepath.Join(t.TempDir(), "replay.toml")
-	if err := protocoltoml.WriteReplay(path, replay); err != nil {
-		t.Fatalf("WriteReplay(%q) error = %v", path, err)
-	}
-
-	return path
-}
-
 func TestNewCmd_RequiresLang(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := requireSubcommand(t, creator, commandKeyNew)

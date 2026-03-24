@@ -1,17 +1,16 @@
-package main
+package scaffold
 
 import (
-	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
 )
 
 type scaffoldCommandBase struct {
-	creator *appcreate.Creator
-	flags   scaffoldCommandFlags
+	deps  Dependencies
+	flags scaffoldCommandFlags
 }
 
-func newScaffoldCommandBase(creator *appcreate.Creator) scaffoldCommandBase {
-	return scaffoldCommandBase{creator: creator}
+func newScaffoldCommandBase(deps Dependencies) scaffoldCommandBase {
+	return scaffoldCommandBase{deps: deps}
 }
 
 func (c *scaffoldCommandBase) bindSharedFlags(cmd *cobra.Command) {
@@ -23,11 +22,11 @@ func (c *scaffoldCommandBase) execute(
 	args []string,
 	builder scaffoldCommandSpecBuilder,
 ) error {
-	service := newCreateService()
+	service := c.deps.newService()
 	spec, err := builder.Build(service, cmd, args)
 	if err != nil {
 		return err
 	}
 
-	return service.ExecuteScaffoldSpec(c.creator, spec)
+	return service.ExecuteScaffoldSpec(c.deps.creator(), spec)
 }

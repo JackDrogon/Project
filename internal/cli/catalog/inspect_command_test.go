@@ -1,18 +1,12 @@
-package main
+package catalog
 
 import (
 	"bytes"
 	"strings"
 	"testing"
-	"testing/fstest"
-
-	appcreate "github.com/JackDrogon/project/internal/app/create"
 )
 
 func TestInspectCmdOutputs(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
-	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-
 	tests := []struct {
 		name        string
 		args        []string
@@ -31,7 +25,7 @@ func TestInspectCmdOutputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			cmd := requireSubcommand(t, creator, commandKeyInspect)
+			cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 			cmd.SetArgs(tt.args)

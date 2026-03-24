@@ -14,29 +14,6 @@ import (
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
-func withTempWorkingDir(t *testing.T, baseName string) string {
-	t.Helper()
-
-	parent := t.TempDir()
-	dir := filepath.Join(parent, baseName)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", dir, err)
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd() error = %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("Chdir(%q) error = %v", dir, err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(cwd)
-	})
-
-	return dir
-}
-
 func TestInitCmd_DefaultsToCurrentDirectory(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},

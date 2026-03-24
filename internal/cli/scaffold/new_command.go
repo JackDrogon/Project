@@ -1,7 +1,6 @@
-package main
+package scaffold
 
 import (
-	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
 )
 
@@ -10,8 +9,8 @@ type newCommand struct {
 	force bool
 }
 
-func newNewCommand(creator *appcreate.Creator) *newCommand {
-	return &newCommand{scaffoldCommandBase: newScaffoldCommandBase(creator)}
+func NewNewCommand(deps Dependencies) *cobra.Command {
+	return (&newCommand{scaffoldCommandBase: newScaffoldCommandBase(deps)}).buildCommand()
 }
 
 func (c *newCommand) buildCommand() *cobra.Command {
@@ -37,10 +36,4 @@ func (c *newCommand) validateArgs(cmd *cobra.Command, args []string) error {
 
 func (c *newCommand) run(cmd *cobra.Command, args []string) error {
 	return c.execute(cmd, args, newScaffoldCommandSpecBuilder{flags: &c.flags, force: &c.force})
-}
-
-func init() {
-	registerOrderedCommand(commandKeyNew, commandOrderNew, func(deps commandDependencies) *cobra.Command {
-		return newNewCommand(deps.creator).buildCommand()
-	})
 }

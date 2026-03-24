@@ -1,4 +1,4 @@
-package main
+package catalog
 
 import (
 	"testing"
@@ -7,15 +7,15 @@ import (
 	"github.com/JackDrogon/project/internal/testsupport/catalogfixture"
 )
 
-func useCatalogServiceFactory(t *testing.T, factory func() *appcatalog.Service) {
-	t.Helper()
-	oldFactory := newCatalogService
-	newCatalogService = factory
-	t.Cleanup(func() {
-		newCatalogService = oldFactory
-	})
+func newTestDependencies(factory func() *appcatalog.Service) Dependencies {
+	return Dependencies{NewService: factory}
 }
 
 func newCommandTestCatalogService() *appcatalog.Service {
 	return catalogfixture.NewService()
+}
+
+func newFailingCatalogService(t *testing.T) *appcatalog.Service {
+	t.Helper()
+	return catalogfixture.NewFailingService()
 }

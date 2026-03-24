@@ -1,4 +1,4 @@
-package main
+package completion
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestCompletionCmd_GeneratesAllShells(t *testing.T) {
+func TestCommand_GeneratesAllShells(t *testing.T) {
 	tests := []string{"bash", "zsh", "fish", "powershell"}
 
 	for _, shell := range tests {
@@ -17,7 +17,7 @@ func TestCompletionCmd_GeneratesAllShells(t *testing.T) {
 			root := &cobra.Command{Use: "project"}
 			root.SetOut(&buf)
 			root.SetErr(&buf)
-			root.AddCommand(buildCompletionCommand(commandDependencies{}))
+			root.AddCommand(NewCommand())
 			root.SetArgs([]string{"completion", shell})
 
 			if err := root.Execute(); err != nil {
@@ -30,12 +30,12 @@ func TestCompletionCmd_GeneratesAllShells(t *testing.T) {
 	}
 }
 
-func TestCompletionCmd_RejectsInvalidShell(t *testing.T) {
+func TestCommand_RejectsInvalidShell(t *testing.T) {
 	var buf bytes.Buffer
 	root := &cobra.Command{Use: "project"}
 	root.SetOut(&buf)
 	root.SetErr(&buf)
-	root.AddCommand(buildCompletionCommand(commandDependencies{}))
+	root.AddCommand(NewCommand())
 	root.SetArgs([]string{"completion", "invalid"})
 
 	err := root.Execute()

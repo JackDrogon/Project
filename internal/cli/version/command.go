@@ -1,4 +1,4 @@
-package main
+package version
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func buildVersionCommand(commandDependencies) *cobra.Command {
+func NewCommand(deps Dependencies) *cobra.Command {
 	var verbose bool
-	service := newVersionService()
+	service := deps.newService()
 
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -26,8 +26,4 @@ func buildVersionCommand(commandDependencies) *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed version info")
 	return cmd
-}
-
-func init() {
-	registerOrderedCommand(commandKeyVersion, commandOrderVersion, buildVersionCommand)
 }

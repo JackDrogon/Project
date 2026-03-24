@@ -1,4 +1,4 @@
-package main
+package version
 
 import (
 	"bytes"
@@ -21,30 +21,17 @@ func (s stubVersionProvider) Verbose() string {
 	return s.verbose
 }
 
-func useVersionServiceFactoryWith(t *testing.T, factory func() *appversion.Service) {
-	t.Helper()
-	oldFactory := newVersionService
-	newVersionService = factory
-	t.Cleanup(func() {
-		newVersionService = oldFactory
-	})
-}
-
-func useVersionServiceFactory(t *testing.T, provider stubVersionProvider) {
-	useVersionServiceFactoryWith(t, func() *appversion.Service {
-		return appversion.NewService(provider)
-	})
-}
-
-func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
-	useVersionServiceFactory(t, stubVersionProvider{
-		info:    "test-tag",
-		verbose: "Tag:      test-tag\nDirty:    false",
-	})
+func TestCommand_DefaultAndVerbose(t *testing.T) {
+	deps := Dependencies{NewService: func() *appversion.Service {
+		return appversion.NewService(stubVersionProvider{
+			info:    "test-tag",
+			verbose: "Tag:      test-tag\nDirty:    false",
+		})
+	}}
 
 	t.Run("default", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := buildVersionCommand(commandDependencies{})
+		cmd := NewCommand(deps)
 		cmd.SetOut(&buf)
 		cmd.SetArgs(nil)
 
@@ -58,7 +45,7 @@ func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
 
 	t.Run("verbose", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := buildVersionCommand(commandDependencies{})
+		cmd := NewCommand(deps)
 		cmd.SetOut(&buf)
 		cmd.SetArgs([]string{"--verbose"})
 
@@ -70,4 +57,15 @@ func TestVersionCmd_DefaultAndVerbose(t *testing.T) {
 			t.Fatalf("output = %q, want verbose fields", got)
 		}
 	})
+}
+
+func TestDependenciesRequireNewService(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("recover() = nil, want panic")
+		}
+	}()
+
+	_ = NewCommand(Dependencies{})
 }

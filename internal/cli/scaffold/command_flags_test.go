@@ -1,4 +1,4 @@
-package main
+package scaffold
 
 import (
 	"strings"
@@ -13,31 +13,11 @@ func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *
 		setValues []string
 		wantErr   string
 	}{
-		{
-			name:      "missing equals separator",
-			setValues: []string{"author"},
-			wantErr:   "must be key=value",
-		},
-		{
-			name:      "empty key",
-			setValues: []string{"=alice"},
-			wantErr:   "key must not be empty",
-		},
-		{
-			name:      "duplicate key",
-			setValues: []string{"author=alice", "author=bob"},
-			wantErr:   "specified more than once",
-		},
-		{
-			name:      "reserved lang key",
-			setValues: []string{"lang=go"},
-			wantErr:   "reserved for command options",
-		},
-		{
-			name:      "reserved module path key",
-			setValues: []string{"module_path=example.com/demo"},
-			wantErr:   "reserved for command options",
-		},
+		{name: "missing equals separator", setValues: []string{"author"}, wantErr: "must be key=value"},
+		{name: "empty key", setValues: []string{"=alice"}, wantErr: "key must not be empty"},
+		{name: "duplicate key", setValues: []string{"author=alice", "author=bob"}, wantErr: "specified more than once"},
+		{name: "reserved lang key", setValues: []string{"lang=go"}, wantErr: "reserved for command options"},
+		{name: "reserved module path key", setValues: []string{"module_path=example.com/demo"}, wantErr: "reserved for command options"},
 	}
 
 	for _, tt := range tests {

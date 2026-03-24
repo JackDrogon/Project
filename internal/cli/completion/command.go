@@ -1,14 +1,12 @@
-package main
+package completion
 
-import (
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
-func buildCompletionCommand(commandDependencies) *cobra.Command {
+func NewCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:                   "completion [bash|zsh|fish|powershell]",
 		Short:                 "Generate shell completion script",
-		Long:                  completionLong,
+		Long:                  longDescription,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
@@ -27,11 +25,7 @@ func buildCompletionCommand(commandDependencies) *cobra.Command {
 	}
 }
 
-func init() {
-	registerOrderedCommand(commandKeyCompletion, commandOrderCompletion, buildCompletionCommand)
-}
-
-const completionLong = `Generate shell completion scripts for project.
+const longDescription = `Generate shell completion scripts for project.
 
 To load completions:
 

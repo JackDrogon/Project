@@ -1,4 +1,4 @@
-package main
+package scaffold
 
 import (
 	"bytes"
@@ -9,9 +9,9 @@ import (
 )
 
 func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
-	service := newCreateService()
+	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := requireSubcommand(t, creator, commandKeyNew)
+	cmd := NewNewCommand(newTestDependencies(creator))
 	cmd.SetArgs([]string{"--lang", "go", "--git", "none", "demo"})
 	if err := cmd.ParseFlags([]string{"--lang", "go", "--git", "none"}); err != nil {
 		t.Fatalf("ParseFlags() error = %v", err)
@@ -30,9 +30,9 @@ func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
 }
 
 func TestInitScaffoldCommandSpecBuilder(t *testing.T) {
-	service := newCreateService()
+	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := requireSubcommand(t, creator, commandKeyInit)
+	cmd := NewInitCommand(newTestDependencies(creator))
 	if err := cmd.ParseFlags([]string{"--lang", "go", "--git", "none"}); err != nil {
 		t.Fatalf("ParseFlags() error = %v", err)
 	}

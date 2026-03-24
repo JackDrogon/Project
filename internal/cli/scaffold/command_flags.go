@@ -1,4 +1,4 @@
-package main
+package scaffold
 
 import (
 	appcreate "github.com/JackDrogon/project/internal/app/create"

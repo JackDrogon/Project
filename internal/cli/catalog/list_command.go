@@ -1,4 +1,4 @@
-package main
+package catalog
 
 import (
 	"github.com/JackDrogon/project/internal/presenters"
@@ -6,7 +6,7 @@ import (
 )
 
 type listCommand struct {
-	catalogCommandBase
+	commandBase
 	detail         bool
 	table          bool
 	sortBy         string
@@ -14,8 +14,12 @@ type listCommand struct {
 	requiredAssets []string
 }
 
-func newListCommand() *listCommand {
-	return &listCommand{sortBy: "name"}
+func NewListCommand(deps Dependencies) *cobra.Command {
+	command := &listCommand{
+		commandBase: commandBase{deps: deps},
+		sortBy:      "name",
+	}
+	return command.buildCommand()
 }
 
 func (c *listCommand) buildCommand() *cobra.Command {
@@ -70,10 +74,4 @@ func (c *listCommand) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return presenter.WriteLangs(cmd.OutOrStdout(), langs)
-}
-
-func init() {
-	registerOrderedCommand(commandKeyList, commandOrderList, func(commandDependencies) *cobra.Command {
-		return newListCommand().buildCommand()
-	})
 }

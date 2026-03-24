@@ -1,0 +1,62 @@
+package catalog
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
+
+func TestSelectedOutputFormat(t *testing.T) {
+	if got := selectedOutputFormat(false); got != outputFormatText {
+		t.Fatalf("selectedOutputFormat(false) = %q, want %q", got, outputFormatText)
+	}
+	if got := selectedOutputFormat(true); got != outputFormatTOML {
+		t.Fatalf("selectedOutputFormat(true) = %q, want %q", got, outputFormatTOML)
+	}
+}
+
+func TestListCmdOutputs(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantContain []string
+		wantEither  [][2]string
+	}{
+		{name: "text", wantContain: []string{"cpp", "go", "rust"}},
+		{name: "toml", args: []string{"--toml"}, wantContain: []string{"languages = ", "cpp", "go", "rust"}},
+		{name: "detail text", args: []string{"--detail"}, wantContain: []string{`desc="C++ starter"`, `manifest=v2`, `inputs=[author]`, `files=8`, `vars=[Author, ProjectName]`, `repo=[ci, contributing, dependabot, editorconfig, gitignore, typos]`, `repo_files=6`, `governance=standard`}},
+		{name: "detail compact text", args: []string{"--detail", "--compact"}, wantContain: []string{"cpp [standard]", "counts: files=8 templates=3 repo_files=6 manifest=v2", "repo: ci, contributing, dependabot, editorconfig, gitignore, typos"}},
+		{name: "detail table text", args: []string{"--detail", "--table"}, wantContain: []string{"NAME", "GOVERNANCE", "REPO_FILES", "cpp", "go", "rust", "ci,dependabot,editorconfig,gitignore,typos"}},
+		{name: "detail min governance filter", args: []string{"--detail", "--min-governance", "rich"}, wantContain: []string{"rust\tdesc=", "governance=rich"}},
+		{name: "detail repo asset filter", args: []string{"--detail", "--has-repo-asset", "security"}, wantContain: []string{"rust\tdesc=", "security"}},
+		{name: "detail governance sort", args: []string{"--detail", "--sort", "governance"}, wantContain: []string{"rust\tdesc=", "governance=rich", "cpp\tdesc=", "go\tdesc="}},
+		{name: "detail repo-files sort", args: []string{"--detail", "--sort", "repo-files"}, wantContain: []string{"rust\tdesc=", "repo_files=8", "cpp\tdesc=", "repo_files=6", "go\tdesc=", "repo_files=5"}},
+		{name: "detail toml", args: []string{"--detail", "--toml"}, wantContain: []string{"[[templates]]", "manifest_version = 2", "file_count = 8", "template_count = 3", "Cargo-based Rust starter", "file_count = 17", "template_count = 7", "Go starter", "file_count = 7", "template_count = 2", "repo_assets", "repo_file_count", "governance_tier"}, wantEither: [][2]string{{"name = 'cpp'", `name = "cpp"`}, {"input_names = ['author']", `input_names = ["author"]`}, {"name = 'rust'", `name = "rust"`}, {"input_names = ['author', 'year']", `input_names = ["author", "year"]`}, {"name = 'go'", `name = "go"`}, {"input_names = ['module_path', 'go_version']", `input_names = ["module_path", "go_version"]`}, {"repo_assets = ['ci', 'dependabot', 'editorconfig', 'gitignore', 'typos']", `repo_assets = ["ci", "dependabot", "editorconfig", "gitignore", "typos"]`}, {"repo_file_count = 5", `repo_file_count = 5`}, {"governance_tier = 'rich'", `governance_tier = "rich"`}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+			cmd.SetArgs(tt.args)
+
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			got := buf.String()
+			for _, want := range tt.wantContain {
+				if !strings.Contains(got, want) {
+					t.Fatalf("output = %q, want contains %q", got, want)
+				}
+			}
+			for _, want := range tt.wantEither {
+				if !strings.Contains(got, want[0]) && !strings.Contains(got, want[1]) {
+					t.Fatalf("output = %q, want contains either %q or %q", got, want[0], want[1])
+				}
+			}
+		})
+	}
+}

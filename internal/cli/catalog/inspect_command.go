@@ -1,4 +1,4 @@
-package main
+package catalog
 
 import (
 	"github.com/JackDrogon/project/internal/presenters"
@@ -6,12 +6,16 @@ import (
 )
 
 type inspectCommand struct {
-	catalogCommandBase
+	commandBase
 	filter string
 }
 
-func newInspectCommand() *inspectCommand {
-	return &inspectCommand{filter: "all"}
+func NewInspectCommand(deps Dependencies) *cobra.Command {
+	command := &inspectCommand{
+		commandBase: commandBase{deps: deps},
+		filter:      "all",
+	}
+	return command.buildCommand()
 }
 
 func (c *inspectCommand) buildCommand() *cobra.Command {
@@ -42,10 +46,4 @@ func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return presenter.WriteInspection(cmd.OutOrStdout(), inspection)
-}
-
-func init() {
-	registerOrderedCommand(commandKeyInspect, commandOrderInspect, func(commandDependencies) *cobra.Command {
-		return newInspectCommand().buildCommand()
-	})
 }

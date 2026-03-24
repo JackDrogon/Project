@@ -1,81 +1,17 @@
-package main
+package catalog
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
-	appcreate "github.com/JackDrogon/project/internal/app/create"
 )
 
-func TestSelectedOutputFormat(t *testing.T) {
-	if got := selectedOutputFormat(false); got != outputFormatText {
-		t.Fatalf("selectedOutputFormat(false) = %q, want %q", got, outputFormatText)
-	}
-	if got := selectedOutputFormat(true); got != outputFormatTOML {
-		t.Fatalf("selectedOutputFormat(true) = %q, want %q", got, outputFormatTOML)
-	}
-}
-
-func TestListCmdOutputs(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
-	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-
-	tests := []struct {
-		name        string
-		args        []string
-		wantContain []string
-		wantEither  [][2]string
-	}{
-		{name: "text", wantContain: []string{"cpp", "go", "rust"}},
-		{name: "toml", args: []string{"--toml"}, wantContain: []string{"languages = ", "cpp", "go", "rust"}},
-		{name: "detail text", args: []string{"--detail"}, wantContain: []string{`desc="C++ starter"`, `manifest=v2`, `inputs=[author]`, `files=8`, `vars=[Author, ProjectName]`, `repo=[ci, contributing, dependabot, editorconfig, gitignore, typos]`, `repo_files=6`, `governance=standard`}},
-		{name: "detail compact text", args: []string{"--detail", "--compact"}, wantContain: []string{"cpp [standard]", "counts: files=8 templates=3 repo_files=6 manifest=v2", "repo: ci, contributing, dependabot, editorconfig, gitignore, typos"}},
-		{name: "detail table text", args: []string{"--detail", "--table"}, wantContain: []string{"NAME", "GOVERNANCE", "REPO_FILES", "cpp", "go", "rust", "ci,dependabot,editorconfig,gitignore,typos"}},
-		{name: "detail min governance filter", args: []string{"--detail", "--min-governance", "rich"}, wantContain: []string{"rust	desc=", "governance=rich"}},
-		{name: "detail repo asset filter", args: []string{"--detail", "--has-repo-asset", "security"}, wantContain: []string{"rust	desc=", "security"}},
-		{name: "detail governance sort", args: []string{"--detail", "--sort", "governance"}, wantContain: []string{"rust	desc=", "governance=rich", "cpp	desc=", "go	desc="}},
-		{name: "detail repo-files sort", args: []string{"--detail", "--sort", "repo-files"}, wantContain: []string{"rust	desc=", "repo_files=8", "cpp	desc=", "repo_files=6", "go	desc=", "repo_files=5"}},
-		{name: "detail toml", args: []string{"--detail", "--toml"}, wantContain: []string{"[[templates]]", "manifest_version = 2", "file_count = 8", "template_count = 3", "Cargo-based Rust starter", "file_count = 17", "template_count = 7", "Go starter", "file_count = 7", "template_count = 2", "repo_assets", "repo_file_count", "governance_tier"}, wantEither: [][2]string{{"name = 'cpp'", `name = "cpp"`}, {"input_names = ['author']", `input_names = ["author"]`}, {"name = 'rust'", `name = "rust"`}, {"input_names = ['author', 'year']", `input_names = ["author", "year"]`}, {"name = 'go'", `name = "go"`}, {"input_names = ['module_path', 'go_version']", `input_names = ["module_path", "go_version"]`}, {"repo_assets = ['ci', 'dependabot', 'editorconfig', 'gitignore', 'typos']", `repo_assets = ["ci", "dependabot", "editorconfig", "gitignore", "typos"]`}, {"repo_file_count = 5", `repo_file_count = 5`}, {"governance_tier = 'rich'", `governance_tier = "rich"`}}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			cmd := requireSubcommand(t, creator, commandKeyList)
-			cmd.SetOut(&buf)
-			cmd.SetErr(&buf)
-			cmd.SetArgs(tt.args)
-
-			if err := cmd.Execute(); err != nil {
-				t.Fatalf("Execute() error = %v", err)
-			}
-
-			got := buf.String()
-			for _, want := range tt.wantContain {
-				if !strings.Contains(got, want) {
-					t.Fatalf("output = %q, want contains %q", got, want)
-				}
-			}
-			for _, want := range tt.wantEither {
-				if !strings.Contains(got, want[0]) && !strings.Contains(got, want[1]) {
-					t.Fatalf("output = %q, want contains either %q or %q", got, want[0], want[1])
-				}
-			}
-		})
-	}
-}
-
 func TestListCmd_SortBehavior(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
-	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-
 	t.Run("governance order", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetOut(&buf)
 		cmd.SetErr(&buf)
 		cmd.SetArgs([]string{"--detail", "--sort", "governance"})
@@ -98,7 +34,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 
 	t.Run("repo-files order", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetOut(&buf)
 		cmd.SetErr(&buf)
 		cmd.SetArgs([]string{"--detail", "--sort", "repo-files"})
@@ -120,7 +56,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("sort without detail errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--sort", "governance"})
 
 		err := cmd.Execute()
@@ -133,7 +69,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("invalid sort errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--detail", "--sort", "bogus"})
 
 		err := cmd.Execute()
@@ -147,7 +83,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 
 	t.Run("min governance filter", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetOut(&buf)
 		cmd.SetErr(&buf)
 		cmd.SetArgs([]string{"--detail", "--min-governance", "rich"})
@@ -164,7 +100,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 
 	t.Run("repo asset filter", func(t *testing.T) {
 		var buf bytes.Buffer
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetOut(&buf)
 		cmd.SetErr(&buf)
 		cmd.SetArgs([]string{"--detail", "--has-repo-asset", "security"})
@@ -180,7 +116,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("filters without detail errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--min-governance", "standard"})
 
 		err := cmd.Execute()
@@ -193,7 +129,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("invalid governance filter errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--detail", "--min-governance", "elite"})
 
 		err := cmd.Execute()
@@ -206,7 +142,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("invalid repo asset filter errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--detail", "--has-repo-asset", "license"})
 
 		err := cmd.Execute()
@@ -218,21 +154,8 @@ func TestListCmd_SortBehavior(t *testing.T) {
 		}
 	})
 
-	t.Run("compact toml rejected", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
-		cmd.SetArgs([]string{"--detail", "--compact", "--toml"})
-
-		err := cmd.Execute()
-		if err == nil {
-			t.Fatal("Execute() expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "compact output is only supported for text format") {
-			t.Fatalf("Execute() error = %v, want compact/toml error", err)
-		}
-	})
-
 	t.Run("table without detail errors", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--table"})
 
 		err := cmd.Execute()
@@ -245,7 +168,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("table toml rejected", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--detail", "--table", "--toml"})
 
 		err := cmd.Execute()
@@ -258,7 +181,7 @@ func TestListCmd_SortBehavior(t *testing.T) {
 	})
 
 	t.Run("table compact rejected", func(t *testing.T) {
-		cmd := requireSubcommand(t, creator, commandKeyList)
+		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 		cmd.SetArgs([]string{"--detail", "--table", "--compact"})
 
 		err := cmd.Execute()
@@ -272,11 +195,6 @@ func TestListCmd_SortBehavior(t *testing.T) {
 }
 
 func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
-	useCatalogServiceFactory(t, func() *appcatalog.Service {
-		return appcatalog.NewService(failingCatalogFS{err: errors.New("boom")}, nil)
-	})
-	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-
 	tests := []struct {
 		name string
 		args []string
@@ -287,7 +205,7 @@ func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := requireSubcommand(t, creator, commandKeyList)
+			cmd := NewListCommand(newTestDependencies(func() *appcatalog.Service { return newFailingCatalogService(t) }))
 			cmd.SetArgs(tt.args)
 
 			err := cmd.Execute()

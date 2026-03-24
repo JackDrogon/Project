@@ -17,8 +17,8 @@ The CLI currently ships with these subcommands:
 
 ## Supported Languages
 
-- **Go** — structured CLI scaffold with `cmd/<projectname-lower>`, `internal/`, tests, `.golangci.yml`, GitHub Actions CI, GoReleaser config, Codecov config, contributor docs, `README.md`, and `justfile`
-- **C++** — `CMakeLists.txt`, `src/main.cc`, `include/`, `dev-tools/`, `justfile`
+- **Go** — structured CLI scaffold with `cmd/<projectname-lower>`, `internal/`, tests, `.golangci.yml`, GitHub Actions CI, GoReleaser config, Codecov config, `typos.toml`, `.editorconfig`, Dependabot config, contributor docs, `README.md`, and `justfile`
+- **C++** — `CMakeLists.txt`, `src/main.cc`, `include/`, `dev-tools/`, GitHub Actions CI, `typos.toml`, `.editorconfig`, Dependabot config, `CONTRIBUTING.md`, `README.md`, and `justfile`
 - **Rust** — `Cargo.toml`, `src/lib.rs`, `src/main.rs`, `.cargo/config.toml`, `rustfmt.toml`, `clippy.toml`, `dprint.json`, `typos.toml`, `.editorconfig`, CI workflow, Dependabot config, `CONTRIBUTING.md`, `SECURITY.md`, `.env.example`, `README.md`, and `justfile`
 
 Run `project list` to see all available languages.
@@ -208,12 +208,17 @@ Using `--write-replay` produces a TOML file containing the final resolved config
 
 ### Third-party YAML Allowlist
 
-The following third-party configuration files are explicitly supported and included in the Go template:
+The following third-party configuration files are explicitly supported and included in generated templates:
 
-- `.github/workflows/ci.yml`
-- `codecov.yml`
-- `.golangci.yml`
-- `.goreleaser.yml.tmpl`
+- `go/.github/workflows/ci.yml`
+- `go/codecov.yml`
+- `go/.golangci.yml`
+- `go/.goreleaser.yml.tmpl`
+- `go/.github/dependabot.yml`
+- `cpp/.github/workflows/ci.yml`
+- `cpp/.github/dependabot.yml`
+- `rust/.github/workflows/ci.yml`
+- `rust/.github/dependabot.yml`
 
 ## Template Variables
 
@@ -321,11 +326,23 @@ just test           # Run all tests
 just test-v         # Run tests with verbose output
 just lint           # Run golangci-lint
 just fmt            # Format code
+just spellcheck     # Run typos across the repository
 just cover          # Generate coverage report (coverage.html)
-just pre-commit     # generate → fmt → lint → test
+just pre-commit     # generate → fmt → lint → test → spellcheck
 just run <args>     # Build and run (e.g., just run new -l go myapp)
 just tidy           # go mod tidy
 ```
+
+## Repository Tooling
+
+This repository includes a few repo-level governance files inspired by the generated templates:
+
+- `.editorconfig` for consistent editor defaults
+- `.github/dependabot.yml` for dependency update automation
+- `typos.toml` for repository-wide spelling checks
+- `CONTRIBUTING.md` for contributor workflow expectations
+
+To run `just spellcheck` or `just pre-commit` locally, install [`typos`](https://github.com/crate-ci/typos) first.
 
 ### Adding a new language template
 

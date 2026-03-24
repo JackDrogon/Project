@@ -30,6 +30,9 @@ jobs:
       - name: Format
         run: go fmt ./...
 
+      - name: Spellcheck
+        uses: crate-ci/typos@v1.35.5
+
       - name: Vet
         run: go vet ./...
 

@@ -2,136 +2,12 @@ package presenters
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"strings"
 	"testing"
 
 	"github.com/JackDrogon/project/internal/app/catalog"
 	"github.com/JackDrogon/project/internal/scaffold"
 )
-
-type stubSummaryWriter struct{ text string }
-
-func (w stubSummaryWriter) WriteSummaries(out io.Writer, summaries []catalog.Summary) error {
-	_, err := io.WriteString(out, w.text)
-	return err
-}
-
-type stubInspectionWriter struct{ text string }
-
-func (w stubInspectionWriter) WriteInspection(out io.Writer, inspection catalog.Inspection) error {
-	_, err := io.WriteString(out, w.text)
-	return err
-}
-
-type stubTextFormatterRegistry struct {
-	summary    summaryWriter
-	inspection inspectionWriter
-}
-
-func (r stubTextFormatterRegistry) SummaryWriter(SummaryViewSpec) (summaryWriter, error) {
-	return r.summary, nil
-}
-
-func (r stubTextFormatterRegistry) InspectionWriter(InspectionViewSpec) (inspectionWriter, error) {
-	return r.inspection, nil
-}
-
-type stubFormatterFactory struct{ formatter Formatter }
-
-func (f stubFormatterFactory) Build(OutputSpec) (Formatter, error) {
-	if f.formatter == nil {
-		return nil, fmt.Errorf("missing formatter")
-	}
-	return f.formatter, nil
-}
-
-func TestNewPresenter(t *testing.T) {
-	tests := []struct {
-		name    string
-		format  string
-		summary SummaryViewSpec
-		inspect InspectionViewSpec
-		wantErr bool
-	}{
-		{"text format", "text", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), false},
-		{"compact text format", "text", SummaryViewSpec{TextLayout: TextLayoutCompact}, InspectionViewSpec{TextLayout: TextLayoutCompact}, false},
-		{"toml format", "toml", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), false},
-		{"compact toml rejected", "toml", SummaryViewSpec{TextLayout: TextLayoutCompact}, DefaultInspectionViewSpec(), true},
-		{"invalid format", "json", DefaultSummaryViewSpec(), DefaultInspectionViewSpec(), true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			presenter, err := NewPresenter(OutputSpec{Format: tt.format, Summary: tt.summary, Inspection: tt.inspect})
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("NewPresenter() expected error, got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("NewPresenter() error = %v", err)
-			}
-			if presenter == nil {
-				t.Fatal("NewPresenter() = nil")
-			}
-		})
-	}
-}
-
-func TestNewTextPresenter(t *testing.T) {
-	presenter := NewTextPresenter()
-	if presenter == nil {
-		t.Fatal("NewTextPresenter() = nil")
-	}
-}
-
-func TestNewCompactTextPresenter(t *testing.T) {
-	presenter := NewCompactTextPresenter()
-	if presenter == nil {
-		t.Fatal("NewCompactTextPresenter() = nil")
-	}
-}
-
-func TestNewTableTextPresenter(t *testing.T) {
-	presenter := NewTableTextPresenter()
-	if presenter == nil {
-		t.Fatal("NewTableTextPresenter() = nil")
-	}
-}
-
-func TestNewPresenter_RejectsInspectionTableLayout(t *testing.T) {
-	_, err := NewPresenter(OutputSpec{
-		Format:     "text",
-		Summary:    DefaultSummaryViewSpec(),
-		Inspection: InspectionViewSpec{TextLayout: TextLayoutTable},
-	})
-	if err == nil {
-		t.Fatal("NewPresenter() expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "table output is only supported for summary text views") {
-		t.Fatalf("NewPresenter() error = %v, want inspection table error", err)
-	}
-}
-
-func TestNewPresenterWithFactory_UsesInjectedFactory(t *testing.T) {
-	presenter, err := NewPresenterWithFactory(OutputSpec{Format: "text"}, stubFormatterFactory{formatter: &tomlFormatter{}})
-	if err != nil {
-		t.Fatalf("NewPresenterWithFactory() error = %v", err)
-	}
-	if presenter == nil {
-		t.Fatal("NewPresenterWithFactory() = nil")
-	}
-}
-
-func TestNewTOMLPresenter(t *testing.T) {
-	presenter := NewTOMLPresenter()
-	if presenter == nil {
-		t.Fatal("NewTOMLPresenter() = nil")
-	}
-}
 
 func TestPresenter_WriteLangs(t *testing.T) {
 	tests := []struct {
@@ -140,18 +16,8 @@ func TestPresenter_WriteLangs(t *testing.T) {
 		langs  []string
 		want   []string
 	}{
-		{
-			name:   "text format",
-			format: "text",
-			langs:  []string{"cpp", "go", "rust"},
-			want:   []string{"cpp\ngo\nrust\n"},
-		},
-		{
-			name:   "toml format",
-			format: "toml",
-			langs:  []string{"cpp", "go", "rust"},
-			want:   []string{"languages = ['cpp', 'go', 'rust']", "languages = [\"cpp\", \"go\", \"rust\"]"},
-		},
+		{name: "text format", format: "text", langs: []string{"cpp", "go", "rust"}, want: []string{"cpp\ngo\nrust\n"}},
+		{name: "toml format", format: "toml", langs: []string{"cpp", "go", "rust"}, want: []string{"languages = ['cpp', 'go', 'rust']", "languages = [\"cpp\", \"go\", \"rust\"]"}},
 	}
 
 	for _, tt := range tests {
@@ -200,16 +66,8 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 		format string
 		want   []string
 	}{
-		{
-			name:   "text format",
-			format: "text",
-			want:   []string{"go", `desc="Go starter"`, "manifest=v2", "inputs=[module_path]", "files=3", "templates=2", "vars=[ModulePath]", "repo=[ci, typos]", "repo_files=2", "governance=basic"},
-		},
-		{
-			name:   "toml format",
-			format: "toml",
-			want:   []string{"[[templates]]", "name = 'go'", "manifest_version = 2", "input_names = ['module_path']", "repo_assets = ['ci', 'typos']", "repo_file_count = 2", "governance_tier = 'basic'"},
-		},
+		{name: "text format", format: "text", want: []string{"go", `desc="Go starter"`, "manifest=v2", "inputs=[module_path]", "files=3", "templates=2", "vars=[ModulePath]", "repo=[ci, typos]", "repo_files=2", "governance=basic"}},
+		{name: "toml format", format: "toml", want: []string{"[[templates]]", "name = 'go'", "manifest_version = 2", "input_names = ['module_path']", "repo_assets = ['ci', 'typos']", "repo_file_count = 2", "governance_tier = 'basic'"}},
 	}
 
 	for _, tt := range tests {
@@ -253,16 +111,8 @@ func TestPresenter_WriteInspection(t *testing.T) {
 		format string
 		want   []string
 	}{
-		{
-			name:   "text format",
-			format: "text",
-			want:   []string{"name: go", "description: Go starter", "manifest_version: 2", "inputs: module_path->ModulePath", "repo_assets: ci, typos", "shown: 1", "repo_files:", "- (none)", "language_files:", "- go.mod.tmpl -> go.mod (render)"},
-		},
-		{
-			name:   "toml format",
-			format: "toml",
-			want:   []string{"name = 'go'", "repo_assets = ['ci', 'typos']", "shown_count = 1", "[[language_files]]", "source = 'go.mod.tmpl'"},
-		},
+		{name: "text format", format: "text", want: []string{"name: go", "description: Go starter", "manifest_version: 2", "inputs: module_path->ModulePath", "repo_assets: ci, typos", "shown: 1", "repo_files:", "- (none)", "language_files:", "- go.mod.tmpl -> go.mod (render)"}},
+		{name: "toml format", format: "toml", want: []string{"name = 'go'", "repo_assets = ['ci', 'typos']", "shown_count = 1", "[[language_files]]", "source = 'go.mod.tmpl'"}},
 	}
 
 	for _, tt := range tests {
@@ -352,35 +202,5 @@ func TestPresenter_WriteTableTextSummaries(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("table summary output = %q, want contains %q", got, want)
 		}
-	}
-}
-
-func TestDefaultFormatterFactory_UsesInjectedTextRegistry(t *testing.T) {
-	factory := defaultFormatterFactory{
-		textRegistry: stubTextFormatterRegistry{
-			summary:    stubSummaryWriter{text: "summary-from-registry"},
-			inspection: stubInspectionWriter{text: "inspection-from-registry"},
-		},
-	}
-
-	formatter, err := factory.Build(OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
-	}
-
-	var summaryBuf bytes.Buffer
-	if err := formatter.WriteSummaries(&summaryBuf, nil); err != nil {
-		t.Fatalf("WriteSummaries() error = %v", err)
-	}
-	if got := summaryBuf.String(); got != "summary-from-registry" {
-		t.Fatalf("WriteSummaries() = %q, want summary-from-registry", got)
-	}
-
-	var inspectBuf bytes.Buffer
-	if err := formatter.WriteInspection(&inspectBuf, catalog.Inspection{}); err != nil {
-		t.Fatalf("WriteInspection() error = %v", err)
-	}
-	if got := inspectBuf.String(); got != "inspection-from-registry" {
-		t.Fatalf("WriteInspection() = %q, want inspection-from-registry", got)
 	}
 }

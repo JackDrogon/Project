@@ -14,6 +14,14 @@ func NewPresenter(spec OutputSpec) (*Presenter, error) {
 	return NewPresenterWithFactory(spec, newDefaultFormatterFactory())
 }
 
+func mustNewPresenter(spec OutputSpec) *Presenter {
+	presenter, err := NewPresenter(spec)
+	if err != nil {
+		panic(err)
+	}
+	return presenter
+}
+
 func NewPresenterWithFactory(spec OutputSpec, factory FormatterFactory) (*Presenter, error) {
 	formatter, err := factory.Build(spec)
 	if err != nil {
@@ -23,8 +31,7 @@ func NewPresenterWithFactory(spec OutputSpec, factory FormatterFactory) (*Presen
 }
 
 func NewTextPresenter() *Presenter {
-	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
-	return presenter
+	return mustNewPresenter(OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
 }
 
 func NewTOMLPresenter() *Presenter {
@@ -32,13 +39,11 @@ func NewTOMLPresenter() *Presenter {
 }
 
 func NewCompactTextPresenter() *Presenter {
-	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutCompact}, Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}})
-	return presenter
+	return mustNewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutCompact}, Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}})
 }
 
 func NewTableTextPresenter() *Presenter {
-	presenter, _ := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutTable}, Inspection: DefaultInspectionViewSpec()})
-	return presenter
+	return mustNewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutTable}, Inspection: DefaultInspectionViewSpec()})
 }
 
 func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {

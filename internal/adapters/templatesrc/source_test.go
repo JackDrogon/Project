@@ -123,6 +123,7 @@ func TestPermissionsGeneratedUpToDate(t *testing.T) {
 	}
 
 	var mismatches []string
+	walkedPaths := make(map[string]struct{})
 	for _, dir := range templateDirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -132,6 +133,7 @@ func TestPermissionsGeneratedUpToDate(t *testing.T) {
 				return nil
 			}
 			normalizedPath := filepath.ToSlash(path)
+			walkedPaths[normalizedPath] = struct{}{}
 			actualMode := info.Mode().Perm()
 			generatedMode, ok := templateModeMetadata[normalizedPath]
 			if !ok {
@@ -145,6 +147,13 @@ func TestPermissionsGeneratedUpToDate(t *testing.T) {
 		})
 		if err != nil {
 			t.Fatalf("Walk(%q) error = %v", dir, err)
+		}
+	}
+
+	for sourcePath := range templateModeMetadata {
+		normalizedPath := filepath.ToSlash(sourcePath)
+		if _, ok := walkedPaths[normalizedPath]; !ok {
+			mismatches = append(mismatches, normalizedPath+" (extra in metadata)")
 		}
 	}
 

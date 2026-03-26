@@ -74,6 +74,116 @@ Typical flow:
 
 If you want to preview file operations first, add `--dry-run` to either `project new` or `project init`.
 
+## CLI Configuration
+
+`project` supports a persistent configuration file to set default flags and template inputs across all commands.
+
+### Configuration File Path
+
+By default, `project` looks for a configuration file at `${UserConfigDir()}/project/config.toml`. The resolved path depends on your operating system:
+- **Linux/macOS**: `~/.config/project/config.toml` (or `$XDG_CONFIG_HOME/project/config.toml`)
+- **Windows**: `%AppData%\project\config.toml`
+
+You can bypass this discovery and use a specific file with the `--config <path>` flag.
+
+### Configuration Schema
+
+The configuration file uses TOML format and must include a `version` field (current version: `1`).
+
+```toml
+version = 1
+
+[new]
+lang = "go"
+project_name = "myapp"
+module = "github.com/user/myapp"
+git_mode = "init+commit"
+signoff = true
+[new.inputs]
+go_version = "1.22"
+
+[init]
+lang = "rust"
+target_dir = "./my-project"
+git_mode = "none"
+[init.inputs]
+author = "custom-author"
+
+[list]
+detail = true
+sort = "governance"
+min_governance = "basic"
+
+[inspect]
+format = "toml"
+mode = "render"
+
+[version]
+verbose = true
+
+[completion]
+shell = "zsh"
+```
+
+**Schema Rules:**
+- **Exclusions**: One-shot flags like `--force`, `--dry-run`, `--replay`, and `--write-replay` cannot be set in the global config.
+- **Section Match**: Settings under `[new]` only apply to `project new`, and `[init]` settings only apply to `project init`.
+
+### Precedence
+
+`project` uses two distinct precedence models depending on whether `--replay` is used.
+
+#### Normal Mode
+When **not** using `--replay`, the precedence is (lowest to highest):
+1. **Built-in Defaults**: Hardcoded fallback values.
+2. **Active Config**: Values from `${UserConfigDir()}/project/config.toml` or the file specified by `--config`.
+3. **Explicit CLI Flags/Args**: Flags like `--lang`, `--set`, and positional arguments passed directly.
+
+#### Replay Mode
+When using `--replay`, the **global configuration is completely ignored**. The precedence is (lowest to highest):
+1. **Replay File**: Values loaded from the TOML replay file.
+2. **Explicit CLI Flags/Args**: Explicit overrides for supported flags.
+
+**Boundary Note**: `--config` and `--replay` are mutually exclusive and cannot be combined. When a replay is active, global configuration logic is bypassed to ensure the replay file remains the single source of truth for project recreation.
+
+### Examples
+
+#### CLI Configuration Usage
+
+```bash
+# Use a custom config file instead of the default discovery
+project list --config ./my-config.toml
+
+# Scaffold a new project using defaults from config
+project new myapp
+
+# Scaffold into a directory defined in [init.target_dir]
+project init
+
+# Override a config value for a single run
+project list --detail=false
+
+# Inspect a template using config-defined format and mode
+project inspect go
+
+# Generate completion for a shell defined in [completion.shell]
+project completion
+
+# View build metadata with config-defined verbosity
+project version
+```
+
+### Diagnostic Mode
+
+Use `--explain-config` to see how `project` resolved its configuration. This prints the active config path and a summary of sources to stderr:
+
+```bash
+project new myapp --explain-config
+# Output on stderr:
+# Active config: /home/user/.config/project/config.toml (Source: user-config)
+# ...
+```
+
 ## Usage
 
 ### Create a new project with `new`
@@ -113,7 +223,9 @@ Like `new`, `init` supports `--module`, `--git`, `--dry-run`, `--replay`, `--wri
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--lang` | `-l` | Programming language (required unless provided via `--replay`) |
+| `--config` | | Path to CLI config file (replaces discovered user config) |
+| `--explain-config` | | Explain resolved config sources on stderr |
+| `--lang` | `-l` | Programming language (required unless provided via config or `--replay`) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name, or to the positional Go module path when you pass one directly) |
 | `--force` | | `new` only: remove and recreate an existing project directory |
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
@@ -126,9 +238,11 @@ Like `new`, `init` supports `--module`, `--git`, `--dry-run`, `--replay`, `--wri
 
 Notes:
 
+- `--config` and `--replay` are mutually exclusive and cannot be combined
 - `--write-replay` cannot be combined with `--dry-run`
 - `--signoff` is only valid when the git workflow creates an initial commit
 - `--no-git` is deprecated; prefer `--git none`
+- `--explain-config` output is written to stderr only
 
 ### Examples
 

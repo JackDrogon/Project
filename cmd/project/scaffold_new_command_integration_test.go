@@ -33,7 +33,6 @@ func TestNewCmd_RejectsInvalidArgCount(t *testing.T) {
 		name string
 		args []string
 	}{
-		{name: "missing project name", args: []string{"--lang", "go"}},
 		{name: "too many args", args: []string{"--lang", "go", "one", "two"}},
 	}
 
@@ -52,6 +51,159 @@ func TestNewCmd_RejectsInvalidArgCount(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewCmd_RejectsMissingArgWithoutReplayOrConfig(t *testing.T) {
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := requireSubcommand(t, creator, commandKeyNew)
+	cmd.SetArgs([]string{"--lang", "go"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "accepts 1 arg") {
+		t.Fatalf("Execute() error = %v, want arg count error", err)
+	}
+}
+
+func TestNewCmd_RejectsConfigAndReplayTogether(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte("version = 1\n[new]\nlang = \"go\"\nproject_name = \"from-config\"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+	}
+	replayPath := writeReplayTOMLForTest(t, protocoltoml.Replay{
+		Version:  protocoltoml.ReplayVersion,
+		Mode:     string(appcreate.CommandNew),
+		Template: protocoltoml.ReplayTemplate{Lang: "go"},
+		Project:  protocoltoml.ReplayProject{Name: "from-replay", TargetDir: "from-replay", ModulePath: "example.com/from-replay"},
+		Git:      protocoltoml.ReplayGit{Mode: domain.GitModeNone},
+	})
+
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	cmd := newRootCmd(creator)
+	cmd.SetArgs([]string{"--config", configPath, "new", "--replay", replayPath})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--config and --replay cannot be combined") {
+		t.Fatalf("Execute() error = %v, want config/replay conflict", err)
+	}
+}
+
+func TestNewCmd_UsesConfigProjectNameAndLangWhenArgIsOmitted(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/main.go.tmpl": {Data: []byte("package main\n\nconst Name = \"{{.ProjectName}}\"\n")},
+	}
+	workDir := withTempWorkingDir(t, "workspace")
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	config := []byte("version = 1\n[new]\nlang = \"go\"\nproject_name = \"from-config\"\ngit_mode = \"none\"\n")
+	if err := os.WriteFile(configPath, config, 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+	}
+
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newRootCmd(creator)
+	cmd.SetArgs([]string{"--config", configPath, "new"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	mainGo, err := os.ReadFile(filepath.Join(workDir, "from-config", "main.go"))
+	if err != nil {
+		t.Fatalf("ReadFile(main.go) error = %v", err)
+	}
+	if !strings.Contains(string(mainGo), `const Name = "from-config"`) {
+		t.Fatalf("main.go content = %q, want rendered config project name", string(mainGo))
+	}
+}
+
+func TestNewCmd_ExplainConfigWritesOnlyToStderr(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n")},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
+	}
+	withTempWorkingDir(t, "workspace")
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	config := []byte("version = 1\n[new]\nlang = \"go\"\nproject_name = \"from-config\"\nmodule = \"example.com/from-config\"\ngit_mode = \"none\"\nsignoff = false\n[new.inputs]\ngo_version = \"1.25\"\n")
+	if err := os.WriteFile(configPath, config, 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	creator := appcreate.NewCreator(fsys, &stdout)
+	cmd := newRootCmd(creator)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"--config", configPath, "--explain-config", "new", "--dry-run"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if strings.Contains(stdout.String(), "config source report:") {
+		t.Fatalf("stdout = %q, want no explain report", stdout.String())
+	}
+	if strings.Contains(stderr.String(), "Creating project with language") {
+		t.Fatalf("stderr = %q, want no dry-run stdout text", stderr.String())
+	}
+
+	requireOrderedSubstrings(t, stderr.String(), []string{
+		"config source report:\n",
+		"  command: new\n",
+		"  active_config_source: explicit-config\n",
+		"  active_config_path: " + configPath + "\n",
+		"  resolved values:\n",
+		"    lang: go (source: explicit-config)\n",
+		"    project_name: from-config (source: explicit-config)\n",
+		"    target_dir: from-config (source: explicit-config)\n",
+		"    module: example.com/from-config (source: explicit-config)\n",
+		"    git_mode: none (source: explicit-config)\n",
+		"    signoff: false (source: explicit-config)\n",
+		"  template inputs:\n",
+		"    module_path: example.com/from-config (source: explicit-config)\n",
+		"    go_version: 1.25 (source: explicit-config)\n",
+	})
+}
+
+func TestNewCmd_DryRunUsesResolvedConfigValues(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n")},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
+	}
+	withTempWorkingDir(t, "workspace")
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	config := []byte("version = 1\n[new]\nlang = \"go\"\nproject_name = \"from-config\"\nmodule = \"example.com/from-config\"\ngit_mode = \"none\"\n[new.inputs]\ngo_version = \"1.25\"\n")
+	if err := os.WriteFile(configPath, config, 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+	}
+
+	var out bytes.Buffer
+	creator := appcreate.NewCreator(fsys, &out)
+	cmd := newRootCmd(creator)
+	cmd.SetArgs([]string{"--config", configPath, "new", "--dry-run"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	requireOrderedSubstrings(t, out.String(), []string{
+		"Creating project with language: go, project name: from-config\n",
+		"Dry-run mode: no files will be created\n",
+		"template: go\n",
+		"description: Go starter\n",
+		"target_dir: from-config\n",
+		"resolved inputs:\n",
+		"  project_name: from-config\n",
+		"  module_path: example.com/from-config\n",
+		"  go_version: 1.25\n",
+		"  git_mode: none\n",
+		"explicit overrides:\n",
+		"  (none)\n",
+	})
 }
 
 func TestNewCmd_CreatesProjectFromArgument(t *testing.T) {
@@ -594,6 +746,70 @@ func TestNewCmd_WriteReplayRecordsResolvedInputs(t *testing.T) {
 	}
 	if len(replay.Inputs) != 2 {
 		t.Fatalf("len(replay.Inputs) = %d, want %d", len(replay.Inputs), 2)
+	}
+}
+
+func TestNewCmd_WriteReplayIgnoresConfigMetadata(t *testing.T) {
+	fsys := fstest.MapFS{
+		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n")},
+		"go/go.mod.tmpl":                     {Data: []byte("module {{.ModulePath}}\ngo {{.GoVersion}}\n")},
+	}
+	withTempWorkingDir(t, "workspace")
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	config := []byte("version = 1\n[new]\nlang = \"go\"\nproject_name = \"from-config\"\nmodule = \"example.com/from-config\"\ngit_mode = \"none\"\nsignoff = false\n[new.inputs]\ngo_version = \"1.25\"\n")
+	if err := os.WriteFile(configPath, config, 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+	}
+	replayPath := filepath.Join(t.TempDir(), "replay.toml")
+
+	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
+	cmd := newRootCmd(creator)
+	cmd.SetArgs([]string{"--config", configPath, "new", "--write-replay", replayPath})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	replay, err := protocoltoml.ReadReplay(replayPath)
+	if err != nil {
+		t.Fatalf("ReadReplay(%q) error = %v", replayPath, err)
+	}
+	if replay.Mode != string(appcreate.CommandNew) {
+		t.Fatalf("replay.Mode = %q, want %q", replay.Mode, appcreate.CommandNew)
+	}
+	if replay.Template.Lang != "go" {
+		t.Fatalf("replay.Template.Lang = %q, want %q", replay.Template.Lang, "go")
+	}
+	if replay.Project.Name != "from-config" {
+		t.Fatalf("replay.Project.Name = %q, want %q", replay.Project.Name, "from-config")
+	}
+	if replay.Project.TargetDir != "from-config" {
+		t.Fatalf("replay.Project.TargetDir = %q, want %q", replay.Project.TargetDir, "from-config")
+	}
+	if replay.Project.ModulePath != "example.com/from-config" {
+		t.Fatalf("replay.Project.ModulePath = %q, want %q", replay.Project.ModulePath, "example.com/from-config")
+	}
+	if replay.Git.Mode != domain.GitModeNone {
+		t.Fatalf("replay.Git.Mode = %q, want %q", replay.Git.Mode, domain.GitModeNone)
+	}
+	if replay.Git.Signoff {
+		t.Fatal("replay.Git.Signoff = true, want false")
+	}
+	if got := replay.Inputs["module_path"]; got != "example.com/from-config" {
+		t.Fatalf("replay.Inputs[module_path] = %q, want %q", got, "example.com/from-config")
+	}
+	if got := replay.Inputs["go_version"]; got != "1.25" {
+		t.Fatalf("replay.Inputs[go_version] = %q, want %q", got, "1.25")
+	}
+
+	raw, err := os.ReadFile(replayPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error = %v", replayPath, err)
+	}
+	for _, forbidden := range []string{configPath, "active_config_source", "active_config_path", "explicit-config", "user-config"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("replay file = %q, want no config metadata %q", string(raw), forbidden)
+		}
 	}
 }
 

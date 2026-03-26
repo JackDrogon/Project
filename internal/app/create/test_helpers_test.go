@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 type stubSettingsResolver struct{ settings resolvedScaffoldSettings }
@@ -34,4 +35,20 @@ func writeReplayForCreateServiceTest(t *testing.T, replay protocoltoml.Replay) s
 	}
 
 	return path
+}
+
+func stringPtr(v string) *string {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func activeConfigForCreateServiceTest(cfg protocoltoml.Config) appconfig.ActiveConfig {
+	return appconfig.ActiveConfig{
+		Source: appconfig.SourceExplicit,
+		Path:   "config.toml",
+		Config: &cfg,
+	}
 }

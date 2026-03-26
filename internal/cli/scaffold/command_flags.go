@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,30 @@ func bindScaffoldCommandFlags(cmd *cobra.Command, flags *scaffoldCommandFlags) {
 	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 }
 
-func (flags scaffoldCommandFlags) toAppFlags() appcreate.Flags {
+func activeConfigFromCommand(cmd *cobra.Command) appconfig.ActiveConfig {
+	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
+	if !ok {
+		return appconfig.ActiveConfig{}
+	}
+
+	return active
+}
+
+func explainConfigFromCommand(cmd *cobra.Command) bool {
+	flag := cmd.Flags().Lookup("explain-config")
+	if flag == nil {
+		return false
+	}
+
+	enabled, err := cmd.Flags().GetBool("explain-config")
+	if err != nil {
+		return false
+	}
+
+	return enabled
+}
+
+func (flags scaffoldCommandFlags) toAppFlags(cmd *cobra.Command) appcreate.Flags {
 	return appcreate.Flags{
 		Lang:            flags.lang,
 		Module:          flags.module,
@@ -41,6 +65,9 @@ func (flags scaffoldCommandFlags) toAppFlags() appcreate.Flags {
 		ReplayPath:      flags.replayPath,
 		WriteReplayPath: flags.writeReplayPath,
 		SetValues:       flags.setValues,
+		ExplainConfig:   explainConfigFromCommand(cmd),
+		Stderr:          cmd.ErrOrStderr(),
+		ActiveConfig:    activeConfigFromCommand(cmd),
 	}
 }
 
@@ -63,7 +90,7 @@ func (flags scaffoldCommandFlags) newRequest(cmd *cobra.Command, force bool, arg
 	}
 
 	return appcreate.NewRequest{
-		Flags:   flags.toAppFlags(),
+		Flags:   flags.toAppFlags(cmd),
 		Changed: flags.changed(cmd, cmd.Flags().Changed("force")),
 		Force:   force,
 		Arg:     arg,
@@ -79,7 +106,7 @@ func (flags scaffoldCommandFlags) initRequest(cmd *cobra.Command, args []string)
 	}
 
 	return appcreate.InitRequest{
-		Flags:   flags.toAppFlags(),
+		Flags:   flags.toAppFlags(cmd),
 		Changed: flags.changed(cmd, false),
 		Arg:     arg,
 		HasArg:  hasArg,

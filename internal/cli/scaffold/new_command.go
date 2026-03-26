@@ -27,8 +27,8 @@ func (c *newCommand) buildCommand() *cobra.Command {
 }
 
 func (c *newCommand) validateArgs(cmd *cobra.Command, args []string) error {
-	if cmd.Flags().Changed("replay") {
-		return cobra.RangeArgs(0, 1)(cmd, args)
+	if len(args) <= 1 {
+		return nil
 	}
 
 	return cobra.ExactArgs(1)(cmd, args)

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	appcreate "github.com/JackDrogon/project/internal/app/create"
+	"github.com/spf13/cobra"
 )
 
 func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *testing.T) {
@@ -24,7 +25,7 @@ func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *
 		t.Run(tt.name, func(t *testing.T) {
 			flags := scaffoldCommandFlags{setValues: tt.setValues}
 
-			_, err := appcreate.NewService().ParseSetValues(flags.toAppFlags())
+			_, err := appcreate.NewService().ParseSetValues(flags.toAppFlags(&cobra.Command{}))
 			if err == nil {
 				t.Fatal("ParseSetValues() expected error, got nil")
 			}

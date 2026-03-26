@@ -14,4 +14,8 @@ Flags:
       --signoff               Add Signed-off-by trailer to the initial commit
       --write-replay string   Write resolved project configuration to a TOML file after success
 
+Global Flags:
+      --config string    Path to CLI config file
+      --explain-config   Explain resolved config sources on stderr
+
 accepts 1 arg(s), received 0

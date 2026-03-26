@@ -1,12 +1,27 @@
 package create
 
-import "github.com/JackDrogon/project/internal/adapters/protocoltoml"
+import (
+	"io"
+
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
+)
 
 type Command string
 
 const (
 	CommandNew  Command = "new"
 	CommandInit Command = "init"
+)
+
+type ValueOrigin string
+
+const (
+	ValueOriginDefault ValueOrigin = "default"
+	ValueOriginFlag    ValueOrigin = "flag"
+	ValueOriginArg     ValueOrigin = "arg"
+	ValueOriginSet     ValueOrigin = "set"
+	ValueOriginReplay  ValueOrigin = "replay"
 )
 
 type Flags struct {
@@ -19,6 +34,9 @@ type Flags struct {
 	ReplayPath      string
 	WriteReplayPath string
 	SetValues       []string
+	ExplainConfig   bool
+	Stderr          io.Writer
+	ActiveConfig    appconfig.ActiveConfig
 }
 
 type Changed struct {
@@ -31,8 +49,11 @@ type Changed struct {
 }
 
 type Runtime struct {
+	Command             Command
+	ActiveConfig        appconfig.ActiveConfig
 	Replay              protocoltoml.Replay
 	HasReplay           bool
+	ExplicitSetValues   map[string]string
 	TemplateInputValues map[string]string
 }
 
@@ -55,6 +76,17 @@ type ScaffoldSpec struct {
 	Command Command
 	Flags   Flags
 	Options Options
+	Origins ResolutionOrigins
+}
+
+type ResolutionOrigins struct {
+	Lang           ValueOrigin
+	ProjectName    ValueOrigin
+	TargetDir      ValueOrigin
+	Module         ValueOrigin
+	GitMode        ValueOrigin
+	Signoff        ValueOrigin
+	TemplateInputs map[string]ValueOrigin
 }
 
 type resolvedScaffoldSettings struct {

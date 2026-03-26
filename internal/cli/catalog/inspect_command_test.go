@@ -2,8 +2,12 @@ package catalog
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 func TestInspectCmdOutputs(t *testing.T) {
@@ -57,4 +61,85 @@ func TestInspectCmdOutputs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInspectCmd_ConfigDefaultsSupplyLangAndMode(t *testing.T) {
+	lang := "go"
+	format := outputFormatTOML
+	mode := "render"
+
+	config := &protocoltoml.Config{
+		Inspect: &protocoltoml.ConfigInspect{
+			Lang:   &lang,
+			Format: &format,
+			Mode:   &mode,
+		},
+	}
+
+	var buf bytes.Buffer
+	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(withInspectConfig(config))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "shown_count = 2") {
+		t.Fatalf("output = %q, want render-mode filtered output", got)
+	}
+	if !strings.Contains(got, "go.mod.tmpl") {
+		t.Fatalf("output = %q, want go template output from config lang", got)
+	}
+	if !strings.Contains(got, "mode = \"render\"") && !strings.Contains(got, "mode = 'render'") {
+		t.Fatalf("output = %q, want render mode from config", got)
+	}
+}
+
+func TestInspectCmd_PositionalLangOverridesConfig(t *testing.T) {
+	lang := "rust"
+
+	config := &protocoltoml.Config{
+		Inspect: &protocoltoml.ConfigInspect{Lang: &lang},
+	}
+
+	var buf bytes.Buffer
+	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(withInspectConfig(config))
+	cmd.SetArgs([]string{"go"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "name: go") {
+		t.Fatalf("output = %q, want positional language to win", got)
+	}
+}
+
+func TestInspectCmd_MissingLangStillFailsWithoutArgOrConfig(t *testing.T) {
+	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "inspection query requires a language") {
+		t.Fatalf("Execute() error = %v, want missing language validation error", err)
+	}
+}
+
+func withInspectConfig(cfg *protocoltoml.Config) context.Context {
+	active := appconfig.ActiveConfig{
+		Source: appconfig.SourceExplicit,
+		Path:   "/tmp/config.toml",
+		Config: cfg,
+	}
+
+	return appconfig.WithActiveConfig(context.Background(), active)
 }

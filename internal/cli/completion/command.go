@@ -1,6 +1,9 @@
 package completion
 
-import "github.com/spf13/cobra"
+import (
+	appconfig "github.com/JackDrogon/project/internal/app/config"
+	"github.com/spf13/cobra"
+)
 
 func NewCommand() *cobra.Command {
 	return &cobra.Command{
@@ -9,10 +12,18 @@ func NewCommand() *cobra.Command {
 		Long:                  longDescription,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		Args:                  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			shell := resolveCompletionShell(cmd, args)
+			if shell == "" {
+				return cobra.ExactArgs(1)(cmd, args)
+			}
+			if err := cobra.OnlyValidArgs(cmd, []string{shell}); err != nil {
+				return err
+			}
+
 			out := cmd.OutOrStdout()
-			switch args[0] {
+			switch shell {
 			case "bash":
 				return cmd.Root().GenBashCompletionV2(out, true)
 			case "zsh":
@@ -23,6 +34,19 @@ func NewCommand() *cobra.Command {
 			return cmd.Root().GenPowerShellCompletionWithDesc(out)
 		},
 	}
+}
+
+func resolveCompletionShell(cmd *cobra.Command, args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+
+	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
+	if !ok || active.Config == nil || active.Config.Completion == nil || active.Config.Completion.Shell == nil {
+		return ""
+	}
+
+	return *active.Config.Completion.Shell
 }
 
 const longDescription = `Generate shell completion scripts for project.

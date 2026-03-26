@@ -28,6 +28,8 @@ type listCommandSpecBuilder struct {
 	requiredAssets []string
 }
 
+const defaultListSortBy = string(appcatalog.SummarySortName)
+
 type inspectCommandSpecBuilder struct {
 	asTOML  bool
 	compact bool
@@ -40,7 +42,7 @@ func (b listCommandSpecBuilder) Build() (listCommandSpec, error) {
 		if b.table {
 			return listCommandSpec{}, fmt.Errorf("--table requires --detail; plain list output only supports language names")
 		}
-		if b.sortBy != string(appcatalog.SummarySortName) {
+		if b.sortBy != defaultListSortBy {
 			return listCommandSpec{}, fmt.Errorf("--sort=%s requires --detail; plain list output only supports name order", b.sortBy)
 		}
 		if b.minGovernance != "" || len(b.requiredAssets) > 0 {
@@ -75,7 +77,8 @@ func (b inspectCommandSpecBuilder) Build() (inspectCommandSpec, error) {
 	if err != nil {
 		return inspectCommandSpec{}, err
 	}
-	query := appcatalog.InspectionQuery{Lang: b.lang, Mode: mode}
+	query := appcatalog.DefaultInspectionQuery(b.lang)
+	query.Mode = mode
 	if err := query.Validate(); err != nil {
 		return inspectCommandSpec{}, err
 	}

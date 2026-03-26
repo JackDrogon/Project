@@ -2,9 +2,11 @@ package create
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 var reservedSetKeys = map[string]struct{}{
@@ -46,12 +48,22 @@ func (s *Service) RuntimeState(flags Flags, expected Command) (Runtime, error) {
 		return Runtime{}, err
 	}
 
+	runtime := Runtime{
+		Command:             expected,
+		ActiveConfig:        flags.ActiveConfig,
+		ExplicitSetValues:   maps.Clone(templateInputValues),
+		TemplateInputValues: templateInputValues,
+	}
+
 	if flags.WriteReplayPath != "" && flags.DryRun {
 		return Runtime{}, fmt.Errorf("--write-replay cannot be combined with --dry-run")
 	}
 
 	if flags.ReplayPath == "" {
-		return Runtime{TemplateInputValues: templateInputValues}, nil
+		if inputDefaults := activeConfigInputs(expected, flags.ActiveConfig); len(inputDefaults) > 0 {
+			runtime.TemplateInputValues = mergeInputMaps(inputDefaults, templateInputValues)
+		}
+		return runtime, nil
 	}
 
 	replay, err := protocoltoml.ReadReplay(flags.ReplayPath)
@@ -69,5 +81,43 @@ func (s *Service) RuntimeState(flags Flags, expected Command) (Runtime, error) {
 
 	mergedInputs := mergeReplayInputs(replay, templateInputValues)
 
-	return Runtime{Replay: replay, HasReplay: true, TemplateInputValues: mergedInputs}, nil
+	runtime.Replay = replay
+	runtime.HasReplay = true
+	runtime.TemplateInputValues = mergedInputs
+
+	return runtime, nil
+}
+
+func activeConfigInputs(command Command, active appconfig.ActiveConfig) map[string]string {
+	config := active.Config
+	if config == nil {
+		return nil
+	}
+
+	switch command {
+	case CommandNew:
+		if config.New == nil || len(config.New.Inputs) == 0 {
+			return nil
+		}
+		return maps.Clone(config.New.Inputs)
+	case CommandInit:
+		if config.Init == nil || len(config.Init.Inputs) == 0 {
+			return nil
+		}
+		return maps.Clone(config.Init.Inputs)
+	default:
+		return nil
+	}
+}
+
+func mergeInputMaps(base, overrides map[string]string) map[string]string {
+	if len(base) == 0 && len(overrides) == 0 {
+		return nil
+	}
+
+	merged := make(map[string]string, len(base)+len(overrides))
+	maps.Copy(merged, base)
+	maps.Copy(merged, overrides)
+
+	return merged
 }

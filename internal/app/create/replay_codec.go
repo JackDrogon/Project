@@ -26,13 +26,7 @@ func buildReplay(command Command, opts Options) (protocoltoml.Replay, error) {
 		return protocoltoml.Replay{}, fmt.Errorf("failed to resolve replay after project creation: %w", err)
 	}
 
-	inputs := maps.Clone(opts.TemplateInputValues)
-	if inputs == nil {
-		inputs = map[string]string{}
-	}
-	if opts.ModulePath != "" {
-		inputs["module_path"] = opts.ModulePath
-	}
+	inputs := replayInputsFromOptions(opts)
 
 	return protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -47,4 +41,15 @@ func buildReplay(command Command, opts Options) (protocoltoml.Replay, error) {
 		Options: protocoltoml.ReplayOptions{Force: opts.Force},
 		Inputs:  inputs,
 	}, nil
+}
+
+func replayInputsFromOptions(opts Options) map[string]string {
+	inputs := maps.Clone(opts.TemplateInputValues)
+	if inputs == nil {
+		inputs = map[string]string{}
+	}
+	if opts.ModulePath != "" {
+		inputs["module_path"] = opts.ModulePath
+	}
+	return inputs
 }

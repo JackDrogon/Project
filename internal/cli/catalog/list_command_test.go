@@ -2,8 +2,12 @@ package catalog
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 func TestSelectedOutputFormat(t *testing.T) {
@@ -59,4 +63,134 @@ func TestListCmdOutputs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListCmd_ConfigDefaultsApplyToDetailAndFormat(t *testing.T) {
+	format := outputFormatTOML
+	detail := true
+	sort := "governance"
+	minGovernance := "minimal"
+
+	config := &protocoltoml.Config{
+		List: &protocoltoml.ConfigListSection{
+			Format:        &format,
+			Detail:        &detail,
+			Sort:          &sort,
+			MinGovernance: &minGovernance,
+			RequiredAsset: []string{"ci"},
+		},
+	}
+
+	var buf bytes.Buffer
+	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(withListConfig(config))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	got := buf.String()
+	if !strings.Contains(got, "[[templates]]") {
+		t.Fatalf("output = %q, want TOML detail output", got)
+	}
+	if !strings.Contains(got, "governance_tier") {
+		t.Fatalf("output = %q, want detailed governance fields", got)
+	}
+
+	rustIndex := strings.Index(got, "name = \"rust\"")
+	if rustIndex == -1 {
+		rustIndex = strings.Index(got, "name = 'rust'")
+	}
+	cppIndex := strings.Index(got, "name = \"cpp\"")
+	if cppIndex == -1 {
+		cppIndex = strings.Index(got, "name = 'cpp'")
+	}
+	goIndex := strings.Index(got, "name = \"go\"")
+	if goIndex == -1 {
+		goIndex = strings.Index(got, "name = 'go'")
+	}
+	if rustIndex == -1 || cppIndex == -1 || goIndex == -1 {
+		t.Fatalf("output = %q, want rust/cpp/go templates", got)
+	}
+	if rustIndex >= cppIndex || cppIndex >= goIndex {
+		t.Fatalf("output = %q, want governance sort order rust -> cpp -> go", got)
+	}
+}
+
+func TestListCmd_FlagsOverrideConfigDefaults(t *testing.T) {
+	format := outputFormatTOML
+	compact := true
+	detail := false
+	table := true
+	sort := "repo-files"
+	minGovernance := "rich"
+
+	config := &protocoltoml.Config{
+		List: &protocoltoml.ConfigListSection{
+			Format:        &format,
+			Compact:       &compact,
+			Detail:        &detail,
+			Table:         &table,
+			Sort:          &sort,
+			MinGovernance: &minGovernance,
+			RequiredAsset: []string{"security"},
+		},
+	}
+
+	var buf bytes.Buffer
+	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetContext(withListConfig(config))
+	cmd.SetArgs([]string{"--detail", "--toml=false", "--compact=false", "--table=false", "--sort", "name", "--min-governance", "minimal", "--has-repo-asset", "ci"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	got := buf.String()
+	if strings.Contains(got, "[[templates]]") {
+		t.Fatalf("output = %q, want text format after --toml=false override", got)
+	}
+	if strings.Contains(got, "NAME") || strings.Contains(got, "GOVERNANCE") {
+		t.Fatalf("output = %q, want non-table detail output after --table=false override", got)
+	}
+	if !strings.Contains(got, "cpp\tdesc=") || !strings.Contains(got, "go\tdesc=") || !strings.Contains(got, "rust\tdesc=") {
+		t.Fatalf("output = %q, want all templates after flag overrides", got)
+	}
+}
+
+func TestListCmd_InvalidConfigCombinationStillFailsValidation(t *testing.T) {
+	detail := false
+	table := true
+
+	config := &protocoltoml.Config{
+		List: &protocoltoml.ConfigListSection{
+			Detail: &detail,
+			Table:  &table,
+		},
+	}
+
+	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetContext(withListConfig(config))
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--table requires --detail") {
+		t.Fatalf("Execute() error = %v, want table/detail validation error", err)
+	}
+}
+
+func withListConfig(cfg *protocoltoml.Config) context.Context {
+	active := appconfig.ActiveConfig{
+		Source: appconfig.SourceExplicit,
+		Path:   "/tmp/config.toml",
+		Config: cfg,
+	}
+
+	return appconfig.WithActiveConfig(context.Background(), active)
 }

@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +24,7 @@ func (c *inspectCommand) buildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "inspect [lang]",
 		Short: "Inspect one template language",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE:  c.run,
 	}
 
@@ -32,7 +34,13 @@ func (c *inspectCommand) buildCommand() *cobra.Command {
 }
 
 func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
-	spec, err := inspectCommandSpecBuilder{asTOML: c.asTOML, compact: c.compact, lang: args[0], mode: c.filter}.Build()
+	builder := inspectCommandSpecBuilder{asTOML: c.asTOML, compact: c.compact, mode: c.filter}
+	if len(args) > 0 {
+		builder.lang = args[0]
+	}
+	applyInspectConfigDefaults(cmd, &builder, args)
+
+	spec, err := builder.Build()
 	if err != nil {
 		return err
 	}
@@ -46,4 +54,35 @@ func (c *inspectCommand) run(cmd *cobra.Command, args []string) error {
 	}
 
 	return presenter.WriteInspection(cmd.OutOrStdout(), inspection)
+}
+
+func applyInspectConfigDefaults(cmd *cobra.Command, builder *inspectCommandSpecBuilder, args []string) {
+	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
+	if !ok || active.Config == nil || active.Config.Inspect == nil {
+		return
+	}
+
+	configInspect := active.Config.Inspect
+	flags := cmd.Flags()
+
+	if len(args) == 0 && configInspect.Lang != nil {
+		builder.lang = *configInspect.Lang
+	}
+	if !flags.Changed("toml") {
+		applyInspectFormatDefault(configInspect, builder)
+	}
+	if !flags.Changed("compact") && configInspect.Compact != nil {
+		builder.compact = *configInspect.Compact
+	}
+	if !flags.Changed("mode") && configInspect.Mode != nil {
+		builder.mode = *configInspect.Mode
+	}
+}
+
+func applyInspectFormatDefault(configInspect *protocoltoml.ConfigInspect, builder *inspectCommandSpecBuilder) {
+	if configInspect.Format == nil {
+		return
+	}
+
+	builder.asTOML = *configInspect.Format == outputFormatTOML
 }

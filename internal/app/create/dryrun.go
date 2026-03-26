@@ -91,6 +91,10 @@ func resolveDryRunInputValue(templateVar string, vars domain.TemplateVars) strin
 }
 
 func writeDryRunPlan(w io.Writer, plan domain.DryRunPlan, opts Options) error {
+	return writeDryRunPlanWithOrigins(w, plan, opts, ResolutionOrigins{})
+}
+
+func writeDryRunPlanWithOrigins(w io.Writer, plan domain.DryRunPlan, opts Options, origins ResolutionOrigins) error {
 	mode, err := domain.ResolveGitMode(opts)
 	if err != nil {
 		return err
@@ -116,7 +120,7 @@ func writeDryRunPlan(w io.Writer, plan domain.DryRunPlan, opts Options) error {
 	_, _ = fmt.Fprintf(w, "  git_mode: %s\n", mode)
 
 	_, _ = fmt.Fprintln(w, "explicit overrides:")
-	overrides := dryRunPlanOverrides(plan, opts, mode, modulePath, includeModulePath)
+	overrides := dryRunPlanOverrides(plan, opts, mode, modulePath, includeModulePath, origins)
 	if len(overrides) == 0 {
 		_, _ = fmt.Fprintln(w, "  (none)")
 	} else {
@@ -159,9 +163,9 @@ func dryRunPlanResolvedInputValue(plan domain.DryRunPlan, templateVar string) (s
 	return "", false
 }
 
-func dryRunPlanOverrides(plan domain.DryRunPlan, opts Options, mode domain.GitMode, modulePath string, includeModulePath bool) []dryRunPlanOverride {
+func dryRunPlanOverrides(plan domain.DryRunPlan, opts Options, mode domain.GitMode, modulePath string, includeModulePath bool, origins ResolutionOrigins) []dryRunPlanOverride {
 	var overrides []dryRunPlanOverride
-	if includeModulePath && modulePath != opts.ProjectName {
+	if includeModulePath && modulePath != opts.ProjectName && includeModulePathOverride(origins.Module) {
 		overrides = append(overrides, dryRunPlanOverride{name: "module_path", value: modulePath})
 	}
 	for _, input := range plan.ResolvedInputs {
@@ -169,15 +173,37 @@ func dryRunPlanOverrides(plan domain.DryRunPlan, opts Options, mode domain.GitMo
 			continue
 		}
 
-		if value, ok := opts.TemplateInputValues[input.Name]; ok {
+		if value, ok := opts.TemplateInputValues[input.Name]; ok && includeTemplateInputOverride(origins, input.Name) {
 			overrides = append(overrides, dryRunPlanOverride{name: input.Name, value: value})
 		}
 	}
-	if opts.NoGit || opts.GitMode != "" {
+	if includeGitModeOverride(opts, origins.GitMode) {
 		overrides = append(overrides, dryRunPlanOverride{name: "git_mode", value: string(mode)})
 	}
 
 	return overrides
+}
+
+func includeModulePathOverride(origin ValueOrigin) bool {
+	if origin == "" {
+		return true
+	}
+	return origin == ValueOriginFlag || origin == ValueOriginArg
+}
+
+func includeTemplateInputOverride(origins ResolutionOrigins, key string) bool {
+	origin, ok := origins.TemplateInputs[key]
+	if !ok {
+		return true
+	}
+	return origin == ValueOriginSet
+}
+
+func includeGitModeOverride(opts Options, origin ValueOrigin) bool {
+	if origin == "" {
+		return opts.NoGit || opts.GitMode != ""
+	}
+	return origin == ValueOriginFlag
 }
 
 func formatDryRunAction(action domain.DryRunAction) string {

@@ -1,6 +1,8 @@
 package scaffold
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +24,10 @@ func (c *scaffoldCommandBase) execute(
 	args []string,
 	builder scaffoldCommandSpecBuilder,
 ) error {
+	if err := validateConfigReplayConflict(cmd); err != nil {
+		return err
+	}
+
 	service := c.deps.newService()
 	spec, err := builder.Build(service, cmd, args)
 	if err != nil {
@@ -29,4 +35,12 @@ func (c *scaffoldCommandBase) execute(
 	}
 
 	return service.ExecuteScaffoldSpec(c.deps.creator(), spec)
+}
+
+func validateConfigReplayConflict(cmd *cobra.Command) error {
+	if !cmd.Flags().Changed("config") || !cmd.Flags().Changed("replay") {
+		return nil
+	}
+
+	return fmt.Errorf("--config and --replay cannot be combined")
 }

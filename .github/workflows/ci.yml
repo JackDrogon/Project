@@ -1,7 +1,14 @@
 name: CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
+    branches:
+      - main
+      - master
   pull_request:
 
 permissions:
@@ -9,7 +16,7 @@ permissions:
 
 jobs:
   test:
-    name: Test
+    name: Test and Build
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,23 +28,89 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Generate
-        run: go generate ./...
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Install gofumpt
+        uses: taiki-e/install-action@v2
+        with:
+          tool: gofumpt
+
+      - name: Run generate via just
+        run: just generate
 
       - name: Check generated files are up to date
         run: git diff --exit-code -- internal/adapters/templatesrc/permissions_generated.go
 
-      - name: Format
-        run: go fmt ./...
+      - name: Run format via just
+        run: just fmt
 
-      - name: Spellcheck
-        uses: crate-ci/typos@v1.35.5
+      - name: Check formatting is up to date
+        run: git diff --exit-code
 
-      - name: Vet
-        run: go vet ./...
+      - name: Run vet via just
+        run: just vet
 
-      - name: Test
-        run: go test ./...
+      - name: Run coverage via just
+        run: just cover
 
-      - name: Build
-        run: go build ./cmd/project
+      - name: Upload coverage artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Run build via just
+        run: just build
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.11.3
+          install-only: true
+
+      - name: Run lint via just
+        run: just lint
+
+  spellcheck:
+    name: Spellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Install typos
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli
+
+      - name: Run spellcheck via just
+        run: just spellcheck

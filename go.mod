@@ -3,7 +3,7 @@ module github.com/JackDrogon/project
 go 1.25.0
 
 require (
-	github.com/pelletier/go-toml/v2 v2.2.4
+	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/sync v0.20.0
 )

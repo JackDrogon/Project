@@ -14,6 +14,7 @@ func TestRegisteredCommandProviders_HasExpectedKeys(t *testing.T) {
 		commandKeyInit,
 		commandKeyList,
 		commandKeyInspect,
+		commandKeyConfig,
 		commandKeyVersion,
 		commandKeyCompletion,
 	}

@@ -1,5 +1,6 @@
 project	project is a tool to create new project
 completion [bash|zsh|fish|powershell]	Generate shell completion script
+config	Show active config summary
 init [target_dir]	Initialize project in current or target directory
 inspect [lang]	Inspect one template language
 list	list all supported languages

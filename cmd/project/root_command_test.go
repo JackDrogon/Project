@@ -29,7 +29,7 @@ func TestNewRootCmd(t *testing.T) {
 
 	// Verify expected subcommands are registered
 	subCmds := cmd.Commands()
-	wantCmds := map[string]bool{"new": false, "init": false, "list": false, "inspect": false, "version": false, "completion": false}
+	wantCmds := map[string]bool{"new": false, "init": false, "list": false, "inspect": false, "config": false, "version": false, "completion": false}
 	for _, sub := range subCmds {
 		if _, ok := wantCmds[sub.Name()]; ok {
 			wantCmds[sub.Name()] = true

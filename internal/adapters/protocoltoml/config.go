@@ -35,8 +35,10 @@ type Config struct {
 	Completion *ConfigCompletion  `toml:"completion"`
 }
 
-var configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*$`)
-var configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*$`)
+var (
+	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*$`)
+	configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*$`)
+)
 
 type ConfigNewSection struct {
 	Lang        *string           `toml:"lang"`

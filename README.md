@@ -12,6 +12,7 @@ The CLI currently ships with these subcommands:
 | `project init [target_dir]` | Scaffold a project into the current directory or an explicit target directory |
 | `project list` | List supported template languages |
 | `project inspect <lang>` | Inspect one embedded template and its render/copy behavior |
+| `project config` | Show the active config source, path, and configured sections |
 | `project version` | Print the build version |
 | `project completion <shell>` | Generate shell completion scripts |
 
@@ -168,6 +169,9 @@ project inspect go
 
 # Generate completion for a shell defined in [completion.shell]
 project completion
+
+# Show the currently active config source and path
+project config
 
 # View build metadata with config-defined verbosity
 project version

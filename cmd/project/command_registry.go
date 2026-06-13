@@ -38,6 +38,7 @@ const (
 	commandKeyInit       commandKey = "init"
 	commandKeyList       commandKey = "list"
 	commandKeyInspect    commandKey = "inspect"
+	commandKeyConfig     commandKey = "config"
 	commandKeyVersion    commandKey = "version"
 	commandKeyCompletion commandKey = "completion"
 )
@@ -89,6 +90,7 @@ const (
 	commandOrderInit
 	commandOrderList
 	commandOrderInspect
+	commandOrderConfig
 	commandOrderVersion
 	commandOrderCompletion
 )

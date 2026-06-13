@@ -16,6 +16,9 @@ type Decoder func(content []byte, path string) (protocoltoml.Config, error)
 type Dependencies struct {
 	UserConfigDir func() (string, error)
 	Join          func(elem ...string) string
+	MkdirAll      func(path string, perm os.FileMode) error
+	Stat          func(name string) (os.FileInfo, error)
+	WriteFile     func(name string, data []byte, perm os.FileMode) error
 	ReadFile      func(path string) ([]byte, error)
 	Decode        Decoder
 }
@@ -36,6 +39,9 @@ func DefaultDependencies() Dependencies {
 	return Dependencies{
 		UserConfigDir: os.UserConfigDir,
 		Join:          filepath.Join,
+		MkdirAll:      os.MkdirAll,
+		Stat:          os.Stat,
+		WriteFile:     os.WriteFile,
 		ReadFile:      os.ReadFile,
 		Decode:        protocoltoml.DecodeConfig,
 	}
@@ -49,6 +55,15 @@ func (d Dependencies) withDefaults() Dependencies {
 	if d.Join == nil {
 		d.Join = defaults.Join
 	}
+	if d.MkdirAll == nil {
+		d.MkdirAll = defaults.MkdirAll
+	}
+	if d.Stat == nil {
+		d.Stat = defaults.Stat
+	}
+	if d.WriteFile == nil {
+		d.WriteFile = defaults.WriteFile
+	}
 	if d.ReadFile == nil {
 		d.ReadFile = defaults.ReadFile
 	}
@@ -56,6 +71,38 @@ func (d Dependencies) withDefaults() Dependencies {
 		d.Decode = defaults.Decode
 	}
 	return d
+}
+
+func (s *Service) ResolvePath(ctx Context) (string, error) {
+	if ctx.ExplicitPath != "" {
+		return ctx.ExplicitPath, nil
+	}
+
+	return s.defaultConfigPath()
+}
+
+func (s *Service) InitConfig(ctx Context) (string, error) {
+	path, err := s.ResolvePath(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.deps.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", fmt.Errorf("create config directory for %q: %w", path, err)
+	}
+
+	if _, err := s.deps.Stat(path); err == nil {
+		return "", fmt.Errorf("config file %q already exists", path)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("stat config file %q: %w", path, err)
+	}
+
+	content := fmt.Appendf(nil, "version = %d\n", protocoltoml.ConfigVersion)
+	if err := s.deps.WriteFile(path, content, 0o644); err != nil {
+		return "", fmt.Errorf("write config file %q: %w", path, err)
+	}
+
+	return path, nil
 }
 
 func (s *Service) LoadActiveConfig(ctx Context) (ActiveConfig, error) {

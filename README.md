@@ -173,6 +173,15 @@ project completion
 # Show the currently active config source and path
 project config
 
+# Print the resolved config file path
+project config path
+
+# Create a seed config.toml at the resolved path
+project config init
+
+# Validate the resolved config file
+project config validate
+
 # View build metadata with config-defined verbosity
 project version
 ```

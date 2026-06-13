@@ -31,7 +31,7 @@ func buildVersionCommand(commandDependencies) *cobra.Command {
 }
 
 func buildConfigCommand(commandDependencies) *cobra.Command {
-	return configcli.NewCommand()
+	return configcli.NewCommand(configcli.Dependencies{NewService: newConfigService})
 }
 
 func buildCompletionCommand(commandDependencies) *cobra.Command {

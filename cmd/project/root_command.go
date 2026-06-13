@@ -29,12 +29,19 @@ func newRootCmd(creator *appcreate.Creator) *cobra.Command {
 		Use:   "project",
 		Short: "project is a tool to create new project",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			active, err := newConfigService().LoadActiveConfig(appconfig.Context{ExplicitPath: flags.configPath})
+			loadCtx := appconfig.Context{ExplicitPath: flags.configPath}
+			service := newConfigService()
+			active, err := service.LoadActiveConfig(loadCtx)
 			if err != nil {
-				return err
+				if !isConfigCommand(cmd) {
+					return err
+				}
+				active = appconfig.ActiveConfig{Source: appconfig.SourceNone}
 			}
 
 			sharedContext := appconfig.WithActiveConfig(cmd.Context(), active)
+			sharedContext = appconfig.WithLoadContext(sharedContext, loadCtx)
+			sharedContext = appconfig.WithLoadError(sharedContext, err)
 			applyContextToCommandTree(cmd.Root(), sharedContext)
 			return nil
 		},
@@ -46,6 +53,15 @@ func newRootCmd(creator *appcreate.Creator) *cobra.Command {
 	addRegisteredCommands(rootCmd, deps)
 
 	return rootCmd
+}
+
+func isConfigCommand(cmd *cobra.Command) bool {
+	for current := cmd; current != nil; current = current.Parent() {
+		if current.Name() == string(commandKeyConfig) {
+			return true
+		}
+	}
+	return false
 }
 
 func applyContextToCommandTree(cmd *cobra.Command, ctx context.Context) {

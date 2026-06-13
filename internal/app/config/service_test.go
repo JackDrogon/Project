@@ -3,8 +3,11 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 )
@@ -170,3 +173,120 @@ func TestLoadActiveConfig_MissingExplicitPathFailsAndMissingDefaultIsNoop(t *tes
 		}
 	})
 }
+
+func TestResolvePath_UsesExplicitOrDefaultPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit path wins", func(t *testing.T) {
+		t.Parallel()
+
+		svc := NewServiceWithDeps(Dependencies{
+			UserConfigDir: func() (string, error) {
+				t.Fatal("UserConfigDir() should not be called when explicit path is set")
+				return "", nil
+			},
+		})
+
+		path, err := svc.ResolvePath(Context{ExplicitPath: "/tmp/custom.toml"})
+		if err != nil {
+			t.Fatalf("ResolvePath() error = %v", err)
+		}
+		if path != "/tmp/custom.toml" {
+			t.Fatalf("ResolvePath() = %q, want %q", path, "/tmp/custom.toml")
+		}
+	})
+
+	t.Run("default path uses user config dir", func(t *testing.T) {
+		t.Parallel()
+
+		svc := NewServiceWithDeps(Dependencies{
+			UserConfigDir: func() (string, error) { return "/home/test/.config", nil },
+			Join: func(elem ...string) string {
+				return "/home/test/.config/project/config.toml"
+			},
+		})
+
+		path, err := svc.ResolvePath(Context{})
+		if err != nil {
+			t.Fatalf("ResolvePath() error = %v", err)
+		}
+		if path != "/home/test/.config/project/config.toml" {
+			t.Fatalf("ResolvePath() = %q, want %q", path, "/home/test/.config/project/config.toml")
+		}
+	})
+}
+
+func TestInitConfig_CreatesSeedFileAndRejectsExistingTarget(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates default config file", func(t *testing.T) {
+		t.Parallel()
+
+		var mkdirPath string
+		var writePath string
+		var writeContent []byte
+
+		svc := NewServiceWithDeps(Dependencies{
+			UserConfigDir: func() (string, error) { return "/home/test/.config", nil },
+			Join:          func(elem ...string) string { return "/home/test/.config/project/config.toml" },
+			MkdirAll: func(path string, _ os.FileMode) error {
+				mkdirPath = path
+				return nil
+			},
+			Stat: func(name string) (os.FileInfo, error) {
+				if name != "/home/test/.config/project/config.toml" {
+					t.Fatalf("Stat() name = %q", name)
+				}
+				return nil, os.ErrNotExist
+			},
+			WriteFile: func(name string, data []byte, _ os.FileMode) error {
+				writePath = name
+				writeContent = append([]byte(nil), data...)
+				return nil
+			},
+		})
+
+		path, err := svc.InitConfig(Context{})
+		if err != nil {
+			t.Fatalf("InitConfig() error = %v", err)
+		}
+		if path != "/home/test/.config/project/config.toml" {
+			t.Fatalf("InitConfig() path = %q", path)
+		}
+		if mkdirPath != "/home/test/.config/project" {
+			t.Fatalf("MkdirAll() path = %q, want %q", mkdirPath, "/home/test/.config/project")
+		}
+		if writePath != path {
+			t.Fatalf("WriteFile() path = %q, want %q", writePath, path)
+		}
+		if string(writeContent) != "version = 1\n" {
+			t.Fatalf("WriteFile() content = %q, want %q", string(writeContent), "version = 1\n")
+		}
+	})
+
+	t.Run("fails when config file already exists", func(t *testing.T) {
+		t.Parallel()
+
+		svc := NewServiceWithDeps(Dependencies{
+			MkdirAll: func(path string, _ os.FileMode) error { return nil },
+			Stat:     func(name string) (os.FileInfo, error) { return fakeFileInfo{name: filepath.Base(name)}, nil },
+		})
+
+		_, err := svc.InitConfig(Context{ExplicitPath: "/tmp/config.toml"})
+		if err == nil {
+			t.Fatal("InitConfig() error = nil, want existing file error")
+		}
+		if !strings.Contains(err.Error(), "already exists") {
+			t.Fatalf("InitConfig() error = %v, want already exists", err)
+		}
+	})
+}
+
+type fakeFileInfo struct{ name string }
+
+func (f fakeFileInfo) Name() string     { return f.name }
+func (fakeFileInfo) Size() int64        { return 0 }
+func (fakeFileInfo) Mode() os.FileMode  { return 0 }
+func (fakeFileInfo) ModTime() time.Time { return time.Time{} }
+func (fakeFileInfo) IsDir() bool        { return false }
+func (fakeFileInfo) Sys() any           { return nil }

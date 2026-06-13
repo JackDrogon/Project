@@ -128,6 +128,86 @@ func TestNewRootCmd_LoadsActiveConfigIntoCommandContext(t *testing.T) {
 	}
 }
 
+func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+
+	t.Run("config path prints explicit missing path", func(t *testing.T) {
+		var out bytes.Buffer
+		cmd := newRootCmd(creator)
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		missingPath := filepath.Join(t.TempDir(), "missing-config.toml")
+		cmd.SetArgs([]string{"--config", missingPath, "config", "path"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() error = %v", err)
+		}
+		if got := out.String(); got != missingPath+"\n" {
+			t.Fatalf("output = %q, want %q", got, missingPath+"\n")
+		}
+	})
+
+	t.Run("config init creates explicit missing path", func(t *testing.T) {
+		var out bytes.Buffer
+		cmd := newRootCmd(creator)
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		configPath := filepath.Join(t.TempDir(), "nested", "config.toml")
+		cmd.SetArgs([]string{"--config", configPath, "config", "init"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() error = %v", err)
+		}
+
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatalf("ReadFile(%q) error = %v", configPath, err)
+		}
+		if string(content) != "version = 1\n" {
+			t.Fatalf("config content = %q, want %q", string(content), "version = 1\n")
+		}
+		if got := out.String(); got != "Created config file: "+configPath+"\n" {
+			t.Fatalf("output = %q", got)
+		}
+	})
+
+	t.Run("config summary shows explicit missing path", func(t *testing.T) {
+		var out bytes.Buffer
+		cmd := newRootCmd(creator)
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		missingPath := filepath.Join(t.TempDir(), "missing-config.toml")
+		cmd.SetArgs([]string{"--config", missingPath, "config"})
+
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("Execute() error = %v", err)
+		}
+		if !strings.Contains(out.String(), "  path: "+missingPath+"\n") {
+			t.Fatalf("output = %q, want resolved explicit path", out.String())
+		}
+	})
+
+	t.Run("config validate reports malformed explicit config", func(t *testing.T) {
+		var out bytes.Buffer
+		cmd := newRootCmd(creator)
+		cmd.SetOut(&out)
+		cmd.SetErr(&out)
+		configPath := filepath.Join(t.TempDir(), "broken.toml")
+		if err := os.WriteFile(configPath, []byte("version = 1\n[completion]\nshell = 42\n"), 0o644); err != nil {
+			t.Fatalf("WriteFile(%q) error = %v", configPath, err)
+		}
+		cmd.SetArgs([]string{"--config", configPath, "config", "validate"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("Execute() error = nil, want validation failure")
+		}
+		if !strings.Contains(err.Error(), "config validation failed") || !strings.Contains(err.Error(), configPath) {
+			t.Fatalf("Execute() error = %v, want wrapped validate error for %q", err, configPath)
+		}
+	})
+}
+
 func TestRootHelp_ListsPersistentConfigFlags(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := newRootCmd(creator)

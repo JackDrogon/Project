@@ -40,13 +40,6 @@ func (req CreateRequest) DestinationDir() string {
 	return req.ProjectName
 }
 
-// CreateResult contains the outcome of a successful project creation operation.
-// It records the actual target directory used and the Git mode that was applied.
-type CreateResult struct {
-	TargetDir string
-	GitMode   GitMode
-}
-
 // TemplateVars holds the variables available for template rendering.
 // These variables are substituted into .tmpl files during project scaffolding.
 type TemplateVars struct {

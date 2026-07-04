@@ -40,7 +40,7 @@ func (defaultScaffoldSettingsResolver) Resolve(flags Flags, changed Changed, run
 		Lang:                lang,
 		ModulePath:          resolveModulePath(flags, changed, runtime),
 		Signoff:             resolveSignoff(flags, changed, runtime),
-		NoGit:               resolveNoGit(flags, changed),
+		NoGit:               flags.NoGit,
 		GitMode:             resolveGitMode(flags, changed, runtime),
 		TemplateInputValues: resolveTemplateInputValues(runtime),
 	}, nil
@@ -161,13 +161,6 @@ func resolveSignoff(flags Flags, changed Changed, runtime Runtime) bool {
 		return value
 	}
 	return flags.Signoff
-}
-
-func resolveNoGit(flags Flags, changed Changed) bool {
-	if changed.NoGit {
-		return flags.NoGit
-	}
-	return flags.NoGit
 }
 
 func resolveGitMode(flags Flags, changed Changed, runtime Runtime) string {

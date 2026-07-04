@@ -126,47 +126,6 @@ func (s *Service) ResolveInitTarget(runtime Runtime, arg string, hasArg bool, se
 	return s.initTargetResolver.Resolve(runtime, arg, hasArg, settings)
 }
 
-func (s *Service) NewOptions(flags Flags, runtime Runtime, changed Changed, force bool, arg string, hasArg bool) (Options, error) {
-	if err := validateNewArgFallback(runtime, hasArg); err != nil {
-		return Options{}, err
-	}
-
-	settings, err := s.ResolveScaffoldSettings(flags, changed, runtime)
-	if err != nil {
-		return Options{}, err
-	}
-	target, err := s.ResolveNewTarget(flags, runtime, changed, force, arg, hasArg, settings)
-	if err != nil {
-		return Options{}, err
-	}
-	return settings.Options(flags, target), nil
-}
-
-func (s *Service) InitOptions(flags Flags, runtime Runtime, changed Changed, arg string, hasArg bool) (Options, error) {
-	settings, err := s.ResolveScaffoldSettings(flags, changed, runtime)
-	if err != nil {
-		return Options{}, err
-	}
-	target, err := s.ResolveInitTarget(runtime, arg, hasArg, settings)
-	if err != nil {
-		return Options{}, err
-	}
-	return settings.Options(flags, target), nil
-}
-
-func (s *Service) Options(flags Flags, lang, projectName, targetDir, modulePath string, signoff, noGit bool, gitMode string) Options {
-	return Options{
-		Lang:        lang,
-		ProjectName: projectName,
-		TargetDir:   targetDir,
-		ModulePath:  modulePath,
-		Signoff:     signoff,
-		DryRun:      flags.DryRun,
-		NoGit:       noGit,
-		GitMode:     domain.GitMode(gitMode),
-	}
-}
-
 func (s *Service) ScaffoldAndMaybeWriteReplay(creator *Creator, flags Flags, command Command, opts Options) error {
 	if err := creator.Create(opts); err != nil {
 		return err

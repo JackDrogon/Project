@@ -9,10 +9,9 @@ import (
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
+// BuildDryRunPlan assumes opts already passed validateCreateOptions; both
+// production callers (Creator.Create and Service.executeDryRunSpec) validate first.
 func (c *Creator) BuildDryRunPlan(opts Options) (domain.DryRunPlan, error) {
-	if err := c.validateCreateOptions(opts); err != nil {
-		return domain.DryRunPlan{}, err
-	}
 	if err := c.preflightDestDir(opts); err != nil {
 		return domain.DryRunPlan{}, err
 	}
@@ -146,7 +145,7 @@ func dryRunPlanModulePath(plan domain.DryRunPlan, opts Options) (string, bool) {
 	if value, ok := dryRunPlanResolvedInputValue(plan, "ModulePath"); ok {
 		return value, true
 	}
-	if opts.Lang == "go" {
+	if opts.Lang == langGo {
 		return defaultModulePath(opts), true
 	}
 

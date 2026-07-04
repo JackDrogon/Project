@@ -13,6 +13,7 @@ var reservedSetKeys = map[string]struct{}{
 	"lang":         {},
 	"project_name": {},
 	"target_dir":   {},
+	"module":       {},
 	"module_path":  {},
 	"git_mode":     {},
 	"signoff":      {},

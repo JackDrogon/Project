@@ -8,7 +8,7 @@ import (
 )
 
 func resolveNewProjectArgs(lang, module, arg string) (projectName string, targetDir string, modulePath string, err error) {
-	if lang == "go" && module == "" {
+	if lang == langGo && module == "" {
 		if projectErr := domain.ValidateProjectName(arg); projectErr != nil {
 			if moduleErr := domain.ValidateModulePath(arg); moduleErr == nil {
 				name := domain.ProjectNameFromGoModulePath(arg)

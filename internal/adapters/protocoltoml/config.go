@@ -36,8 +36,8 @@ type Config struct {
 }
 
 var (
-	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*$`)
-	configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*$`)
+	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*(?:#.*)?$`)
+	configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*(?:#.*)?$`)
 )
 
 type ConfigNewSection struct {

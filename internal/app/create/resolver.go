@@ -1,12 +1,17 @@
 package create
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 )
+
+// errMissingProjectNameArg mirrors cobra's ExactArgs(1) message so `new`
+// reports the same error whether the arg check fails in cobra or here.
+var errMissingProjectNameArg = errors.New("accepts 1 arg(s), received 0")
 
 type ScaffoldSettingsResolver interface {
 	Resolve(Flags, Changed, Runtime) (resolvedScaffoldSettings, error)
@@ -56,10 +61,9 @@ func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Ch
 		if !runtime.HasReplay {
 			config := activeConfigNewSection(runtime)
 			if config == nil || config.ProjectName == nil || strings.TrimSpace(*config.ProjectName) == "" {
-				return targetResolution{}, fmt.Errorf("accepts 1 arg(s), received 0")
+				return targetResolution{}, errMissingProjectNameArg
 			}
 			arg = *config.ProjectName
-			hasArg = true
 		} else {
 			return targetResolution{
 				ProjectName: runtime.Replay.Project.Name,
@@ -134,7 +138,7 @@ func validateNewArgFallback(runtime Runtime, hasArg bool) error {
 		return nil
 	}
 
-	return fmt.Errorf("accepts 1 arg(s), received 0")
+	return errMissingProjectNameArg
 }
 
 func resolveLang(flags Flags, changed Changed, runtime Runtime) (string, error) {

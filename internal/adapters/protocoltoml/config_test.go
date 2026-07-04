@@ -101,6 +101,30 @@ shell = "bash"
 	}
 }
 
+func TestConfigV1_TrailingComments(t *testing.T) {
+	t.Run("version line and section header accept trailing comments", func(t *testing.T) {
+		content := []byte("version = 1 # config schema version\n\n[new] # scaffold defaults\nlang = \"go\"\n")
+
+		cfg, err := DecodeConfig(content, "config.toml")
+		if err != nil {
+			t.Fatalf("DecodeConfig() error = %v", err)
+		}
+		if cfg.Version != ConfigVersion {
+			t.Fatalf("cfg.Version = %d, want %d", cfg.Version, ConfigVersion)
+		}
+		if cfg.New == nil || cfg.New.Lang == nil || *cfg.New.Lang != "go" {
+			t.Fatalf("cfg.New = %#v, want lang go", cfg.New)
+		}
+	})
+
+	t.Run("commented-out version is not a declaration", func(t *testing.T) {
+		_, err := DecodeConfig([]byte("# version = 1\n[new]\nlang = \"go\"\n"), "config.toml")
+		if err == nil || !strings.Contains(err.Error(), "must declare version") {
+			t.Fatalf("DecodeConfig() error = %v, want must declare version", err)
+		}
+	})
+}
+
 func TestConfigV1_RejectsUnknownFieldsLegacyJSONAndInvalidEnums(t *testing.T) {
 	t.Run("unknown field", func(t *testing.T) {
 		_, err := DecodeConfig([]byte("version = 1\n[new]\nunknown = true\n"), "config.toml")

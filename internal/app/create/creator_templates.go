@@ -7,7 +7,7 @@ import (
 )
 
 func (c *Creator) validateModulePath(opts Options) error {
-	if opts.Lang != "go" {
+	if opts.Lang != langGo {
 		return nil
 	}
 

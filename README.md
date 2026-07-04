@@ -354,7 +354,9 @@ Templates (`.tmpl` files) support the following variables via Go's `text/templat
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `{{.ProjectName}}` | Name passed to `project new`, or the derived directory name from a direct Go module path argument | — |
+| `{{.ProjectNameLower}}` | Lowercase form of `ProjectName` | Derived from ProjectName |
 | `{{.ModulePath}}` | From `--module` flag or a direct Go module path argument | Same as ProjectName |
+| `{{.GoVersion}}` | Go toolchain version used by the Go template | Detected from the local Go toolchain |
 | `{{.Author}}` | System username | `"author"` |
 | `{{.Year}}` | Current year | — |
 
@@ -365,10 +367,13 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 - In structured `list --detail` and `inspect` output, `description`, `manifest_version`, `input_names`, and `inputs` come from `.project-template-manifest.toml`, while `variables`, `file_count`, `template_count`, and `files` are derived from inspecting the embedded template tree.
 - `project list` prints available language names.
 - `project list --detail` prints file count, template count, and template variables per language.
+- `project list --table` renders the detailed summary as an aligned table.
+- `project list --sort name|governance|repo-files` orders the list; `--min-governance minimal|basic|standard|rich` and the repeatable `--has-repo-asset <asset>` filter it.
 - `project list --toml` prints machine-readable TOML output.
 - `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
 - `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
 - `project inspect <lang> --toml` prints structured output.
+- `--compact` condenses `list` and `inspect` output (also available as `compact` in the config file).
 - Architecture notes for the CLI catalog and create pipelines live in `docs/architecture/catalog-query-and-rendering.md`.
 
 Examples:
@@ -481,6 +486,7 @@ To run `just spellcheck` or `just pre-commit` locally, install [`typos`](https:/
    //go:embed all:cpp all:go all:rust
    var FS embed.FS
    ```
+4. Run `just generate` to refresh `internal/adapters/templatesrc/permissions_generated.go`; CI fails when it is stale
 
 ## Project Name Rules
 

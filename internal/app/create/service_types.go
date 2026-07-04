@@ -14,6 +14,9 @@ const (
 	CommandInit Command = "init"
 )
 
+// langGo is the embedded Go template name; Go projects get module-path defaulting.
+const langGo = "go"
+
 type ValueOrigin string
 
 const (

@@ -3,7 +3,6 @@ package create
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -75,7 +74,7 @@ func (s *Service) buildNew(req NewRequest) (Options, ResolutionOrigins, error) {
 	}
 
 	options := settings.Options(req.Flags, target)
-	return options, buildNewResolutionOrigins(req, runtime, settings), nil
+	return options, scaffoldResolutionOrigins(settings, target), nil
 }
 
 func (s *Service) buildInit(req InitRequest) (Options, ResolutionOrigins, error) {
@@ -94,7 +93,7 @@ func (s *Service) buildInit(req InitRequest) (Options, ResolutionOrigins, error)
 	}
 
 	options := settings.Options(req.Flags, target)
-	return options, buildInitResolutionOrigins(req, runtime), nil
+	return options, scaffoldResolutionOrigins(settings, target), nil
 }
 
 func (s *Service) ResolveScaffoldSettings(flags Flags, changed Changed, runtime Runtime) (resolvedScaffoldSettings, error) {
@@ -188,258 +187,16 @@ func (s *Service) executeDryRunSpec(creator *Creator, spec ScaffoldSpec) error {
 	return writeDryRunPlanWithOrigins(creator.w, plan, spec.Options, spec.Origins)
 }
 
-func buildNewResolutionOrigins(req NewRequest, runtime Runtime, settings resolvedScaffoldSettings) ResolutionOrigins {
+// scaffoldResolutionOrigins collects the origins captured while resolving the
+// values, so reported origins can never drift from the resolved values.
+func scaffoldResolutionOrigins(settings resolvedScaffoldSettings, target targetResolution) ResolutionOrigins {
 	return ResolutionOrigins{
-		Lang:           resolveLangOrigin(req.Changed, runtime),
-		ProjectName:    resolveNewProjectNameOrigin(req, runtime),
-		TargetDir:      resolveNewTargetDirOrigin(req, runtime),
-		Module:         resolveNewModuleOrigin(req, runtime, settings),
-		GitMode:        resolveGitModeOrigin(req.Changed, runtime),
-		Signoff:        resolveSignoffOrigin(req.Changed, runtime),
-		TemplateInputs: resolveTemplateInputOrigins(runtime),
+		Lang:           settings.Origins.Lang,
+		ProjectName:    target.Origins.ProjectName,
+		TargetDir:      target.Origins.TargetDir,
+		Module:         target.Origins.Module,
+		GitMode:        settings.Origins.GitMode,
+		Signoff:        settings.Origins.Signoff,
+		TemplateInputs: settings.Origins.TemplateInputs,
 	}
-}
-
-func buildInitResolutionOrigins(req InitRequest, runtime Runtime) ResolutionOrigins {
-	return ResolutionOrigins{
-		Lang:           resolveLangOrigin(req.Changed, runtime),
-		ProjectName:    resolveInitProjectNameOrigin(req, runtime),
-		TargetDir:      resolveInitTargetDirOrigin(req, runtime),
-		Module:         resolveInitModuleOrigin(req, runtime),
-		GitMode:        resolveGitModeOrigin(req.Changed, runtime),
-		Signoff:        resolveSignoffOrigin(req.Changed, runtime),
-		TemplateInputs: resolveTemplateInputOrigins(runtime),
-	}
-}
-
-func resolveLangOrigin(changed Changed, runtime Runtime) ValueOrigin {
-	if changed.Lang {
-		return ValueOriginFlag
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	if activeConfigLang(runtime) != "" {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveNewProjectNameOrigin(req NewRequest, runtime Runtime) ValueOrigin {
-	if req.HasArg {
-		return ValueOriginArg
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	section := activeConfigNewSection(runtime)
-	if section != nil && hasNonBlankString(section.ProjectName) {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveNewTargetDirOrigin(req NewRequest, runtime Runtime) ValueOrigin {
-	if req.HasArg {
-		return ValueOriginArg
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	section := activeConfigNewSection(runtime)
-	if section != nil && hasNonBlankString(section.ProjectName) {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveInitProjectNameOrigin(req InitRequest, runtime Runtime) ValueOrigin {
-	if req.HasArg {
-		return ValueOriginArg
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	section := activeConfigInitSection(runtime)
-	if section != nil && hasNonBlankString(section.TargetDir) {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveInitTargetDirOrigin(req InitRequest, runtime Runtime) ValueOrigin {
-	if req.HasArg {
-		return ValueOriginArg
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	section := activeConfigInitSection(runtime)
-	if section != nil && hasNonBlankString(section.TargetDir) {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveNewModuleOrigin(req NewRequest, runtime Runtime, settings resolvedScaffoldSettings) ValueOrigin {
-	if req.Changed.Module {
-		return ValueOriginFlag
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	if activeConfigModule(runtime) != "" {
-		return activeConfigValueOrigin(runtime)
-	}
-	if req.HasArg {
-		_, _, derivedModulePath, err := resolveNewProjectArgs(settings.Lang, "", req.Arg)
-		if err == nil && derivedModulePath != "" {
-			return ValueOriginArg
-		}
-	}
-	return ValueOriginDefault
-}
-
-func resolveInitModuleOrigin(req InitRequest, runtime Runtime) ValueOrigin {
-	if req.Changed.Module {
-		return ValueOriginFlag
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	if activeConfigModule(runtime) != "" {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveGitModeOrigin(changed Changed, runtime Runtime) ValueOrigin {
-	if changed.Git || changed.NoGit {
-		return ValueOriginFlag
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	if activeConfigGitMode(runtime) != "" {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveSignoffOrigin(changed Changed, runtime Runtime) ValueOrigin {
-	if changed.Signoff {
-		return ValueOriginFlag
-	}
-	if runtime.HasReplay {
-		return ValueOriginReplay
-	}
-	if _, ok := activeConfigSignoff(runtime); ok {
-		return activeConfigValueOrigin(runtime)
-	}
-	return ValueOriginDefault
-}
-
-func resolveTemplateInputOrigins(runtime Runtime) map[string]ValueOrigin {
-	origins := map[string]ValueOrigin{}
-	if runtime.HasReplay {
-		for key := range runtime.Replay.Inputs {
-			if key == "module_path" {
-				continue
-			}
-			origins[key] = ValueOriginReplay
-		}
-	} else {
-		configOrigin := activeConfigValueOrigin(runtime)
-		for key := range activeConfigInputs(runtime.Command, runtime.ActiveConfig) {
-			origins[key] = configOrigin
-		}
-	}
-	for key := range runtime.ExplicitSetValues {
-		origins[key] = ValueOriginSet
-	}
-	if len(origins) == 0 {
-		return nil
-	}
-	return origins
-}
-
-func activeConfigValueOrigin(runtime Runtime) ValueOrigin {
-	source := strings.TrimSpace(string(runtime.ActiveConfig.Source))
-	if source == "" || source == "none" {
-		return ValueOriginDefault
-	}
-	return ValueOrigin(source)
-}
-
-func hasNonBlankString(v *string) bool {
-	return v != nil && strings.TrimSpace(*v) != ""
-}
-
-func buildScaffoldExplainReport(creator *Creator, spec ScaffoldSpec) (string, error) {
-	manifest, vars, err := creator.templateManifestAndVars(spec.Options)
-	if err != nil {
-		return "", err
-	}
-
-	var b strings.Builder
-	b.WriteString("config source report:\n")
-	_, _ = fmt.Fprintf(&b, "  command: %s\n", spec.Command)
-	_, _ = fmt.Fprintf(&b, "  active_config_source: %s\n", explainActiveConfigSource(spec))
-	_, _ = fmt.Fprintf(&b, "  active_config_path: %s\n", explainActiveConfigPath(spec))
-	b.WriteString("  resolved values:\n")
-	writeExplainField(&b, "lang", spec.Options.Lang, spec.Origins.Lang)
-	writeExplainField(&b, "project_name", spec.Options.ProjectName, spec.Origins.ProjectName)
-	writeExplainField(&b, "target_dir", spec.Options.DestinationDir(), spec.Origins.TargetDir)
-	writeExplainField(&b, "module", spec.Options.ModulePath, spec.Origins.Module)
-	writeExplainField(&b, "git_mode", string(spec.Options.GitMode), spec.Origins.GitMode)
-	writeExplainField(&b, "signoff", fmt.Sprintf("%t", spec.Options.Signoff), spec.Origins.Signoff)
-	b.WriteString("  template inputs:\n")
-
-	inputs := resolveDryRunInputs(manifestInputsToDomain(manifest.Inputs), vars)
-	if len(inputs) == 0 {
-		b.WriteString("    (none)\n")
-		return b.String(), nil
-	}
-	for _, input := range inputs {
-		writeExplainField(&b, input.Name, input.Value, explainInputOrigin(spec.Origins, input))
-	}
-
-	return b.String(), nil
-}
-
-func explainActiveConfigSource(spec ScaffoldSpec) string {
-	source := strings.TrimSpace(string(spec.Flags.ActiveConfig.Source))
-	if source == "" {
-		return "none"
-	}
-	return source
-}
-
-func explainActiveConfigPath(spec ScaffoldSpec) string {
-	path := strings.TrimSpace(spec.Flags.ActiveConfig.Path)
-	if path == "" {
-		return "(none)"
-	}
-	return path
-}
-
-func writeExplainField(b *strings.Builder, name, value string, origin ValueOrigin) {
-	_, _ = fmt.Fprintf(b, "    %s: %s (source: %s)\n", name, value, normalizeOrigin(origin))
-}
-
-func explainInputOrigin(origins ResolutionOrigins, input domain.DryRunResolvedInput) ValueOrigin {
-	if input.TemplateVar == "ModulePath" {
-		return normalizeOrigin(origins.Module)
-	}
-	if origin, ok := origins.TemplateInputs[input.Name]; ok {
-		return normalizeOrigin(origin)
-	}
-	return ValueOriginDefault
-}
-
-func normalizeOrigin(origin ValueOrigin) ValueOrigin {
-	if origin == "" {
-		return ValueOriginDefault
-	}
-	return origin
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/JackDrogon/project/internal/adapters/buildinfo"
 	"github.com/JackDrogon/project/internal/adapters/templatesrc"
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
+	appcompletion "github.com/JackDrogon/project/internal/app/completion"
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
 	appversion "github.com/JackDrogon/project/internal/app/version"
@@ -24,4 +25,8 @@ var newConfigService = func() *appconfig.Service {
 
 var newVersionService = func() *appversion.Service {
 	return appversion.NewService(buildinfo.New())
+}
+
+var newCompletionService = func() *appcompletion.Service {
+	return appcompletion.NewService()
 }

@@ -7,7 +7,30 @@ import (
 	"strings"
 
 	"github.com/JackDrogon/project/internal/app/catalog"
+	"github.com/JackDrogon/project/internal/scaffold"
 )
+
+func joinOrNone(values []string) string {
+	if len(values) == 0 {
+		return "(none)"
+	}
+	return strings.Join(values, ", ")
+}
+
+func orNone(value string) string {
+	if value == "" {
+		return "(none)"
+	}
+	return value
+}
+
+func inspectionInputsOrNone(inputs []scaffold.ManifestInput) string {
+	parts := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		parts = append(parts, fmt.Sprintf("%s->%s", input.Name, input.TemplateVar))
+	}
+	return joinOrNone(parts)
+}
 
 func writeTextLangs(w io.Writer, langs []string) error {
 	var b strings.Builder
@@ -21,27 +44,10 @@ func writeTextLangs(w io.Writer, langs []string) error {
 func writeTextSummaries(w io.Writer, summaries []catalog.Summary) error {
 	var b strings.Builder
 	for _, summary := range summaries {
-		vars := "(none)"
-		if len(summary.Variables) > 0 {
-			vars = strings.Join(summary.Variables, ", ")
-		}
-
-		inputs := "(none)"
-		if len(summary.InputNames) > 0 {
-			inputs = strings.Join(summary.InputNames, ", ")
-		}
-
-		repoAssets := "(none)"
-		if len(summary.RepoAssets) > 0 {
-			repoAssets = strings.Join(summary.RepoAssets, ", ")
-		}
-
-		description := summary.Description
-		if description == "" {
-			description = "(none)"
-		}
-
-		fmt.Fprintf(&b, "%s\tdesc=%q\tmanifest=v%d\tinputs=[%s]\tfiles=%d\ttemplates=%d\tvars=[%s]\trepo=[%s]\trepo_files=%d	governance=%s\n", summary.Name, description, summary.ManifestVersion, inputs, summary.FileCount, summary.TemplateCount, vars, repoAssets, summary.RepoFileCount, summary.GovernanceTier)
+		fmt.Fprintf(&b, "%s\tdesc=%q\tmanifest=v%d\tinputs=[%s]\tfiles=%d\ttemplates=%d\tvars=[%s]\trepo=[%s]\trepo_files=%d\tgovernance=%s\n",
+			summary.Name, orNone(summary.Description), summary.ManifestVersion, joinOrNone(summary.InputNames),
+			summary.FileCount, summary.TemplateCount, joinOrNone(summary.Variables), joinOrNone(summary.RepoAssets),
+			summary.RepoFileCount, summary.GovernanceTier)
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -53,29 +59,12 @@ func writeCompactTextSummaries(w io.Writer, summaries []catalog.Summary) error {
 		if i > 0 {
 			fmt.Fprintln(&b)
 		}
-		vars := "(none)"
-		if len(summary.Variables) > 0 {
-			vars = strings.Join(summary.Variables, ", ")
-		}
-		inputs := "(none)"
-		if len(summary.InputNames) > 0 {
-			inputs = strings.Join(summary.InputNames, ", ")
-		}
-		repoAssets := "(none)"
-		if len(summary.RepoAssets) > 0 {
-			repoAssets = strings.Join(summary.RepoAssets, ", ")
-		}
-		description := summary.Description
-		if description == "" {
-			description = "(none)"
-		}
-
 		fmt.Fprintf(&b, "%s [%s]\n", summary.Name, summary.GovernanceTier)
-		fmt.Fprintf(&b, "  desc: %s\n", description)
+		fmt.Fprintf(&b, "  desc: %s\n", orNone(summary.Description))
 		fmt.Fprintf(&b, "  counts: files=%d templates=%d repo_files=%d manifest=v%d\n", summary.FileCount, summary.TemplateCount, summary.RepoFileCount, summary.ManifestVersion)
-		fmt.Fprintf(&b, "  inputs: %s\n", inputs)
-		fmt.Fprintf(&b, "  vars: %s\n", vars)
-		fmt.Fprintf(&b, "  repo: %s\n", repoAssets)
+		fmt.Fprintf(&b, "  inputs: %s\n", joinOrNone(summary.InputNames))
+		fmt.Fprintf(&b, "  vars: %s\n", joinOrNone(summary.Variables))
+		fmt.Fprintf(&b, "  repo: %s\n", joinOrNone(summary.RepoAssets))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -131,35 +120,14 @@ func writeTableTextSummaries(w io.Writer, summaries []catalog.Summary) error {
 
 func writeTextInspection(w io.Writer, inspection catalog.Inspection) error {
 	var b strings.Builder
-	vars := "(none)"
-	if len(inspection.Variables) > 0 {
-		vars = strings.Join(inspection.Variables, ", ")
-	}
-	inputs := "(none)"
-	if len(inspection.Inputs) > 0 {
-		parts := make([]string, 0, len(inspection.Inputs))
-		for _, input := range inspection.Inputs {
-			parts = append(parts, fmt.Sprintf("%s->%s", input.Name, input.TemplateVar))
-		}
-		inputs = strings.Join(parts, ", ")
-	}
-	description := inspection.Description
-	if description == "" {
-		description = "(none)"
-	}
-	repoAssets := "(none)"
-	if len(inspection.RepoAssets) > 0 {
-		repoAssets = strings.Join(inspection.RepoAssets, ", ")
-	}
-
 	fmt.Fprintf(&b, "name: %s\n", inspection.Name)
-	fmt.Fprintf(&b, "description: %s\n", description)
+	fmt.Fprintf(&b, "description: %s\n", orNone(inspection.Description))
 	fmt.Fprintf(&b, "manifest_version: %d\n", inspection.ManifestVersion)
-	fmt.Fprintf(&b, "inputs: %s\n", inputs)
+	fmt.Fprintf(&b, "inputs: %s\n", inspectionInputsOrNone(inspection.Inputs))
 	fmt.Fprintf(&b, "files: %d\n", inspection.FileCount)
 	fmt.Fprintf(&b, "templates: %d\n", inspection.TemplateCount)
-	fmt.Fprintf(&b, "variables: %s\n", vars)
-	fmt.Fprintf(&b, "repo_assets: %s\n", repoAssets)
+	fmt.Fprintf(&b, "variables: %s\n", joinOrNone(inspection.Variables))
+	fmt.Fprintf(&b, "repo_assets: %s\n", joinOrNone(inspection.RepoAssets))
 	fmt.Fprintf(&b, "mode: %s\n", inspection.Mode)
 	fmt.Fprintf(&b, "shown: %d\n", inspection.ShownCount())
 	writeTextInspectionSection(&b, "repo_files", inspection.RepoFiles())
@@ -171,32 +139,11 @@ func writeTextInspection(w io.Writer, inspection catalog.Inspection) error {
 
 func writeCompactTextInspection(w io.Writer, inspection catalog.Inspection) error {
 	var b strings.Builder
-	vars := "(none)"
-	if len(inspection.Variables) > 0 {
-		vars = strings.Join(inspection.Variables, ", ")
-	}
-	inputs := "(none)"
-	if len(inspection.Inputs) > 0 {
-		parts := make([]string, 0, len(inspection.Inputs))
-		for _, input := range inspection.Inputs {
-			parts = append(parts, fmt.Sprintf("%s->%s", input.Name, input.TemplateVar))
-		}
-		inputs = strings.Join(parts, ", ")
-	}
-	description := inspection.Description
-	if description == "" {
-		description = "(none)"
-	}
-	repoAssets := "(none)"
-	if len(inspection.RepoAssets) > 0 {
-		repoAssets = strings.Join(inspection.RepoAssets, ", ")
-	}
-
-	fmt.Fprintf(&b, "%s — %s\n", inspection.Name, description)
+	fmt.Fprintf(&b, "%s — %s\n", inspection.Name, orNone(inspection.Description))
 	fmt.Fprintf(&b, "  manifest: v%d | mode: %s | shown: %d | files: %d | templates: %d\n", inspection.ManifestVersion, inspection.Mode, inspection.ShownCount(), inspection.FileCount, inspection.TemplateCount)
-	fmt.Fprintf(&b, "  inputs: %s\n", inputs)
-	fmt.Fprintf(&b, "  vars: %s\n", vars)
-	fmt.Fprintf(&b, "  repo_assets: %s\n", repoAssets)
+	fmt.Fprintf(&b, "  inputs: %s\n", inspectionInputsOrNone(inspection.Inputs))
+	fmt.Fprintf(&b, "  vars: %s\n", joinOrNone(inspection.Variables))
+	fmt.Fprintf(&b, "  repo_assets: %s\n", joinOrNone(inspection.RepoAssets))
 	writeCompactTextInspectionSection(&b, "repo_files", inspection.RepoFiles())
 	writeCompactTextInspectionSection(&b, "language_files", inspection.LanguageFiles())
 

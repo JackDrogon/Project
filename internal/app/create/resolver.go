@@ -36,18 +36,30 @@ func newNewTargetResolver() NewTargetResolver               { return defaultNewT
 func newInitTargetResolver() InitTargetResolver             { return defaultInitTargetResolver{} }
 
 func (defaultScaffoldSettingsResolver) Resolve(flags Flags, changed Changed, runtime Runtime) (resolvedScaffoldSettings, error) {
-	lang, err := resolveLang(flags, changed, runtime)
+	lang, langOrigin, err := resolveLang(flags, changed, runtime)
 	if err != nil {
 		return resolvedScaffoldSettings{}, err
 	}
 
+	modulePath, moduleOrigin, moduleDefaulted := resolveModulePath(flags, changed, runtime)
+	signoff, signoffOrigin := resolveSignoff(flags, changed, runtime)
+	gitMode, gitModeOrigin := resolveGitMode(flags, changed, runtime)
+
 	return resolvedScaffoldSettings{
 		Lang:                lang,
-		ModulePath:          resolveModulePath(flags, changed, runtime),
-		Signoff:             resolveSignoff(flags, changed, runtime),
+		ModulePath:          modulePath,
+		Signoff:             signoff,
 		NoGit:               flags.NoGit,
-		GitMode:             resolveGitMode(flags, changed, runtime),
+		GitMode:             gitMode,
 		TemplateInputValues: resolveTemplateInputValues(runtime),
+		Origins: settingsOrigins{
+			Lang:            langOrigin,
+			Module:          moduleOrigin,
+			GitMode:         gitModeOrigin,
+			Signoff:         signoffOrigin,
+			ModuleDefaulted: moduleDefaulted,
+			TemplateInputs:  resolveTemplateInputOrigins(runtime),
+		},
 	}, nil
 }
 
@@ -57,19 +69,29 @@ func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Ch
 		resolvedForce = runtime.Replay.Options.Force
 	}
 
+	// `new` derives the target dir FROM the project name, so both origins key
+	// off the same source (arg, replay, or config project_name).
+	nameOrigin := ValueOriginArg
+
 	if !hasArg {
 		if !runtime.HasReplay {
 			config := activeConfigNewSection(runtime)
-			if config == nil || config.ProjectName == nil || strings.TrimSpace(*config.ProjectName) == "" {
+			if config == nil || !hasNonBlankString(config.ProjectName) {
 				return targetResolution{}, errMissingProjectNameArg
 			}
 			arg = *config.ProjectName
+			nameOrigin = activeConfigValueOrigin(runtime)
 		} else {
 			return targetResolution{
 				ProjectName: runtime.Replay.Project.Name,
 				TargetDir:   runtime.Replay.Project.TargetDir,
 				ModulePath:  settings.ModulePath,
 				Force:       resolvedForce,
+				Origins: targetOrigins{
+					ProjectName: ValueOriginReplay,
+					TargetDir:   ValueOriginReplay,
+					Module:      settings.Origins.Module,
+				},
 			}, nil
 		}
 	}
@@ -83,6 +105,14 @@ func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Ch
 	if err != nil {
 		return targetResolution{}, err
 	}
+
+	moduleOrigin := settings.Origins.Module
+	// Only a positional arg may re-attribute the module origin, and only when
+	// flag, replay, and config all missed (see resolveModulePath).
+	if hasArg && settings.Origins.ModuleDefaulted && modulePath != "" {
+		moduleOrigin = ValueOriginArg
+	}
+
 	if explicitModulePath == "" && modulePath == "" {
 		modulePath = settings.ModulePath
 	}
@@ -92,27 +122,38 @@ func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Ch
 		TargetDir:   targetDir,
 		ModulePath:  modulePath,
 		Force:       resolvedForce,
+		Origins: targetOrigins{
+			ProjectName: nameOrigin,
+			TargetDir:   nameOrigin,
+			Module:      moduleOrigin,
+		},
 	}, nil
 }
 
 func (defaultInitTargetResolver) Resolve(runtime Runtime, arg string, hasArg bool, settings resolvedScaffoldSettings) (targetResolution, error) {
 	targetDir := "."
 	projectName := ""
+	// `init` derives the project name FROM the target dir, so both origins key
+	// off the same source (arg, replay, or config target_dir).
+	nameOrigin := ValueOriginDefault
 	var err error
 
 	if hasArg {
+		nameOrigin = ValueOriginArg
 		targetDir = arg
 		projectName, err = projectNameFromTargetDir(arg)
 		if err != nil {
 			return targetResolution{}, err
 		}
 	} else if runtime.HasReplay {
+		nameOrigin = ValueOriginReplay
 		projectName = runtime.Replay.Project.Name
 		targetDir = runtime.Replay.Project.TargetDir
 	} else {
 		config := activeConfigInitSection(runtime)
-		if config != nil && config.TargetDir != nil && strings.TrimSpace(*config.TargetDir) != "" {
+		if config != nil && hasNonBlankString(config.TargetDir) {
 			targetDir = *config.TargetDir
+			nameOrigin = activeConfigValueOrigin(runtime)
 		}
 		projectName, err = projectNameFromTargetDir(targetDir)
 		if err != nil {
@@ -125,6 +166,11 @@ func (defaultInitTargetResolver) Resolve(runtime Runtime, arg string, hasArg boo
 		TargetDir:             targetDir,
 		ModulePath:            settings.ModulePath,
 		AllowExistingEmptyDir: true,
+		Origins: targetOrigins{
+			ProjectName: nameOrigin,
+			TargetDir:   nameOrigin,
+			Module:      settings.Origins.Module,
+		},
 	}, nil
 }
 
@@ -141,62 +187,64 @@ func validateNewArgFallback(runtime Runtime, hasArg bool) error {
 	return errMissingProjectNameArg
 }
 
-func resolveLang(flags Flags, changed Changed, runtime Runtime) (string, error) {
+func resolveLang(flags Flags, changed Changed, runtime Runtime) (string, ValueOrigin, error) {
 	if changed.Lang {
-		return flags.Lang, nil
+		return flags.Lang, ValueOriginFlag, nil
 	}
 	if runtime.HasReplay {
-		return runtime.Replay.Template.Lang, nil
+		return runtime.Replay.Template.Lang, ValueOriginReplay, nil
 	}
 	if value := activeConfigLang(runtime); value != "" {
-		return value, nil
+		return value, activeConfigValueOrigin(runtime), nil
 	}
-	return "", fmt.Errorf("required flag(s) \"lang\" not set")
+	return "", ValueOriginDefault, fmt.Errorf("required flag(s) \"lang\" not set")
 }
 
-func resolveSignoff(flags Flags, changed Changed, runtime Runtime) bool {
+func resolveSignoff(flags Flags, changed Changed, runtime Runtime) (bool, ValueOrigin) {
 	if changed.Signoff {
-		return flags.Signoff
+		return flags.Signoff, ValueOriginFlag
 	}
 	if runtime.HasReplay {
-		return runtime.Replay.Git.Signoff
+		return runtime.Replay.Git.Signoff, ValueOriginReplay
 	}
 	if value, ok := activeConfigSignoff(runtime); ok {
-		return value
+		return value, activeConfigValueOrigin(runtime)
 	}
-	return flags.Signoff
+	return flags.Signoff, ValueOriginDefault
 }
 
-func resolveGitMode(flags Flags, changed Changed, runtime Runtime) string {
+func resolveGitMode(flags Flags, changed Changed, runtime Runtime) (string, ValueOrigin) {
 	if changed.Git {
-		return flags.GitMode
+		return flags.GitMode, ValueOriginFlag
 	}
 	if changed.NoGit {
-		return ""
+		return "", ValueOriginFlag
 	}
 	if runtime.HasReplay {
-		return string(runtime.Replay.Git.Mode)
+		return string(runtime.Replay.Git.Mode), ValueOriginReplay
 	}
 	if value := activeConfigGitMode(runtime); value != "" {
-		return value
+		return value, activeConfigValueOrigin(runtime)
 	}
-	return flags.GitMode
+	return flags.GitMode, ValueOriginDefault
 }
 
-func resolveModulePath(flags Flags, changed Changed, runtime Runtime) string {
+// resolveModulePath reports defaulted=true only when flag, replay, and config
+// all missed; `new` uses it to attribute an arg-derived module to the arg.
+func resolveModulePath(flags Flags, changed Changed, runtime Runtime) (value string, origin ValueOrigin, defaulted bool) {
 	if changed.Module {
-		return flags.Module
+		return flags.Module, ValueOriginFlag, false
 	}
 	if runtime.HasReplay {
 		if runtime.Replay.Project.ModulePath != "" {
-			return runtime.Replay.Project.ModulePath
+			return runtime.Replay.Project.ModulePath, ValueOriginReplay, false
 		}
-		return runtime.Replay.Inputs["module_path"]
+		return runtime.Replay.Inputs["module_path"], ValueOriginReplay, false
 	}
 	if value := activeConfigModule(runtime); value != "" {
-		return value
+		return value, activeConfigValueOrigin(runtime), false
 	}
-	return flags.Module
+	return flags.Module, ValueOriginDefault, true
 }
 
 func resolveTemplateInputValues(runtime Runtime) map[string]string {
@@ -204,6 +252,42 @@ func resolveTemplateInputValues(runtime Runtime) map[string]string {
 		return nil
 	}
 	return maps.Clone(runtime.TemplateInputValues)
+}
+
+func resolveTemplateInputOrigins(runtime Runtime) map[string]ValueOrigin {
+	origins := map[string]ValueOrigin{}
+	if runtime.HasReplay {
+		for key := range runtime.Replay.Inputs {
+			if key == "module_path" {
+				continue
+			}
+			origins[key] = ValueOriginReplay
+		}
+	} else {
+		configOrigin := activeConfigValueOrigin(runtime)
+		for key := range activeConfigInputs(runtime.Command, runtime.ActiveConfig) {
+			origins[key] = configOrigin
+		}
+	}
+	for key := range runtime.ExplicitSetValues {
+		origins[key] = ValueOriginSet
+	}
+	if len(origins) == 0 {
+		return nil
+	}
+	return origins
+}
+
+func activeConfigValueOrigin(runtime Runtime) ValueOrigin {
+	source := strings.TrimSpace(string(runtime.ActiveConfig.Source))
+	if source == "" || source == "none" {
+		return ValueOriginDefault
+	}
+	return ValueOrigin(source)
+}
+
+func hasNonBlankString(v *string) bool {
+	return v != nil && strings.TrimSpace(*v) != ""
 }
 
 func activeConfigNewSection(runtime Runtime) *protocoltoml.ConfigNewSection {

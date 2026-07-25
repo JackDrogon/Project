@@ -1,59 +1,78 @@
 package presenters
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/JackDrogon/project/internal/app/catalog"
 )
 
 type Presenter struct {
-	formatter Formatter
+	langs      func(io.Writer, []string) error
+	summaries  func(io.Writer, []catalog.Summary) error
+	inspection func(io.Writer, catalog.Inspection) error
 }
 
 func NewPresenter(spec OutputSpec) (*Presenter, error) {
-	return NewPresenterWithFactory(spec, newDefaultFormatterFactory())
-}
-
-func mustNewPresenter(spec OutputSpec) *Presenter {
-	presenter, err := NewPresenter(spec)
-	if err != nil {
-		panic(err)
+	spec = spec.withDefaults()
+	switch spec.Format {
+	case "text":
+		summaries, err := textSummariesWriter(spec.Summary)
+		if err != nil {
+			return nil, err
+		}
+		inspection, err := textInspectionWriter(spec.Inspection)
+		if err != nil {
+			return nil, err
+		}
+		return &Presenter{langs: writeTextLangs, summaries: summaries, inspection: inspection}, nil
+	case "toml":
+		if spec.Summary.TextLayout != TextLayoutDefault {
+			return nil, fmt.Errorf("%s output is only supported for text format", spec.Summary.TextLayout)
+		}
+		if spec.Inspection.TextLayout != TextLayoutDefault {
+			return nil, fmt.Errorf("%s output is only supported for text format", spec.Inspection.TextLayout)
+		}
+		return &Presenter{langs: writeTOMLLangs, summaries: writeTOMLSummaries, inspection: writeTOMLInspection}, nil
+	default:
+		return nil, fmt.Errorf("unsupported format: %s", spec.Format)
 	}
-	return presenter
 }
 
-func NewPresenterWithFactory(spec OutputSpec, factory FormatterFactory) (*Presenter, error) {
-	formatter, err := factory.Build(spec)
-	if err != nil {
-		return nil, err
+func textSummariesWriter(spec SummaryViewSpec) (func(io.Writer, []catalog.Summary) error, error) {
+	switch spec.TextLayout {
+	case TextLayoutDefault:
+		return writeTextSummaries, nil
+	case TextLayoutCompact:
+		return writeCompactTextSummaries, nil
+	case TextLayoutTable:
+		return writeTableTextSummaries, nil
+	default:
+		return nil, fmt.Errorf("unsupported summary text layout: %s", spec.TextLayout)
 	}
-	return &Presenter{formatter: formatter}, nil
 }
 
-func NewTextPresenter() *Presenter {
-	return mustNewPresenter(OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
-}
-
-func NewTOMLPresenter() *Presenter {
-	return &Presenter{formatter: &tomlFormatter{}}
-}
-
-func NewCompactTextPresenter() *Presenter {
-	return mustNewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutCompact}, Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}})
-}
-
-func NewTableTextPresenter() *Presenter {
-	return mustNewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutTable}, Inspection: DefaultInspectionViewSpec()})
+func textInspectionWriter(spec InspectionViewSpec) (func(io.Writer, catalog.Inspection) error, error) {
+	switch spec.TextLayout {
+	case TextLayoutDefault:
+		return writeTextInspection, nil
+	case TextLayoutCompact:
+		return writeCompactTextInspection, nil
+	case TextLayoutTable:
+		return nil, fmt.Errorf("table output is only supported for summary text views")
+	default:
+		return nil, fmt.Errorf("unsupported inspection text layout: %s", spec.TextLayout)
+	}
 }
 
 func (p *Presenter) WriteLangs(w io.Writer, langs []string) error {
-	return p.formatter.WriteLangs(w, langs)
+	return p.langs(w, langs)
 }
 
 func (p *Presenter) WriteSummaries(w io.Writer, summaries []catalog.Summary) error {
-	return p.formatter.WriteSummaries(w, summaries)
+	return p.summaries(w, summaries)
 }
 
 func (p *Presenter) WriteInspection(w io.Writer, inspection catalog.Inspection) error {
-	return p.formatter.WriteInspection(w, inspection)
+	return p.inspection(w, inspection)
 }

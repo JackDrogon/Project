@@ -99,6 +99,21 @@ type resolvedScaffoldSettings struct {
 	NoGit               bool
 	GitMode             string
 	TemplateInputValues map[string]string
+	Origins             settingsOrigins
+}
+
+// settingsOrigins records where each scaffold setting came from, captured in
+// the same pass that resolves the value so value and origin cannot drift.
+type settingsOrigins struct {
+	Lang    ValueOrigin
+	Module  ValueOrigin
+	GitMode ValueOrigin
+	Signoff ValueOrigin
+	// ModuleDefaulted marks the module chain missing flag, replay, and config
+	// entirely; only then may `new` re-attribute the module origin to the
+	// positional arg.
+	ModuleDefaulted bool
+	TemplateInputs  map[string]ValueOrigin
 }
 
 type targetResolution struct {
@@ -107,6 +122,15 @@ type targetResolution struct {
 	ModulePath            string
 	Force                 bool
 	AllowExistingEmptyDir bool
+	Origins               targetOrigins
+}
+
+// targetOrigins records where the target-level values came from, captured in
+// the same pass that resolves them so value and origin cannot drift.
+type targetOrigins struct {
+	ProjectName ValueOrigin
+	TargetDir   ValueOrigin
+	Module      ValueOrigin
 }
 
 type Service struct {

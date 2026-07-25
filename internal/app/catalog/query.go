@@ -4,7 +4,13 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
+
+// configFormatTOML is the [list]/[inspect] config section format value that
+// selects TOML output.
+const configFormatTOML = "toml"
 
 type SummarySort string
 
@@ -156,4 +162,102 @@ func summaryHasAllRepoAssets(summary Summary, assets []string) bool {
 		}
 	}
 	return true
+}
+
+// ListSettings are the effective `list` command settings after config
+// defaults have been applied.
+type ListSettings struct {
+	TOML           bool
+	Compact        bool
+	Detail         bool
+	Table          bool
+	SortBy         string
+	MinGovernance  string
+	RequiredAssets []string
+}
+
+// ListSettingsChanged records which `list` flags were set explicitly.
+type ListSettingsChanged struct {
+	TOML           bool
+	Compact        bool
+	Detail         bool
+	Table          bool
+	Sort           bool
+	MinGovernance  bool
+	RequiredAssets bool
+}
+
+// ResolveListSettings fills settings from the [list] config section for
+// every flag that was not set explicitly.
+func ResolveListSettings(settings ListSettings, changed ListSettingsChanged, active appconfig.ActiveConfig) ListSettings {
+	if active.Config == nil || active.Config.List == nil {
+		return settings
+	}
+
+	configList := active.Config.List
+	if !changed.TOML && configList.Format != nil {
+		settings.TOML = *configList.Format == configFormatTOML
+	}
+	if !changed.Compact && configList.Compact != nil {
+		settings.Compact = *configList.Compact
+	}
+	if !changed.Detail && configList.Detail != nil {
+		settings.Detail = *configList.Detail
+	}
+	if !changed.Table && configList.Table != nil {
+		settings.Table = *configList.Table
+	}
+	if !changed.Sort && configList.Sort != nil {
+		settings.SortBy = *configList.Sort
+	}
+	if !changed.MinGovernance && configList.MinGovernance != nil {
+		settings.MinGovernance = *configList.MinGovernance
+	}
+	if !changed.RequiredAssets && configList.RequiredAsset != nil {
+		settings.RequiredAssets = append([]string(nil), configList.RequiredAsset...)
+	}
+
+	return settings
+}
+
+// InspectSettings are the effective `inspect` command settings after config
+// defaults have been applied.
+type InspectSettings struct {
+	Lang    string
+	TOML    bool
+	Compact bool
+	Mode    string
+}
+
+// InspectSettingsChanged records which `inspect` inputs were set explicitly;
+// Lang marks a positional language argument.
+type InspectSettingsChanged struct {
+	Lang    bool
+	TOML    bool
+	Compact bool
+	Mode    bool
+}
+
+// ResolveInspectSettings fills settings from the [inspect] config section
+// for every input that was not set explicitly.
+func ResolveInspectSettings(settings InspectSettings, changed InspectSettingsChanged, active appconfig.ActiveConfig) InspectSettings {
+	if active.Config == nil || active.Config.Inspect == nil {
+		return settings
+	}
+
+	configInspect := active.Config.Inspect
+	if !changed.Lang && configInspect.Lang != nil {
+		settings.Lang = *configInspect.Lang
+	}
+	if !changed.TOML && configInspect.Format != nil {
+		settings.TOML = *configInspect.Format == configFormatTOML
+	}
+	if !changed.Compact && configInspect.Compact != nil {
+		settings.Compact = *configInspect.Compact
+	}
+	if !changed.Mode && configInspect.Mode != nil {
+		settings.Mode = *configInspect.Mode
+	}
+
+	return settings
 }

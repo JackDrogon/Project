@@ -25,7 +25,7 @@ func (c *Creator) BuildDryRunPlan(opts Options) (domain.DryRunPlan, error) {
 		Template:       opts.Lang,
 		Description:    manifest.Description,
 		TargetDir:      opts.DestinationDir(),
-		ResolvedInputs: resolveDryRunInputs(manifestInputsToDomain(manifest.Inputs), vars),
+		ResolvedInputs: resolveDryRunInputs(manifest.DomainInputs(), vars),
 	}
 
 	err = templatefs.WalkEntries(c.fsys, opts.Lang, plan.TargetDir, vars, func(entry templatefs.Entry) error {

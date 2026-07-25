@@ -9,22 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/spf13/cobra"
 )
 
 func TestConfigCmd_ShowsActiveConfigSummary(t *testing.T) {
-	verbose := true
-	active := appconfig.ActiveConfig{
-		Source: appconfig.SourceExplicit,
-		Path:   "/tmp/project/config.toml",
-		Config: &protocoltoml.Config{
-			Version:    protocoltoml.ConfigVersion,
-			New:        &protocoltoml.ConfigNewSection{},
-			VersionCmd: &protocoltoml.ConfigVersionCmd{Verbose: &verbose},
-		},
-	}
+	active := loadActiveConfigForTest(t, "version = 1\n\n[new]\n\n[version]\nverbose = true\n")
 
 	var buf bytes.Buffer
 	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), active, appconfig.Context{})
@@ -40,7 +30,7 @@ func TestConfigCmd_ShowsActiveConfigSummary(t *testing.T) {
 	checks := []string{
 		"active config summary:\n",
 		"  source: explicit-config\n",
-		"  path: /tmp/project/config.toml\n",
+		"  path: " + active.Path + "\n",
 		"  loaded: true\n",
 		"  version: 1\n",
 		"  sections: new, version\n",
@@ -197,15 +187,10 @@ func TestConfigInitCmd_UsesExplicitConfigPathEvenWhenMissing(t *testing.T) {
 }
 
 func TestConfigValidateCmd_SucceedsForLoadedConfig(t *testing.T) {
-	path := "/tmp/project/config.toml"
-	active := appconfig.ActiveConfig{
-		Source: appconfig.SourceExplicit,
-		Path:   path,
-		Config: &protocoltoml.Config{Version: protocoltoml.ConfigVersion},
-	}
+	active := loadActiveConfigForTest(t, "version = 1\n")
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), active, appconfig.Context{ExplicitPath: path})
+	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), active, appconfig.Context{ExplicitPath: active.Path})
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config", "validate"})
@@ -213,7 +198,7 @@ func TestConfigValidateCmd_SucceedsForLoadedConfig(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
-	if got := buf.String(); got != "Config is valid: "+path+"\n" {
+	if got := buf.String(); got != "Config is valid: "+active.Path+"\n" {
 		t.Fatalf("output = %q", got)
 	}
 }
@@ -268,4 +253,22 @@ func newSingleCommandRootWithContext(command *cobra.Command, active appconfig.Ac
 	command.SetContext(ctx)
 	root.AddCommand(command)
 	return root
+}
+
+// loadActiveConfigForTest loads a TOML config document through the app
+// config loader from a real temp file.
+func loadActiveConfigForTest(t *testing.T, content string) appconfig.ActiveConfig {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+
+	active, err := appconfig.NewService().LoadActiveConfig(appconfig.Context{ExplicitPath: path})
+	if err != nil {
+		t.Fatalf("LoadActiveConfig() error = %v", err)
+	}
+
+	return active
 }

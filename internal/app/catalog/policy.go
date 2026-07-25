@@ -5,49 +5,43 @@ import (
 	"sort"
 )
 
-type RepoAssetRegistry interface {
-	KnownAssets() []string
-	HasAsset(string) bool
-	GroupForSource(string) FileGroup
-	AssetsForFiles([]InspectionFile) []string
-}
+// Test seams following the repo convention: tests swap these package-level
+// vars and restore them via t.Cleanup.
+var (
+	activeRepoAssets = defaultRepoAssets()
+	governanceTier   = defaultGovernanceTier
+)
 
-type InspectModePolicy interface {
-	Matches(InspectionFile, InspectMode) bool
-}
-
-type GovernancePolicy interface {
-	Rank(string) int
-	Tier(Inspection) string
-}
-
-type staticRepoAssetRegistry struct {
+type repoAssetRegistry struct {
 	pathsByAsset map[string]string
 	assetByPath  map[string]string
 }
 
-type (
-	defaultInspectModePolicy struct{}
-	defaultGovernancePolicy  struct{}
-)
-
-func newRepoAssetRegistry(pathsByAsset map[string]string) RepoAssetRegistry {
+func newRepoAssetRegistry(pathsByAsset map[string]string) repoAssetRegistry {
 	assetByPath := make(map[string]string, len(pathsByAsset))
 	for asset, path := range pathsByAsset {
 		assetByPath[path] = asset
 	}
-	return &staticRepoAssetRegistry{pathsByAsset: pathsByAsset, assetByPath: assetByPath}
+	return repoAssetRegistry{pathsByAsset: pathsByAsset, assetByPath: assetByPath}
 }
 
-func newInspectModePolicy() InspectModePolicy {
-	return defaultInspectModePolicy{}
+func defaultRepoAssets() repoAssetRegistry {
+	return newRepoAssetRegistry(map[string]string{
+		"editorconfig": ".editorconfig",
+		"dependabot":   ".github/dependabot.yml",
+		"ci":           ".github/workflows/ci.yml",
+		"gitignore":    ".gitignore",
+		"golangci":     ".golangci.yml",
+		"goreleaser":   ".goreleaser.yml.tmpl",
+		"codecov":      "codecov.yml",
+		"contributing": "CONTRIBUTING.md.tmpl",
+		"security":     "SECURITY.md.tmpl",
+		"justfile":     "justfile.tmpl",
+		"typos":        "typos.toml",
+	})
 }
 
-func newGovernancePolicy() GovernancePolicy {
-	return defaultGovernancePolicy{}
-}
-
-func (r *staticRepoAssetRegistry) KnownAssets() []string {
+func (r repoAssetRegistry) KnownAssets() []string {
 	assets := make([]string, 0, len(r.pathsByAsset))
 	for asset := range r.pathsByAsset {
 		assets = append(assets, asset)
@@ -56,19 +50,19 @@ func (r *staticRepoAssetRegistry) KnownAssets() []string {
 	return assets
 }
 
-func (r *staticRepoAssetRegistry) HasAsset(asset string) bool {
+func (r repoAssetRegistry) HasAsset(asset string) bool {
 	_, ok := r.pathsByAsset[asset]
 	return ok
 }
 
-func (r *staticRepoAssetRegistry) GroupForSource(source string) FileGroup {
+func (r repoAssetRegistry) GroupForSource(source string) FileGroup {
 	if _, ok := r.assetByPath[source]; ok {
 		return FileGroupRepo
 	}
 	return FileGroupLanguage
 }
 
-func (r *staticRepoAssetRegistry) AssetsForFiles(files []InspectionFile) []string {
+func (r repoAssetRegistry) AssetsForFiles(files []InspectionFile) []string {
 	seen := make(map[string]struct{})
 	assets := make([]string, 0, len(r.pathsByAsset))
 	for _, file := range files {
@@ -86,7 +80,7 @@ func (r *staticRepoAssetRegistry) AssetsForFiles(files []InspectionFile) []strin
 	return assets
 }
 
-func (defaultInspectModePolicy) Matches(file InspectionFile, mode InspectMode) bool {
+func inspectModeMatches(file InspectionFile, mode InspectMode) bool {
 	switch mode {
 	case InspectModeAll:
 		return true
@@ -99,7 +93,7 @@ func (defaultInspectModePolicy) Matches(file InspectionFile, mode InspectMode) b
 	}
 }
 
-func (defaultGovernancePolicy) Rank(tier string) int {
+func governanceRank(tier string) int {
 	switch tier {
 	case "rich":
 		return 4
@@ -114,7 +108,7 @@ func (defaultGovernancePolicy) Rank(tier string) int {
 	}
 }
 
-func (p defaultGovernancePolicy) Tier(inspection Inspection) string {
+func defaultGovernanceTier(inspection Inspection) string {
 	repoFileCount := len(inspection.RepoFiles())
 	hasCI := slices.Contains(inspection.RepoAssets, "ci")
 	hasTypos := slices.Contains(inspection.RepoAssets, "typos")

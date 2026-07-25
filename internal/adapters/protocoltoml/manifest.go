@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	domain "github.com/JackDrogon/project/internal/scaffold"
 	toml "github.com/pelletier/go-toml/v2"
 )
 
@@ -30,6 +31,16 @@ type ManifestInput struct {
 	Key         string `toml:"key"`
 	TemplateVar string `toml:"template_var"`
 	Required    bool   `toml:"required"`
+}
+
+// DomainInputs converts the manifest's protocol-level inputs into their
+// domain representation, keeping the conversion in one place for all callers.
+func (m Manifest) DomainInputs() []domain.ManifestInput {
+	result := make([]domain.ManifestInput, 0, len(m.Inputs))
+	for _, input := range m.Inputs {
+		result = append(result, domain.ManifestInput{Name: input.Key, TemplateVar: input.TemplateVar})
+	}
+	return result
 }
 
 func LoadManifest(fsys fs.FS, lang string) (Manifest, bool, error) {

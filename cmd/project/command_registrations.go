@@ -35,7 +35,7 @@ func buildConfigCommand(commandDependencies) *cobra.Command {
 }
 
 func buildCompletionCommand(commandDependencies) *cobra.Command {
-	return completioncli.NewCommand()
+	return completioncli.NewCommand(completioncli.Dependencies{NewService: newCompletionService})
 }
 
 func init() {

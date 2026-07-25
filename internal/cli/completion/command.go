@@ -1,11 +1,26 @@
 package completion
 
 import (
+	appcompletion "github.com/JackDrogon/project/internal/app/completion"
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+type Dependencies struct {
+	NewService func() *appcompletion.Service
+}
+
+func (d Dependencies) newService() *appcompletion.Service {
+	if d.NewService == nil {
+		panic("completion dependencies require NewService")
+	}
+
+	return d.NewService()
+}
+
+func NewCommand(deps Dependencies) *cobra.Command {
+	service := deps.newService()
+
 	return &cobra.Command{
 		Use:                   "completion [bash|zsh|fish|powershell]",
 		Short:                 "Generate shell completion script",
@@ -14,7 +29,13 @@ func NewCommand() *cobra.Command {
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 		Args:                  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			shell := resolveCompletionShell(cmd, args)
+			arg := ""
+			if len(args) > 0 {
+				arg = args[0]
+			}
+			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
+
+			shell := service.ResolveShell(arg, len(args) > 0, active)
 			if shell == "" {
 				return cobra.ExactArgs(1)(cmd, args)
 			}
@@ -34,19 +55,6 @@ func NewCommand() *cobra.Command {
 			return cmd.Root().GenPowerShellCompletionWithDesc(out)
 		},
 	}
-}
-
-func resolveCompletionShell(cmd *cobra.Command, args []string) string {
-	if len(args) > 0 {
-		return args[0]
-	}
-
-	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
-	if !ok || active.Config == nil || active.Config.Completion == nil || active.Config.Completion.Shell == nil {
-		return ""
-	}
-
-	return *active.Config.Completion.Shell
 }
 
 const longDescription = `Generate shell completion scripts for project.

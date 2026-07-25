@@ -163,7 +163,10 @@ func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
 		Files:           []catalog.InspectionFile{{Source: "go.mod.tmpl", Output: "go.mod", Action: catalog.FileActionRender, Group: catalog.FileGroupLanguage}},
 	}
 
-	presenter := NewCompactTextPresenter()
+	presenter, err := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutCompact}, Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}})
+	if err != nil {
+		t.Fatalf("NewPresenter() error = %v", err)
+	}
 	var summaryBuf bytes.Buffer
 	if err := presenter.WriteSummaries(&summaryBuf, summaries); err != nil {
 		t.Fatalf("WriteSummaries() error = %v", err)
@@ -192,7 +195,10 @@ func TestPresenter_WriteTableTextSummaries(t *testing.T) {
 		{Name: "go", RepoFileCount: 5, FileCount: 7, TemplateCount: 2, GovernanceTier: "standard", InputNames: []string{"module_path", "go_version"}, RepoAssets: []string{"ci", "typos"}},
 		{Name: "rust", RepoFileCount: 8, FileCount: 17, TemplateCount: 7, GovernanceTier: "rich", InputNames: []string{"author", "year"}, RepoAssets: []string{"ci", "security", "typos"}},
 	}
-	presenter := NewTableTextPresenter()
+	presenter, err := NewPresenter(OutputSpec{Format: "text", Summary: SummaryViewSpec{TextLayout: TextLayoutTable}, Inspection: DefaultInspectionViewSpec()})
+	if err != nil {
+		t.Fatalf("NewPresenter() error = %v", err)
+	}
 	var buf bytes.Buffer
 	if err := presenter.WriteSummaries(&buf, summaries); err != nil {
 		t.Fatalf("WriteSummaries() error = %v", err)

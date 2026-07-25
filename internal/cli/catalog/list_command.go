@@ -1,7 +1,7 @@
 package catalog
 
 import (
-	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
@@ -41,16 +41,16 @@ func (c *listCommand) buildCommand() *cobra.Command {
 }
 
 func (c *listCommand) run(cmd *cobra.Command, args []string) error {
+	settings := c.resolveSettings(cmd)
 	builder := listCommandSpecBuilder{
-		asTOML:         c.asTOML,
-		compact:        c.compact,
-		detail:         c.detail,
-		table:          c.table,
-		sortBy:         c.sortBy,
-		minGovernance:  c.minGovernance,
-		requiredAssets: c.requiredAssets,
+		asTOML:         settings.TOML,
+		compact:        settings.Compact,
+		detail:         settings.Detail,
+		table:          settings.Table,
+		sortBy:         settings.SortBy,
+		minGovernance:  settings.MinGovernance,
+		requiredAssets: settings.RequiredAssets,
 	}
-	applyListConfigDefaults(cmd, &builder)
 
 	spec, err := builder.Build()
 	if err != nil {
@@ -81,42 +81,29 @@ func (c *listCommand) run(cmd *cobra.Command, args []string) error {
 	return presenter.WriteLangs(cmd.OutOrStdout(), langs)
 }
 
-func applyListConfigDefaults(cmd *cobra.Command, builder *listCommandSpecBuilder) {
-	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
-	if !ok || active.Config == nil || active.Config.List == nil {
-		return
-	}
-
-	configList := active.Config.List
+func (c *listCommand) resolveSettings(cmd *cobra.Command) appcatalog.ListSettings {
+	active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
 	flags := cmd.Flags()
 
-	if !flags.Changed("toml") {
-		applyListFormatDefault(configList, builder)
-	}
-	if !flags.Changed("compact") && configList.Compact != nil {
-		builder.compact = *configList.Compact
-	}
-	if !flags.Changed("detail") && configList.Detail != nil {
-		builder.detail = *configList.Detail
-	}
-	if !flags.Changed("table") && configList.Table != nil {
-		builder.table = *configList.Table
-	}
-	if !flags.Changed("sort") && configList.Sort != nil {
-		builder.sortBy = *configList.Sort
-	}
-	if !flags.Changed("min-governance") && configList.MinGovernance != nil {
-		builder.minGovernance = *configList.MinGovernance
-	}
-	if !flags.Changed("has-repo-asset") && configList.RequiredAsset != nil {
-		builder.requiredAssets = append([]string(nil), configList.RequiredAsset...)
-	}
-}
-
-func applyListFormatDefault(configList *protocoltoml.ConfigListSection, builder *listCommandSpecBuilder) {
-	if configList.Format == nil {
-		return
-	}
-
-	builder.asTOML = *configList.Format == outputFormatTOML
+	return appcatalog.ResolveListSettings(
+		appcatalog.ListSettings{
+			TOML:           c.asTOML,
+			Compact:        c.compact,
+			Detail:         c.detail,
+			Table:          c.table,
+			SortBy:         c.sortBy,
+			MinGovernance:  c.minGovernance,
+			RequiredAssets: c.requiredAssets,
+		},
+		appcatalog.ListSettingsChanged{
+			TOML:           flags.Changed("toml"),
+			Compact:        flags.Changed("compact"),
+			Detail:         flags.Changed("detail"),
+			Table:          flags.Changed("table"),
+			Sort:           flags.Changed("sort"),
+			MinGovernance:  flags.Changed("min-governance"),
+			RequiredAssets: flags.Changed("has-repo-asset"),
+		},
+		active,
+	)
 }

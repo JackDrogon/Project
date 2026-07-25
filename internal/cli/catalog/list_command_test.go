@@ -2,12 +2,8 @@ package catalog
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
-
-	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 func TestSelectedOutputFormat(t *testing.T) {
@@ -66,26 +62,21 @@ func TestListCmdOutputs(t *testing.T) {
 }
 
 func TestListCmd_ConfigDefaultsApplyToDetailAndFormat(t *testing.T) {
-	format := outputFormatTOML
-	detail := true
-	sort := "governance"
-	minGovernance := "minimal"
+	config := `version = 1
 
-	config := &protocoltoml.Config{
-		List: &protocoltoml.ConfigListSection{
-			Format:        &format,
-			Detail:        &detail,
-			Sort:          &sort,
-			MinGovernance: &minGovernance,
-			RequiredAsset: []string{"ci"},
-		},
-	}
+[list]
+format = "toml"
+detail = true
+sort = "governance"
+min_governance = "minimal"
+required_assets = ["ci"]
+`
 
 	var buf bytes.Buffer
 	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withListConfig(config))
+	cmd.SetContext(withActiveConfigContext(t, config))
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -120,30 +111,23 @@ func TestListCmd_ConfigDefaultsApplyToDetailAndFormat(t *testing.T) {
 }
 
 func TestListCmd_FlagsOverrideConfigDefaults(t *testing.T) {
-	format := outputFormatTOML
-	compact := true
-	detail := false
-	table := true
-	sort := "repo-files"
-	minGovernance := "rich"
+	config := `version = 1
 
-	config := &protocoltoml.Config{
-		List: &protocoltoml.ConfigListSection{
-			Format:        &format,
-			Compact:       &compact,
-			Detail:        &detail,
-			Table:         &table,
-			Sort:          &sort,
-			MinGovernance: &minGovernance,
-			RequiredAsset: []string{"security"},
-		},
-	}
+[list]
+format = "toml"
+compact = true
+detail = false
+table = true
+sort = "repo-files"
+min_governance = "rich"
+required_assets = ["security"]
+`
 
 	var buf bytes.Buffer
 	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withListConfig(config))
+	cmd.SetContext(withActiveConfigContext(t, config))
 	cmd.SetArgs([]string{"--detail", "--toml=false", "--compact=false", "--table=false", "--sort", "name", "--min-governance", "minimal", "--has-repo-asset", "ci"})
 
 	if err := cmd.Execute(); err != nil {
@@ -163,18 +147,15 @@ func TestListCmd_FlagsOverrideConfigDefaults(t *testing.T) {
 }
 
 func TestListCmd_InvalidConfigCombinationStillFailsValidation(t *testing.T) {
-	detail := false
-	table := true
+	config := `version = 1
 
-	config := &protocoltoml.Config{
-		List: &protocoltoml.ConfigListSection{
-			Detail: &detail,
-			Table:  &table,
-		},
-	}
+[list]
+detail = false
+table = true
+`
 
 	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
-	cmd.SetContext(withListConfig(config))
+	cmd.SetContext(withActiveConfigContext(t, config))
 
 	err := cmd.Execute()
 	if err == nil {
@@ -183,14 +164,4 @@ func TestListCmd_InvalidConfigCombinationStillFailsValidation(t *testing.T) {
 	if !strings.Contains(err.Error(), "--table requires --detail") {
 		t.Fatalf("Execute() error = %v, want table/detail validation error", err)
 	}
-}
-
-func withListConfig(cfg *protocoltoml.Config) context.Context {
-	active := appconfig.ActiveConfig{
-		Source: appconfig.SourceExplicit,
-		Path:   "/tmp/config.toml",
-		Config: cfg,
-	}
-
-	return appconfig.WithActiveConfig(context.Background(), active)
 }

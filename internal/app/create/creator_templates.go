@@ -38,20 +38,12 @@ func (c *Creator) templateManifestAndVars(opts Options) (protocoltoml.Manifest, 
 	}
 
 	base := newDefaultTemplateVars(opts.ProjectName, opts.ModulePath)
-	vars, err := domain.ResolveTemplateVars(manifestInputsToDomain(manifest.Inputs), opts, base)
+	vars, err := domain.ResolveTemplateVars(manifest.DomainInputs(), opts, base)
 	if err != nil {
 		return protocoltoml.Manifest{}, domain.TemplateVars{}, err
 	}
 
 	return manifest, vars, nil
-}
-
-func manifestInputsToDomain(inputs []protocoltoml.ManifestInput) []domain.ManifestInput {
-	result := make([]domain.ManifestInput, 0, len(inputs))
-	for _, input := range inputs {
-		result = append(result, domain.ManifestInput{Name: input.Key, TemplateVar: input.TemplateVar})
-	}
-	return result
 }
 
 func defaultModulePath(opts Options) string {

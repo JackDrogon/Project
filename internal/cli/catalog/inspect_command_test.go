@@ -2,12 +2,8 @@ package catalog
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
-
-	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
 
 func TestInspectCmdOutputs(t *testing.T) {
@@ -64,23 +60,19 @@ func TestInspectCmdOutputs(t *testing.T) {
 }
 
 func TestInspectCmd_ConfigDefaultsSupplyLangAndMode(t *testing.T) {
-	lang := "go"
-	format := outputFormatTOML
-	mode := "render"
+	config := `version = 1
 
-	config := &protocoltoml.Config{
-		Inspect: &protocoltoml.ConfigInspect{
-			Lang:   &lang,
-			Format: &format,
-			Mode:   &mode,
-		},
-	}
+[inspect]
+lang = "go"
+format = "toml"
+mode = "render"
+`
 
 	var buf bytes.Buffer
 	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withInspectConfig(config))
+	cmd.SetContext(withActiveConfigContext(t, config))
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -99,17 +91,17 @@ func TestInspectCmd_ConfigDefaultsSupplyLangAndMode(t *testing.T) {
 }
 
 func TestInspectCmd_PositionalLangOverridesConfig(t *testing.T) {
-	lang := "rust"
+	config := `version = 1
 
-	config := &protocoltoml.Config{
-		Inspect: &protocoltoml.ConfigInspect{Lang: &lang},
-	}
+[inspect]
+lang = "rust"
+`
 
 	var buf bytes.Buffer
 	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withInspectConfig(config))
+	cmd.SetContext(withActiveConfigContext(t, config))
 	cmd.SetArgs([]string{"go"})
 
 	if err := cmd.Execute(); err != nil {
@@ -132,14 +124,4 @@ func TestInspectCmd_MissingLangStillFailsWithoutArgOrConfig(t *testing.T) {
 	if !strings.Contains(err.Error(), "inspection query requires a language") {
 		t.Fatalf("Execute() error = %v, want missing language validation error", err)
 	}
-}
-
-func withInspectConfig(cfg *protocoltoml.Config) context.Context {
-	active := appconfig.ActiveConfig{
-		Source: appconfig.SourceExplicit,
-		Path:   "/tmp/config.toml",
-		Config: cfg,
-	}
-
-	return appconfig.WithActiveConfig(context.Background(), active)
 }

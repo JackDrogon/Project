@@ -135,7 +135,7 @@ func TestServiceQuerySummaries(t *testing.T) {
 	})
 }
 
-func TestServiceWithInjectedDependencies(t *testing.T) {
+func TestServiceWithSwappedPolicies(t *testing.T) {
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 		"go/.gitignore":                             {Data: []byte("bin/\n")},
@@ -144,20 +144,15 @@ func TestServiceWithInjectedDependencies(t *testing.T) {
 		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
 	}
 
-	deps := Dependencies{
-		RepoAssets: stubRepoAssetRegistry{
-			known:  []string{"custom"},
-			groups: map[string]FileGroup{"go.mod.tmpl": FileGroupRepo},
-			assets: []string{"custom"},
-		},
-		InspectModes: newInspectModePolicy(),
-		Governance: stubGovernancePolicy{
-			tier: "custom-tier",
-			rank: map[string]int{"custom-tier": 9, "minimal": 1},
-		},
-	}
+	originalRepoAssets := activeRepoAssets
+	activeRepoAssets = newRepoAssetRegistry(map[string]string{"custom": "go.mod.tmpl"})
+	t.Cleanup(func() { activeRepoAssets = originalRepoAssets })
 
-	svc := NewServiceWithDeps(fsys, nil, deps)
+	originalGovernanceTier := governanceTier
+	governanceTier = func(Inspection) string { return "custom-tier" }
+	t.Cleanup(func() { governanceTier = originalGovernanceTier })
+
+	svc := NewService(fsys, nil)
 
 	t.Run("custom repo assets affect inspection", func(t *testing.T) {
 		got, err := svc.QueryInspection(InspectionQuery{Lang: "go", Mode: InspectModeAll})

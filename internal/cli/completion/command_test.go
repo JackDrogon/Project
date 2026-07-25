@@ -5,8 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	appcompletion "github.com/JackDrogon/project/internal/app/completion"
 	"github.com/spf13/cobra"
 )
+
+func newTestCommand() *cobra.Command {
+	return NewCommand(Dependencies{NewService: appcompletion.NewService})
+}
 
 func TestCommand_GeneratesAllShells(t *testing.T) {
 	tests := []string{"bash", "zsh", "fish", "powershell"}
@@ -17,7 +22,7 @@ func TestCommand_GeneratesAllShells(t *testing.T) {
 			root := &cobra.Command{Use: "project"}
 			root.SetOut(&buf)
 			root.SetErr(&buf)
-			root.AddCommand(NewCommand())
+			root.AddCommand(newTestCommand())
 			root.SetArgs([]string{"completion", shell})
 
 			if err := root.Execute(); err != nil {
@@ -35,7 +40,7 @@ func TestCommand_RejectsInvalidShell(t *testing.T) {
 	root := &cobra.Command{Use: "project"}
 	root.SetOut(&buf)
 	root.SetErr(&buf)
-	root.AddCommand(NewCommand())
+	root.AddCommand(newTestCommand())
 	root.SetArgs([]string{"completion", "invalid"})
 
 	err := root.Execute()
@@ -45,4 +50,15 @@ func TestCommand_RejectsInvalidShell(t *testing.T) {
 	if !strings.Contains(err.Error(), "invalid argument \"invalid\"") {
 		t.Fatalf("Execute() error = %v, want invalid argument error", err)
 	}
+}
+
+func TestDependenciesRequireNewService(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("recover() = nil, want panic")
+		}
+	}()
+
+	_ = NewCommand(Dependencies{})
 }

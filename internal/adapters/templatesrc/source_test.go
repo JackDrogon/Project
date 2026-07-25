@@ -9,6 +9,8 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	t.Parallel()
+
 	source := New()
 	if source == nil {
 		t.Fatal("New() = nil")
@@ -19,6 +21,8 @@ func TestNew(t *testing.T) {
 }
 
 func TestModeForPath_CoversAllTemplatePaths(t *testing.T) {
+	t.Parallel()
+
 	source := New()
 	var missing []string
 	err := fs.WalkDir(source.FS(), ".", func(path string, d fs.DirEntry, err error) error {
@@ -78,6 +82,8 @@ func TestModeForPath_KnownModes(t *testing.T) {
 }
 
 func TestTemplateModeMetadata_OnlyReferencesEmbeddedPaths(t *testing.T) {
+	t.Parallel()
+
 	source := New()
 	for sourcePath := range templateModeMetadata {
 		if _, err := fs.Stat(source.FS(), sourcePath); err != nil {
@@ -93,6 +99,8 @@ func TestTemplateModeMetadata_OnlyReferencesEmbeddedPaths(t *testing.T) {
 }
 
 func TestLookupMode_UsesExplicitMetadataTableOnly(t *testing.T) {
+	t.Parallel()
+
 	metadata := map[string]fs.FileMode{
 		"lang/script.sh": 0o755,
 		"lang/README.md": 0o644,
@@ -110,6 +118,8 @@ func TestLookupMode_UsesExplicitMetadataTableOnly(t *testing.T) {
 }
 
 func TestPermissionsGeneratedUpToDate(t *testing.T) {
+	t.Parallel()
+
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatalf("ReadDir() error = %v", err)

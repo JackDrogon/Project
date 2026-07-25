@@ -6,6 +6,8 @@ import (
 )
 
 func TestNewTemplateVars(t *testing.T) {
+	t.Parallel()
+
 	got := NewTemplateVars("Demo", "example.com/demo", "1.25", "alice", 2030)
 	if got.ProjectName != "Demo" {
 		t.Fatalf("ProjectName = %q, want %q", got.ProjectName, "Demo")
@@ -22,6 +24,8 @@ func TestNewTemplateVars(t *testing.T) {
 }
 
 func TestResolveTemplateVars(t *testing.T) {
+	t.Parallel()
+
 	base := NewTemplateVars("Demo", "example.com/demo", "1.22", "author", 2025)
 	inputs := []ManifestInput{{Name: "go_version", TemplateVar: "GoVersion"}, {Name: "author", TemplateVar: "Author"}, {Name: "year", TemplateVar: "Year"}}
 	req := CreateRequest{TemplateInputValues: map[string]string{"go_version": "1.25", "author": "alice", "year": "2030"}}
@@ -36,6 +40,8 @@ func TestResolveTemplateVars(t *testing.T) {
 }
 
 func TestResolveTemplateVarsEnforcesRequiredInputs(t *testing.T) {
+	t.Parallel()
+
 	base := NewTemplateVars("Demo", "example.com/demo", "1.22", "author", 2025)
 	inputs := []ManifestInput{
 		{Name: "module_path", TemplateVar: "ModulePath", Required: true},
@@ -95,6 +101,8 @@ func TestResolveTemplateVarsEnforcesRequiredInputs(t *testing.T) {
 }
 
 func TestTemplateVarValue(t *testing.T) {
+	t.Parallel()
+
 	vars := NewTemplateVars("Demo", "example.com/demo", "1.25", "alice", 2030)
 
 	for _, tt := range []struct{ name, want string }{
@@ -117,6 +125,8 @@ func TestTemplateVarValue(t *testing.T) {
 }
 
 func TestResolveTemplateVarsRejectsUnknownAndInvalidInputs(t *testing.T) {
+	t.Parallel()
+
 	base := NewTemplateVars("Demo", "example.com/demo", "1.22", "author", 2025)
 	inputs := []ManifestInput{{Name: "year", TemplateVar: "Year"}}
 

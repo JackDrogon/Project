@@ -3,6 +3,8 @@ package create
 import "testing"
 
 func TestServiceWithDeps_UsesInjectedResolvers(t *testing.T) {
+	t.Parallel()
+
 	deps := dependencies{
 		SettingsResolver: stubSettingsResolver{settings: resolvedScaffoldSettings{
 			Lang: "cpp", ModulePath: "example.com/custom", GitMode: "none",

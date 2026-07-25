@@ -3,6 +3,8 @@ package scaffold
 import "testing"
 
 func TestResolveGitMode(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		req     CreateRequest
@@ -30,6 +32,8 @@ func TestResolveGitMode(t *testing.T) {
 }
 
 func TestProjectNameFromGoModulePath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		modulePath string
@@ -50,6 +54,8 @@ func TestProjectNameFromGoModulePath(t *testing.T) {
 }
 
 func TestDefaultModulePath(t *testing.T) {
+	t.Parallel()
+
 	req := CreateRequest{ProjectName: "demo"}
 	if got := DefaultModulePath(req); got != "demo" {
 		t.Fatalf("DefaultModulePath() = %q, want %q", got, "demo")

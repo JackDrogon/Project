@@ -6,6 +6,8 @@ import (
 )
 
 func TestConfigV1_DecodeValidSectionsAndPresence(t *testing.T) {
+	t.Parallel()
+
 	content := []byte(`version = 1
 
 [new]
@@ -102,6 +104,8 @@ shell = "bash"
 }
 
 func TestConfigV1_TrailingComments(t *testing.T) {
+	t.Parallel()
+
 	t.Run("version line and section header accept trailing comments", func(t *testing.T) {
 		content := []byte("version = 1 # config schema version\n\n[new] # scaffold defaults\nlang = \"go\"\n")
 
@@ -126,6 +130,8 @@ func TestConfigV1_TrailingComments(t *testing.T) {
 }
 
 func TestConfigV1_RejectsUnknownFieldsLegacyJSONAndInvalidEnums(t *testing.T) {
+	t.Parallel()
+
 	t.Run("unknown field", func(t *testing.T) {
 		_, err := DecodeConfig([]byte("version = 1\n[new]\nunknown = true\n"), "config.toml")
 		if err == nil {
@@ -256,6 +262,8 @@ func TestConfigV1_RejectsUnknownFieldsLegacyJSONAndInvalidEnums(t *testing.T) {
 }
 
 func TestConfigV1_RejectsReservedCreateInputKeys(t *testing.T) {
+	t.Parallel()
+
 	t.Run("new inputs", func(t *testing.T) {
 		_, err := DecodeConfig([]byte("version = 1\n[new.inputs]\nlang = \"go\"\n"), "config.toml")
 		if err == nil {

@@ -18,6 +18,8 @@ func fakeExecCommand(ctx context.Context, command string, args ...string) *exec.
 }
 
 func TestNew(t *testing.T) {
+	t.Parallel()
+
 	adapter := New()
 	if adapter == nil {
 		t.Fatal("New() = nil")
@@ -73,6 +75,8 @@ func TestRun(t *testing.T) {
 }
 
 func TestGitRunHelperProcess(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("GO_WANT_GIT_HELPER_PROCESS") != "1" {
 		return
 	}

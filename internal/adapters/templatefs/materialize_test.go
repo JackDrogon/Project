@@ -13,6 +13,8 @@ import (
 )
 
 func TestMaterialize_PreservesFileModesOnPOSIX(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == goosWindows {
 		t.Skip("POSIX mode contract does not apply on Windows")
 	}
@@ -56,6 +58,8 @@ func TestMaterialize_PreservesFileModesOnPOSIX(t *testing.T) {
 }
 
 func TestMaterialize_PreservesDirectoryModesOnPOSIX(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS == goosWindows {
 		t.Skip("POSIX mode contract does not apply on Windows")
 	}
@@ -91,6 +95,8 @@ func TestMaterialize_PreservesDirectoryModesOnPOSIX(t *testing.T) {
 }
 
 func TestMaterialize_NonPOSIXGracefulDegradation(t *testing.T) {
+	t.Parallel()
+
 	if runtime.GOOS != goosWindows {
 		t.Skip("non-POSIX degradation contract is only exercised on Windows")
 	}

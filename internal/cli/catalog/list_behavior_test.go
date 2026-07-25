@@ -9,6 +9,8 @@ import (
 )
 
 func TestListCmd_SortBehavior(t *testing.T) {
+	t.Parallel()
+
 	t.Run("governance order", func(t *testing.T) {
 		var buf bytes.Buffer
 		cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
@@ -195,6 +197,8 @@ func TestListCmd_SortBehavior(t *testing.T) {
 }
 
 func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		args []string
@@ -220,6 +224,8 @@ func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
 }
 
 func TestListCmdRejectsPositionalArgs(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})

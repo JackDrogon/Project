@@ -7,6 +7,8 @@ import (
 )
 
 func TestSelectedOutputFormat(t *testing.T) {
+	t.Parallel()
+
 	if got := selectedOutputFormat(false); got != outputFormatText {
 		t.Fatalf("selectedOutputFormat(false) = %q, want %q", got, outputFormatText)
 	}
@@ -16,6 +18,8 @@ func TestSelectedOutputFormat(t *testing.T) {
 }
 
 func TestListCmdOutputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -62,6 +66,8 @@ func TestListCmdOutputs(t *testing.T) {
 }
 
 func TestListCmd_ConfigDefaultsApplyToDetailAndFormat(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]
@@ -110,6 +116,8 @@ required_assets = ["ci"]
 }
 
 func TestListCmd_FlagsOverrideConfigDefaults(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]
@@ -145,6 +153,8 @@ required_assets = ["security"]
 }
 
 func TestListCmd_InvalidConfigCombinationStillFailsValidation(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]

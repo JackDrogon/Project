@@ -8,6 +8,8 @@ func (stubProvider) Info() string    { return "info" }
 func (stubProvider) Verbose() string { return "verbose" }
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService(stubProvider{})
 	if svc == nil {
 		t.Fatal("NewService() = nil")
@@ -18,6 +20,8 @@ func TestNewService(t *testing.T) {
 }
 
 func TestService_ForwardsProviderOutput(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService(stubProvider{})
 
 	if got := svc.Info(); got != "info" {

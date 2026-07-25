@@ -3,6 +3,8 @@ package scaffold
 import "testing"
 
 func TestCreateRequestDestinationDir(t *testing.T) {
+	t.Parallel()
+
 	t.Run("uses target dir when set", func(t *testing.T) {
 		req := CreateRequest{ProjectName: "demo", TargetDir: "workspace/output"}
 		if got := req.DestinationDir(); got != "workspace/output" {
@@ -19,6 +21,8 @@ func TestCreateRequestDestinationDir(t *testing.T) {
 }
 
 func TestDryRunActionKinds(t *testing.T) {
+	t.Parallel()
+
 	got := []DryRunActionKind{DryRunActionCreateDir, DryRunActionRenderFile, DryRunActionCopyFile}
 	want := []DryRunActionKind{"create_dir", "render_file", "copy_file"}
 	for i := range got {

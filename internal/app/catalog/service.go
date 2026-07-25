@@ -17,15 +17,27 @@ import (
 type ManifestLoader func(fsys fs.FS, lang string) (protocoltoml.Manifest, bool, error)
 
 type Service struct {
-	fsys         fs.FS
-	loadManifest ManifestLoader
+	fsys           fs.FS
+	loadManifest   ManifestLoader
+	repoAssets     repoAssetRegistry
+	governanceTier governanceTierFunc
 }
 
 func NewService(fsys fs.FS, loader ManifestLoader) *Service {
+	return newServiceWithPolicies(fsys, loader, defaultRepoAssets(), defaultGovernanceTier)
+}
+
+// newServiceWithPolicies builds a service over substitute catalog policies.
+// They are fields rather than package-level vars so tests do not have to swap
+// globals - which is what made this package's tests race under t.Parallel.
+func newServiceWithPolicies(fsys fs.FS, loader ManifestLoader, assets repoAssetRegistry, tier governanceTierFunc) *Service {
 	if loader == nil {
 		loader = protocoltoml.LoadManifest
 	}
-	return &Service{fsys: fsys, loadManifest: loader}
+	if tier == nil {
+		tier = defaultGovernanceTier
+	}
+	return &Service{fsys: fsys, loadManifest: loader, repoAssets: assets, governanceTier: tier}
 }
 
 func (s *Service) ListLangs() ([]string, error) {
@@ -100,6 +112,7 @@ type analysis struct {
 	variables       []string
 	repoAssets      []string
 	files           []InspectionFile
+	governanceTier  governanceTierFunc
 }
 
 func (s *Service) analyze(lang string) (analysis, error) {
@@ -123,7 +136,7 @@ func (s *Service) analyze(lang string) (analysis, error) {
 
 	files := make([]InspectionFile, 0, len(details.Files))
 	for _, file := range details.Files {
-		files = append(files, inspectionFileFromDetail(file))
+		files = append(files, inspectionFileFromDetail(file, s.repoAssets))
 	}
 
 	return analysis{
@@ -134,8 +147,9 @@ func (s *Service) analyze(lang string) (analysis, error) {
 		fileCount:       details.FileCount,
 		templateCount:   details.TemplateCount,
 		variables:       append([]string(nil), details.Variables...),
-		repoAssets:      activeRepoAssets.AssetsForFiles(files),
+		repoAssets:      s.repoAssets.AssetsForFiles(files),
 		files:           files,
+		governanceTier:  s.governanceTier,
 	}, nil
 }
 
@@ -151,7 +165,7 @@ func (a analysis) summary() Summary {
 		Variables:       append([]string(nil), a.variables...),
 		RepoAssets:      append([]string(nil), a.repoAssets...),
 		RepoFileCount:   len(inspection.RepoFiles()),
-		GovernanceTier:  governanceTier(inspection),
+		GovernanceTier:  a.governanceTier(inspection),
 	}
 }
 
@@ -182,12 +196,12 @@ func (a analysis) inspection(mode InspectMode) (Inspection, error) {
 	}, nil
 }
 
-func inspectionFileFromDetail(file templatefs.FileDetail) InspectionFile {
+func inspectionFileFromDetail(file templatefs.FileDetail, assets repoAssetRegistry) InspectionFile {
 	action := FileActionCopy
 	if file.IsTemplate {
 		action = FileActionRender
 	}
-	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: activeRepoAssets.GroupForSource(file.Source)}
+	return InspectionFile{Source: file.Source, Output: file.Output, Action: action, Group: assets.GroupForSource(file.Source)}
 }
 
 func inputNames(inputs []domain.ManifestInput) []string {

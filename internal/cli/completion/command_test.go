@@ -14,6 +14,8 @@ func newTestCommand() *cobra.Command {
 }
 
 func TestCommand_GeneratesAllShells(t *testing.T) {
+	t.Parallel()
+
 	tests := []string{"bash", "zsh", "fish", "powershell"}
 
 	for _, shell := range tests {
@@ -36,6 +38,8 @@ func TestCommand_GeneratesAllShells(t *testing.T) {
 }
 
 func TestCommand_RejectsInvalidShell(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	root := &cobra.Command{Use: "project"}
 	root.SetOut(&buf)
@@ -53,6 +57,8 @@ func TestCommand_RejectsInvalidShell(t *testing.T) {
 }
 
 func TestDependenciesRequireNewService(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		recovered := recover()
 		if recovered == nil {

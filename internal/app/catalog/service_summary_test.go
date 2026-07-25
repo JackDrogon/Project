@@ -9,6 +9,8 @@ import (
 )
 
 func TestServiceListSummaries(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 		"go/.editorconfig":                     {Data: []byte("root = true\n")},
@@ -57,6 +59,8 @@ func TestServiceListSummaries(t *testing.T) {
 }
 
 func TestServiceQuerySummaries(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 		"go/.editorconfig":                     {Data: []byte("root = true\n")},
@@ -136,6 +140,8 @@ func TestServiceQuerySummaries(t *testing.T) {
 }
 
 func TestServiceWithSwappedPolicies(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 		"go/.gitignore":                             {Data: []byte("bin/\n")},
@@ -144,15 +150,12 @@ func TestServiceWithSwappedPolicies(t *testing.T) {
 		"go/cmd/{{.ProjectNameLower}}/main.go.tmpl": {Data: []byte("package main\n")},
 	}
 
-	originalRepoAssets := activeRepoAssets
-	activeRepoAssets = newRepoAssetRegistry(map[string]string{"custom": "go.mod.tmpl"})
-	t.Cleanup(func() { activeRepoAssets = originalRepoAssets })
-
-	originalGovernanceTier := governanceTier
-	governanceTier = func(Inspection) string { return "custom-tier" }
-	t.Cleanup(func() { governanceTier = originalGovernanceTier })
-
-	svc := NewService(fsys, nil)
+	svc := newServiceWithPolicies(
+		fsys,
+		nil,
+		newRepoAssetRegistry(map[string]string{"custom": "go.mod.tmpl"}),
+		func(Inspection) string { return "custom-tier" },
+	)
 
 	t.Run("custom repo assets affect inspection", func(t *testing.T) {
 		got, err := svc.QueryInspection(InspectionQuery{Lang: "go", Mode: InspectModeAll})

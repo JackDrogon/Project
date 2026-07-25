@@ -7,6 +7,8 @@ import (
 )
 
 func TestInspectCmdOutputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -60,6 +62,8 @@ func TestInspectCmdOutputs(t *testing.T) {
 }
 
 func TestInspectCmd_ConfigDefaultsSupplyLangAndMode(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [inspect]
@@ -90,6 +94,8 @@ mode = "render"
 }
 
 func TestInspectCmd_PositionalLangOverridesConfig(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [inspect]
@@ -113,6 +119,8 @@ lang = "rust"
 }
 
 func TestInspectCmd_MissingLangStillFailsWithoutArgOrConfig(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
 
 	err := cmd.Execute()

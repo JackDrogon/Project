@@ -22,6 +22,8 @@ func (s stubVersionProvider) Verbose() string {
 }
 
 func TestCommand_DefaultAndVerbose(t *testing.T) {
+	t.Parallel()
+
 	deps := Dependencies{NewService: func() *appversion.Service {
 		return appversion.NewService(stubVersionProvider{
 			info:    "test-tag",
@@ -60,6 +62,8 @@ func TestCommand_DefaultAndVerbose(t *testing.T) {
 }
 
 func TestDependenciesRequireNewService(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		recovered := recover()
 		if recovered == nil {
@@ -71,6 +75,8 @@ func TestDependenciesRequireNewService(t *testing.T) {
 }
 
 func TestCommand_RejectsPositionalArgs(t *testing.T) {
+	t.Parallel()
+
 	deps := Dependencies{NewService: func() *appversion.Service {
 		return appversion.NewService(stubVersionProvider{info: "test-tag"})
 	}}

@@ -13,6 +13,8 @@ import (
 )
 
 func TestConfigCmd_ShowsActiveConfigSummary(t *testing.T) {
+	t.Parallel()
+
 	active := loadActiveConfigForTest(t, "version = 1\n\n[new]\n\n[version]\nverbose = true\n")
 
 	var buf bytes.Buffer
@@ -74,6 +76,8 @@ func TestConfigCmd_ShowsHintWhenNoConfigIsActive(t *testing.T) {
 }
 
 func TestConfigCmd_ShowsResolvedExplicitMissingPathAndLoadError(t *testing.T) {
+	t.Parallel()
+
 	explicitPath := filepath.Join(t.TempDir(), "missing.toml")
 	loadErr := os.ErrNotExist
 
@@ -152,6 +156,8 @@ func TestConfigInitCmd_CreatesSeedConfigFile(t *testing.T) {
 }
 
 func TestConfigInitCmd_UsesExplicitConfigPathEvenWhenMissing(t *testing.T) {
+	t.Parallel()
+
 	explicitPath := filepath.Join(t.TempDir(), "nested", "custom.toml")
 
 	var buf bytes.Buffer
@@ -174,6 +180,8 @@ func TestConfigInitCmd_UsesExplicitConfigPathEvenWhenMissing(t *testing.T) {
 }
 
 func TestConfigValidateCmd_SucceedsForLoadedConfig(t *testing.T) {
+	t.Parallel()
+
 	active := loadActiveConfigForTest(t, "version = 1\n")
 
 	var buf bytes.Buffer
@@ -210,6 +218,8 @@ func TestConfigValidateCmd_FailsWhenConfigDoesNotExist(t *testing.T) {
 }
 
 func TestConfigValidateCmd_FailsWithLoadError(t *testing.T) {
+	t.Parallel()
+
 	explicitPath := filepath.Join(t.TempDir(), "broken.toml")
 	loadErr := fmt.Errorf("failed to decode config file %s: broken field", explicitPath)
 

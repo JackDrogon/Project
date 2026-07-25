@@ -12,6 +12,8 @@ import (
 )
 
 func TestRenderTemplate(t *testing.T) {
+	t.Parallel()
+
 	vars := domain.NewTemplateVars("Demo", "example.com/demo", "1.25", "alice", 2030)
 
 	t.Run("renders known fields", func(t *testing.T) {
@@ -32,6 +34,8 @@ func TestRenderTemplate(t *testing.T) {
 }
 
 func TestWalkEntries_SkipsReservedManifestAndRendersPaths(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"lang/.project-template-manifest.toml":        {Data: []byte("version = 2\n")},
 		"lang/README.md":                              {Data: []byte("# README\n")},
@@ -66,6 +70,8 @@ func TestWalkEntries_SkipsReservedManifestAndRendersPaths(t *testing.T) {
 }
 
 func TestWalkEntries_InvalidRenderedPathFails(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"lang/{{.ModulePath}}.tmpl": {Data: []byte("ignored")},
 	}
@@ -83,6 +89,8 @@ func TestWalkEntries_InvalidRenderedPathFails(t *testing.T) {
 }
 
 func TestReadEntryAndRenderEntry(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"lang/hello.txt.tmpl": {Data: []byte("Hello, {{.ProjectName}}!")},
 		"lang/raw.txt":        {Data: []byte("{{.ProjectName")},

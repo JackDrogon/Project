@@ -7,6 +7,8 @@ import (
 )
 
 func TestManifestV2_LoadAndValidate(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml": {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n")},
 	}
@@ -27,6 +29,8 @@ func TestManifestV2_LoadAndValidate(t *testing.T) {
 }
 
 func TestManifestV2_RejectsLegacyJSON(t *testing.T) {
+	t.Parallel()
+
 	_, err := decodeManifest([]byte(`{"schema_version":1,"name":"go"}`), "go/.project-template-manifest.toml", "go")
 	if err == nil {
 		t.Fatal("decodeManifest() expected error, got nil")
@@ -37,6 +41,8 @@ func TestManifestV2_RejectsLegacyJSON(t *testing.T) {
 }
 
 func TestManifestV2_RejectsUnknownFieldsAndInvalidInputs(t *testing.T) {
+	t.Parallel()
+
 	t.Run("unknown field", func(t *testing.T) {
 		_, err := decodeManifest([]byte("version = 2\nname = \"go\"\nunknown = true\n"), "go/.project-template-manifest.toml", "go")
 		if err == nil {

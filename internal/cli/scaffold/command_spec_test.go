@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
+	t.Parallel()
+
 	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := NewNewCommand(newTestDependencies(creator))
@@ -30,6 +32,8 @@ func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
 }
 
 func TestInitScaffoldCommandSpecBuilder(t *testing.T) {
+	t.Parallel()
+
 	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := NewInitCommand(newTestDependencies(creator))

@@ -4,12 +4,9 @@ import (
 	"slices"
 )
 
-// Test seams following the repo convention: tests swap these package-level
-// vars and restore them via t.Cleanup.
-var (
-	activeRepoAssets = defaultRepoAssets()
-	governanceTier   = defaultGovernanceTier
-)
+// governanceTierFunc scores an inspection into a governance tier. Service holds
+// one so tests can substitute a scoring rule without swapping a global.
+type governanceTierFunc func(Inspection) string
 
 type repoAssetRegistry struct {
 	pathsByAsset map[string]string

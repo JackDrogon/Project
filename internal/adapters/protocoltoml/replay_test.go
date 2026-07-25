@@ -11,6 +11,8 @@ import (
 )
 
 func TestReplayV2_ReadWriteRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "replay.toml")
 	want := Replay{
 		Version:  ReplayVersion,
@@ -40,6 +42,8 @@ func TestReplayV2_ReadWriteRoundTrip(t *testing.T) {
 }
 
 func TestReplayV2_RejectsLegacyJSON(t *testing.T) {
+	t.Parallel()
+
 	_, err := decodeReplay([]byte(`{"schema_version":1,"command":"new"}`), "replay.toml")
 	if err == nil {
 		t.Fatal("decodeReplay() expected error, got nil")
@@ -50,6 +54,8 @@ func TestReplayV2_RejectsLegacyJSON(t *testing.T) {
 }
 
 func TestReplayV2_RejectsUnknownFieldsAndInvalidValues(t *testing.T) {
+	t.Parallel()
+
 	t.Run("unknown field", func(t *testing.T) {
 		content := []byte("version = 2\nmode = \"new\"\nunknown = true\n\n[template]\nlang = \"go\"\n\n[project]\nname = \"demo\"\ntarget_dir = \"demo\"\n\n[git]\nmode = \"none\"\nsignoff = false\n\n[options]\nforce = false\n\n[inputs]\n")
 		_, err := decodeReplay(content, "replay.toml")
@@ -71,6 +77,8 @@ func TestReplayV2_RejectsUnknownFieldsAndInvalidValues(t *testing.T) {
 }
 
 func TestReplayV2_WritesTOMLContent(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "replay.toml")
 	replay := Replay{
 		Mode:     "init",

@@ -3,6 +3,8 @@ package scaffold
 import "testing"
 
 func TestValidateProjectName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		input   string
@@ -26,6 +28,8 @@ func TestValidateProjectName(t *testing.T) {
 }
 
 func TestValidateModulePath(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		input   string

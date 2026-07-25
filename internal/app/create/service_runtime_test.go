@@ -6,6 +6,8 @@ import (
 )
 
 func TestParseSetValues(t *testing.T) {
+	t.Parallel()
+
 	t.Run("rejects reserved keys including module aliases", func(t *testing.T) {
 		for _, key := range []string{"lang", "project_name", "target_dir", "module", "module_path", "git_mode", "signoff", "force", "dry_run"} {
 			_, err := NewService().parseSetValues(Flags{SetValues: []string{key + "=value"}})

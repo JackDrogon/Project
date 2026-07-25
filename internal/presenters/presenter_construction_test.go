@@ -6,6 +6,8 @@ import (
 )
 
 func TestNewPresenterConstruction(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		format  string
@@ -42,6 +44,8 @@ func TestNewPresenterConstruction(t *testing.T) {
 }
 
 func TestNewPresenter_RejectsInspectionTableLayout(t *testing.T) {
+	t.Parallel()
+
 	_, err := NewPresenter(OutputSpec{
 		Format:     "text",
 		Summary:    DefaultSummaryViewSpec(),

@@ -10,6 +10,8 @@ import (
 )
 
 func TestPresenter_WriteLangs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		format string
@@ -48,6 +50,8 @@ func TestPresenter_WriteLangs(t *testing.T) {
 }
 
 func TestPresenter_WriteSummaries(t *testing.T) {
+	t.Parallel()
+
 	summaries := []catalog.Summary{{
 		Name:            "go",
 		Description:     "Go starter",
@@ -93,6 +97,8 @@ func TestPresenter_WriteSummaries(t *testing.T) {
 }
 
 func TestPresenter_WriteInspection(t *testing.T) {
+	t.Parallel()
+
 	inspection := catalog.Inspection{
 		Name:            "go",
 		Description:     "Go starter",
@@ -138,6 +144,8 @@ func TestPresenter_WriteInspection(t *testing.T) {
 }
 
 func TestPresenter_WriteInspectionMarksRequiredInputs(t *testing.T) {
+	t.Parallel()
+
 	inspection := catalog.Inspection{
 		Name:            "go",
 		ManifestVersion: 2,
@@ -207,6 +215,8 @@ func TestPresenter_WriteInspectionMarksRequiredInputs(t *testing.T) {
 }
 
 func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
+	t.Parallel()
+
 	summaries := []catalog.Summary{{
 		Name:            "go",
 		Description:     "Go starter",
@@ -260,6 +270,8 @@ func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
 }
 
 func TestPresenter_WriteTableTextSummaries(t *testing.T) {
+	t.Parallel()
+
 	summaries := []catalog.Summary{
 		{Name: "go", RepoFileCount: 5, FileCount: 7, TemplateCount: 2, GovernanceTier: "standard", InputNames: []string{"module_path", "go_version"}, RepoAssets: []string{"ci", "typos"}},
 		{Name: "rust", RepoFileCount: 8, FileCount: 17, TemplateCount: 7, GovernanceTier: "rich", InputNames: []string{"author", "year"}, RepoAssets: []string{"ci", "security", "typos"}},

@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	if svc == nil {
 		t.Fatal("NewService() = nil")
@@ -16,6 +18,8 @@ func TestNewService(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -59,6 +63,8 @@ func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -110,6 +116,8 @@ func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_ConfigDefaultsApplyWhenFlagsAndArgAreOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 
 	opts, _, err := svc.buildNew(NewRequest{
@@ -150,6 +158,8 @@ func TestServiceBuildNewOptions_ConfigDefaultsApplyWhenFlagsAndArgAreOmitted(t *
 }
 
 func TestServiceBuildNewOptions_ExplicitCLIBeatsConfig(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 
 	opts, _, err := svc.buildNew(NewRequest{
@@ -193,6 +203,8 @@ func TestServiceBuildNewOptions_ExplicitCLIBeatsConfig(t *testing.T) {
 }
 
 func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -243,6 +255,8 @@ func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *test
 }
 
 func TestServiceBuildInitOptions_ConfigTargetAppliesWhenArgIsOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	targetDir := filepath.Join("nested", "demo")
 
@@ -277,6 +291,8 @@ func TestServiceBuildInitOptions_ConfigTargetAppliesWhenArgIsOmitted(t *testing.
 }
 
 func TestServiceBuildInitOptions_ExplicitCLIBeatsConfig(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	targetDir := filepath.Join("nested", "demo")
 

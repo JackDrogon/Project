@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
+	"slices"
+
+	"golang.org/x/sync/errgroup"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
@@ -91,8 +93,10 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 		return err
 	}
 
-	for i := len(pendingDirModes) - 1; i >= 0; i-- {
-		if err := applyMaterializedMode(pendingDirModes[i].path, pendingDirModes[i].mode); err != nil {
+	// Deepest first: tightening a parent's mode before its children are written
+	// would make the children unwritable.
+	for _, dir := range slices.Backward(pendingDirModes) {
+		if err := applyMaterializedMode(dir.path, dir.mode); err != nil {
 			return err
 		}
 	}
@@ -100,43 +104,45 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 	return nil
 }
 
+// materializeFilesConcurrently writes the rendered templates in parallel but
+// reports them in walk order.
+//
+// Reporting used to happen inside each goroutine under a mutex, which made the
+// "create <path>" listing come out in completion order - so two identical runs
+// produced different output, defeating diffable logs and stable golden tests.
+// Writes stay concurrent; only the reporting is serialized, and files that were
+// written before an error are still listed so a failed run says what it left
+// behind (scaffolding never deletes, so the caller has to clean up by hand).
 func materializeFilesConcurrently(w io.Writer, fsys fs.FS, files []Entry, vars domain.TemplateVars, resolveMode ModeResolver) error {
 	if len(files) == 0 {
 		return nil
 	}
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	sem := make(chan struct{}, maxConcurrentWrites)
-	errCh := make(chan error, len(files))
+	// Each goroutine writes its own index, so no synchronization is needed.
+	written := make([]bool, len(files))
 
-	for _, file := range files {
-		wg.Add(1)
-		go func(entry Entry) {
-			defer wg.Done()
+	var group errgroup.Group
+	group.SetLimit(maxConcurrentWrites)
 
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			if err := materializeFile(fsys, entry, vars, resolveMode); err != nil {
-				errCh <- err
-				return
+	for i, file := range files {
+		group.Go(func() error {
+			if err := materializeFile(fsys, file, vars, resolveMode); err != nil {
+				return err
 			}
-
-			mu.Lock()
-			_, _ = fmt.Fprintf(w, "  create %s\n", entry.Destination)
-			mu.Unlock()
-		}(file)
+			written[i] = true
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errCh)
+	err := group.Wait()
 
-	if err := <-errCh; err != nil {
-		return err
+	for i, file := range files {
+		if written[i] {
+			_, _ = fmt.Fprintf(w, "  create %s\n", file.Destination)
+		}
 	}
 
-	return nil
+	return err
 }
 
 func materializeFile(fsys fs.FS, entry Entry, vars domain.TemplateVars, resolveMode ModeResolver) error {

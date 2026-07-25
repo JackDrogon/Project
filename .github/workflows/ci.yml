@@ -68,6 +68,36 @@ jobs:
       - name: Run build via just
         run: just build
 
+  acceptance:
+    name: Acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      # cargo, cmake and g++ ship with ubuntu-latest; report the versions so a
+      # runner image change that drops one is obvious in the log.
+      - name: Show toolchain versions
+        run: |
+          go version
+          cargo --version
+          cmake --version
+          git --version
+
+      - name: Run acceptance via just
+        run: just acceptance
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

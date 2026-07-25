@@ -12,6 +12,7 @@ internal/scaffold/    # dependency-free domain: name validation, git modes, temp
 internal/adapters/    # buildinfo, gitexec, protocoltoml, templatefs, templatesrc
 internal/presenters/  # catalog output rendering: text (default) or TOML
 internal/testsupport/ # shared test fixtures
+acceptance/           # `acceptance`-tagged E2E: real binary + real templates + real toolchains
 ```
 
 Layer details: [cmd/project/AGENTS.md](cmd/project/AGENTS.md), [internal/cli/AGENTS.md](internal/cli/AGENTS.md), [internal/app/AGENTS.md](internal/app/AGENTS.md), [internal/adapters/AGENTS.md](internal/adapters/AGENTS.md).
@@ -40,6 +41,7 @@ Layer details: [cmd/project/AGENTS.md](cmd/project/AGENTS.md), [internal/cli/AGE
 ```bash
 just build            # → bin/project (ldflags inject internal/adapters/buildinfo.Tag from git describe)
 just test [pkg]       # go test; e.g. just test ./internal/app/create
+just acceptance       # go test -tags acceptance ./acceptance/... (needs go, cargo, cmake, git)
 just lint             # golangci-lint run
 just fmt              # gofumpt -l -w .
 just pre-commit       # generate → fmt → lint → test → spellcheck
@@ -49,6 +51,7 @@ go test ./internal/app/create -run '^TestServiceBuildNewOptions_UsesReplayWhenAr
 ## NOTES
 
 - Any template file add/remove/chmod under `internal/adapters/templatesrc/` requires `just generate`; CI fails if `permissions_generated.go` is stale.
-- CI (`.github/workflows/ci.yml`): `test`, `lint`, `spellcheck` jobs; Go version is read from `go.mod`.
+- CI (`.github/workflows/ci.yml`): `test`, `acceptance`, `lint`, `spellcheck` jobs; Go version is read from `go.mod`.
 - Run the narrowest relevant tests first, then `just test`; prefer `just pre-commit` before finishing risky changes.
+- `just test` never runs `acceptance/` (build tag gated). After touching templates, `templatefs`, `templatesrc`, or scaffolding/git behavior, also run `just acceptance` - it is the only check that the shipped templates actually produce buildable projects.
 - Scaffolding never deletes files: a non-empty destination is always rejected, and `--force` only permits an existing *empty* directory.

@@ -103,6 +103,11 @@ test pkg='./...':
 test-v pkg='./...':
     go test -v {{pkg}}
 
+# Run E2E acceptance tests against real templates (needs go, cargo, cmake, git)
+[group('test')]
+acceptance:
+    go test -tags acceptance -count=1 ./acceptance/...
+
 # Run tests with coverage report
 [group('test')]
 cover:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ func TestRun_PrintsVersion(t *testing.T) {
 	})
 
 	var stdout, stderr bytes.Buffer
-	code := run(newRunTestDependencies(), []string{"version"}, &stdout, &stderr)
+	code := run(t.Context(), newRunTestDependencies(), []string{"version"}, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("run() = %d, want 0 (stderr = %q)", code, stderr.String())
@@ -38,7 +39,7 @@ func TestRun_PrintsVersion(t *testing.T) {
 
 func TestRun_ExitsWithFailureCodeOnError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(newRunTestDependencies(), []string{"new"}, &stdout, &stderr)
+	code := run(t.Context(), newRunTestDependencies(), []string{"new"}, &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("run() = %d, want 1", code)
@@ -54,11 +55,50 @@ func TestRun_ExitsWithFailureCodeOnError(t *testing.T) {
 // The error used to be printed by cobra and then again by the exit path.
 func TestRun_PrintsErrorOnlyOnce(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	run(newRunTestDependencies(), []string{"new"}, &stdout, &stderr)
+	run(t.Context(), newRunTestDependencies(), []string{"new"}, &stdout, &stderr)
 
 	const message = "accepts 1 arg(s), received 0"
 	if got := strings.Count(stderr.String(), message); got != 1 {
 		t.Fatalf("stderr contains %q %d times, want exactly 1\nstderr = %q", message, got, stderr.String())
+	}
+}
+
+// The signal context main installs has to survive the whole chain: cobra
+// context -> config-enriched command context -> scaffold service -> git.
+func TestRun_PropagatesCancellationToGit(t *testing.T) {
+	workDir := withTempWorkingDir(t, "workspace")
+
+	var gitCtx context.Context
+	deps := newDependencies()
+	deps.newCreator = func(out io.Writer) *appcreate.Creator {
+		return appcreate.NewCreatorWithDeps(
+			fstest.MapFS{"go/go.mod.tmpl": {Data: []byte("module {{.ModulePath}}\n")}},
+			out,
+			func(ctx context.Context, _ string, _ ...string) error {
+				gitCtx = ctx
+				return nil
+			},
+			nil,
+		)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+
+	var stdout, stderr bytes.Buffer
+	code := run(ctx, deps, []string{"new", "--lang", "go", "--module", "example.com/demo", "demo"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run() = %d, want 0 (stderr = %q)", code, stderr.String())
+	}
+	if gitCtx == nil {
+		t.Fatal("git was never invoked")
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "demo")); err != nil {
+		t.Fatalf("Stat(demo) error = %v, want scaffolded project", err)
+	}
+
+	cancel()
+	if gitCtx.Err() == nil {
+		t.Fatal("git received a context that does not observe the caller's cancel")
 	}
 }
 
@@ -81,7 +121,7 @@ func TestRun_PropagatesMalformedDiscoveredConfigToStderr(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run(deps, []string{"version"}, &stdout, &stderr)
+	code := run(t.Context(), deps, []string{"version"}, &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("run() = %d, want 1", code)
@@ -101,7 +141,7 @@ func TestRun_PropagatesMalformedExplicitConfigToStderr(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run(newRunTestDependencies(), []string{"--config", configPath, "version"}, &stdout, &stderr)
+	code := run(t.Context(), newRunTestDependencies(), []string{"--config", configPath, "version"}, &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("run() = %d, want 1", code)

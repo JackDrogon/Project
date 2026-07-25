@@ -266,7 +266,7 @@ func TestCLIContract_RunErrorOutput(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 
 	var stdout, stderr bytes.Buffer
-	exitCode := run(newTestDependencies(creator), []string{"new"}, &stdout, &stderr)
+	exitCode := run(t.Context(), newTestDependencies(creator), []string{"new"}, &stdout, &stderr)
 
 	if exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)

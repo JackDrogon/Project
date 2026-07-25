@@ -1,14 +1,15 @@
 package create
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
 
-func buildScaffoldExplainReport(creator *Creator, spec ScaffoldSpec) (string, error) {
-	manifest, vars, err := creator.templateManifestAndVars(spec.Options)
+func buildScaffoldExplainReport(ctx context.Context, creator *Creator, spec ScaffoldSpec) (string, error) {
+	manifest, vars, err := creator.templateManifestAndVars(ctx, spec.Options)
 	if err != nil {
 		return "", err
 	}

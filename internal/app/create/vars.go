@@ -1,6 +1,7 @@
 package create
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"os/user"
@@ -18,26 +19,29 @@ const (
 
 var (
 	currentUser      = user.Current
-	execGoCommand    = exec.Command
+	execGoCommand    = exec.CommandContext
 	runtimeVersion   = runtime.Version
 	goVersionPattern = regexp.MustCompile(`go(\d+)\.(\d+)`)
 )
 
-func NewTemplateVars(projectName, modulePath string) domain.TemplateVars {
-	return newDefaultTemplateVars(projectName, modulePath)
+func NewTemplateVars(ctx context.Context, projectName, modulePath string) domain.TemplateVars {
+	return newDefaultTemplateVars(ctx, projectName, modulePath)
 }
 
-func newDefaultTemplateVars(projectName, modulePath string) domain.TemplateVars {
+func newDefaultTemplateVars(ctx context.Context, projectName, modulePath string) domain.TemplateVars {
 	author := defaultAuthorName
 	if u, err := currentUser(); err == nil && u.Username != "" {
 		author = u.Username
 	}
 
-	return domain.NewTemplateVars(projectName, modulePath, detectGoVersion(), author, time.Now().Year())
+	return domain.NewTemplateVars(projectName, modulePath, detectGoVersion(ctx), author, time.Now().Year())
 }
 
-func detectGoVersion() string {
-	if version, err := localGoVersion(); err == nil {
+// detectGoVersion prefers the toolchain on PATH and falls back to the version
+// this binary was built with, so a cancelled `go env` degrades instead of
+// failing the scaffold.
+func detectGoVersion(ctx context.Context) string {
+	if version, err := localGoVersion(ctx); err == nil {
 		return version
 	}
 
@@ -49,8 +53,8 @@ func detectGoVersion() string {
 	return strings.TrimPrefix(strings.TrimSpace(runtimeVersion()), "go")
 }
 
-func localGoVersion() (string, error) {
-	output, err := execGoCommand("go", "env", "GOVERSION").Output()
+func localGoVersion(ctx context.Context) (string, error) {
+	output, err := execGoCommand(ctx, "go", "env", "GOVERSION").Output()
 	if err != nil {
 		return "", err
 	}

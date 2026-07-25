@@ -1,6 +1,7 @@
 package create
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,10 +16,14 @@ type (
 	GitMode = domain.GitMode
 )
 
+// RunGit runs one git invocation in dir. It takes a context because git is an
+// external process: cancelling the context must kill it.
+type RunGit func(ctx context.Context, dir string, args ...string) error
+
 type Creator struct {
 	fsys        fs.FS
 	w           io.Writer
-	runGit      func(dir string, args ...string) error
+	runGit      RunGit
 	resolveMode templatefs.ModeResolver
 }
 
@@ -26,7 +31,7 @@ func NewCreator(fsys fs.FS, w io.Writer) *Creator {
 	return NewCreatorWithDeps(fsys, w, gitexec.New().Run, nil)
 }
 
-func NewCreatorWithDeps(fsys fs.FS, w io.Writer, runGit func(dir string, args ...string) error, resolveMode templatefs.ModeResolver) *Creator {
+func NewCreatorWithDeps(fsys fs.FS, w io.Writer, runGit RunGit, resolveMode templatefs.ModeResolver) *Creator {
 	if runGit == nil {
 		runGit = gitexec.New().Run
 	}
@@ -34,18 +39,21 @@ func NewCreatorWithDeps(fsys fs.FS, w io.Writer, runGit func(dir string, args ..
 	return &Creator{fsys: fsys, w: w, runGit: runGit, resolveMode: resolveMode}
 }
 
-func (c *Creator) Create(opts Options) error {
-	if err := c.validateCreateOptions(opts); err != nil {
+// Create scaffolds the project. ctx only reaches the external commands this
+// package shells out to (git, and `go env` for version detection); the
+// in-memory steps stay context-free.
+func (c *Creator) Create(ctx context.Context, opts Options) error {
+	if err := c.validateCreateOptions(ctx, opts); err != nil {
 		return err
 	}
 
 	c.writeCreateStart(opts)
 
 	if opts.DryRun {
-		return c.previewCreate(opts)
+		return c.previewCreate(ctx, opts)
 	}
 
-	if err := c.materializeCreate(opts); err != nil {
+	if err := c.materializeCreate(ctx, opts); err != nil {
 		return err
 	}
 
@@ -53,7 +61,7 @@ func (c *Creator) Create(opts Options) error {
 	return nil
 }
 
-func (c *Creator) validateCreateOptions(opts Options) error {
+func (c *Creator) validateCreateOptions(ctx context.Context, opts Options) error {
 	if err := domain.ValidateProjectName(opts.ProjectName); err != nil {
 		return err
 	}
@@ -63,7 +71,7 @@ func (c *Creator) validateCreateOptions(opts Options) error {
 	if err := c.validateModulePath(opts); err != nil {
 		return err
 	}
-	if err := c.validateTemplateInputs(opts); err != nil {
+	if err := c.validateTemplateInputs(ctx, opts); err != nil {
 		return err
 	}
 	return c.validateGitOptions(opts)
@@ -73,14 +81,14 @@ func (c *Creator) writeCreateStart(opts Options) {
 	_, _ = fmt.Fprintf(c.w, "Creating project with language: %s, project name: %s\n", opts.Lang, opts.ProjectName)
 }
 
-func (c *Creator) previewCreate(opts Options) error {
+func (c *Creator) previewCreate(ctx context.Context, opts Options) error {
 	if err := c.checkDestDir(opts); err != nil {
 		return err
 	}
 
 	_, _ = fmt.Fprintln(c.w, "Dry-run mode: no files will be created")
 
-	plan, err := c.BuildDryRunPlan(opts)
+	plan, err := c.BuildDryRunPlan(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -88,14 +96,14 @@ func (c *Creator) previewCreate(opts Options) error {
 	return writeDryRunPlan(c.w, plan, opts)
 }
 
-func (c *Creator) materializeCreate(opts Options) error {
+func (c *Creator) materializeCreate(ctx context.Context, opts Options) error {
 	if err := c.checkDestDir(opts); err != nil {
 		return err
 	}
-	if err := c.copyTemplates(opts); err != nil {
+	if err := c.copyTemplates(ctx, opts); err != nil {
 		return err
 	}
-	return c.maybeInitGitRepo(opts)
+	return c.maybeInitGitRepo(ctx, opts)
 }
 
 func (c *Creator) checkLang(opts Options) error {

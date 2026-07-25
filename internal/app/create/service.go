@@ -1,6 +1,7 @@
 package create
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -125,8 +126,8 @@ func (s *Service) ResolveInitTarget(runtime Runtime, arg string, hasArg bool, se
 	return s.initTargetResolver.Resolve(runtime, arg, hasArg, settings)
 }
 
-func (s *Service) ScaffoldAndMaybeWriteReplay(creator *Creator, flags Flags, command Command, opts Options) error {
-	if err := creator.Create(opts); err != nil {
+func (s *Service) ScaffoldAndMaybeWriteReplay(ctx context.Context, creator *Creator, flags Flags, command Command, opts Options) error {
+	if err := creator.Create(ctx, opts); err != nil {
 		return err
 	}
 	if flags.WriteReplayPath == "" {
@@ -145,9 +146,9 @@ func (s *Service) ScaffoldAndMaybeWriteReplay(creator *Creator, flags Flags, com
 	return nil
 }
 
-func (s *Service) ExecuteScaffoldSpec(creator *Creator, spec ScaffoldSpec) error {
+func (s *Service) ExecuteScaffoldSpec(ctx context.Context, creator *Creator, spec ScaffoldSpec) error {
 	if spec.Flags.ExplainConfig {
-		report, err := buildScaffoldExplainReport(creator, spec)
+		report, err := buildScaffoldExplainReport(ctx, creator, spec)
 		if err != nil {
 			return err
 		}
@@ -160,14 +161,14 @@ func (s *Service) ExecuteScaffoldSpec(creator *Creator, spec ScaffoldSpec) error
 	}
 
 	if spec.Options.DryRun {
-		return s.executeDryRunSpec(creator, spec)
+		return s.executeDryRunSpec(ctx, creator, spec)
 	}
 
-	return s.ScaffoldAndMaybeWriteReplay(creator, spec.Flags, spec.Command, spec.Options)
+	return s.ScaffoldAndMaybeWriteReplay(ctx, creator, spec.Flags, spec.Command, spec.Options)
 }
 
-func (s *Service) executeDryRunSpec(creator *Creator, spec ScaffoldSpec) error {
-	if err := creator.validateCreateOptions(spec.Options); err != nil {
+func (s *Service) executeDryRunSpec(ctx context.Context, creator *Creator, spec ScaffoldSpec) error {
+	if err := creator.validateCreateOptions(ctx, spec.Options); err != nil {
 		return err
 	}
 
@@ -179,7 +180,7 @@ func (s *Service) executeDryRunSpec(creator *Creator, spec ScaffoldSpec) error {
 
 	_, _ = fmt.Fprintln(creator.w, "Dry-run mode: no files will be created")
 
-	plan, err := creator.BuildDryRunPlan(spec.Options)
+	plan, err := creator.BuildDryRunPlan(ctx, spec.Options)
 	if err != nil {
 		return err
 	}

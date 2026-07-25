@@ -15,6 +15,7 @@ Application services implementing command behavior: `catalog`, `config`, `create
 - `--config` and `--replay` are mutually exclusive; replay mode ignores the global config entirely.
 - `service_compat.go` exported wrappers (`ResolveNewProjectArgs`, ...) exist for cross-package integration tests in `cmd/project` - do not remove them as "dead code".
 - Domain rules (name validation, git modes, `TemplateVars`) live in `internal/scaffold`, dependency-free.
+- `context.Context` is threaded only where an external process is launched - `Creator.Create`/`BuildDryRunPlan`/`ExecuteScaffoldSpec` pass it to git and to `go env` version detection. Pure in-memory services (`catalog`, `config`, `version`, resolution) deliberately take no context.
 
 ## config
 

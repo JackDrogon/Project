@@ -1,6 +1,7 @@
 package create
 
 import (
+	"context"
 	"fmt"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -21,14 +22,14 @@ func (c *Creator) validateGitOptions(opts Options) error {
 	return nil
 }
 
-func (c *Creator) initGitRepo(opts Options) error {
+func (c *Creator) initGitRepo(ctx context.Context, opts Options) error {
 	commitArgs := []string{"commit", "-m", initialCommitMessage}
 	if opts.Signoff {
 		commitArgs = []string{"commit", "-s", "-m", initialCommitMessage}
 	}
 
 	for _, args := range [][]string{{"init"}, {"add", "."}, commitArgs} {
-		if err := c.runGit(opts.DestinationDir(), args...); err != nil {
+		if err := c.runGit(ctx, opts.DestinationDir(), args...); err != nil {
 			return err
 		}
 	}
@@ -36,7 +37,7 @@ func (c *Creator) initGitRepo(opts Options) error {
 	return nil
 }
 
-func (c *Creator) maybeInitGitRepo(opts Options) error {
+func (c *Creator) maybeInitGitRepo(ctx context.Context, opts Options) error {
 	mode, err := domain.ResolveGitMode(opts)
 	if err != nil {
 		return err
@@ -49,8 +50,8 @@ func (c *Creator) maybeInitGitRepo(opts Options) error {
 
 	if mode == domain.GitModeInitOnly {
 		_, _ = fmt.Fprintln(c.w, "Initializing git repository (--git init-only)")
-		return c.runGit(opts.DestinationDir(), "init")
+		return c.runGit(ctx, opts.DestinationDir(), "init")
 	}
 
-	return c.initGitRepo(opts)
+	return c.initGitRepo(ctx, opts)
 }

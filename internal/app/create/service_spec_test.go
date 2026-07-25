@@ -58,7 +58,7 @@ func TestServiceExecuteScaffoldSpec(t *testing.T) {
 		Options: Options{Lang: "go", ProjectName: "demo", TargetDir: "demo", GitMode: scaffold.GitModeNone, DryRun: true},
 	}
 
-	if err := svc.ExecuteScaffoldSpec(creator, spec); err != nil {
+	if err := svc.ExecuteScaffoldSpec(t.Context(), creator, spec); err != nil {
 		t.Fatalf("ExecuteScaffoldSpec() error = %v", err)
 	}
 	if got := out.String(); !strings.Contains(got, "Dry-run mode: no files will be created") {
@@ -71,7 +71,7 @@ func TestServiceExecuteScaffoldSpec_PropagatesCreateError(t *testing.T) {
 	creator := NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	spec := ScaffoldSpec{Command: CommandNew, Flags: Flags{}, Options: Options{Lang: "missing", ProjectName: "demo", TargetDir: "demo", GitMode: scaffold.GitModeNone}}
 
-	err := svc.ExecuteScaffoldSpec(creator, spec)
+	err := svc.ExecuteScaffoldSpec(t.Context(), creator, spec)
 	if err == nil {
 		t.Fatal("ExecuteScaffoldSpec() expected error, got nil")
 	}

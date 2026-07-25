@@ -441,7 +441,7 @@ func TestNewCmd_DryRunUsesEnhancedPlanOutput(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	vars := appcreate.NewTemplateVars("demo", "example.com/demo")
+	vars := appcreate.NewTemplateVars(t.Context(), "demo", "example.com/demo")
 	got := out.String()
 	requireOrderedSubstrings(t, got, []string{
 		"Creating project with language: go, project name: demo\n",

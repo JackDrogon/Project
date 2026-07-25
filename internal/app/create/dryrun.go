@@ -1,6 +1,7 @@
 package create
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -11,12 +12,12 @@ import (
 
 // BuildDryRunPlan assumes opts already passed validateCreateOptions; both
 // production callers (Creator.Create and Service.executeDryRunSpec) validate first.
-func (c *Creator) BuildDryRunPlan(opts Options) (domain.DryRunPlan, error) {
+func (c *Creator) BuildDryRunPlan(ctx context.Context, opts Options) (domain.DryRunPlan, error) {
 	if err := c.checkDestDir(opts); err != nil {
 		return domain.DryRunPlan{}, err
 	}
 
-	manifest, vars, err := c.templateManifestAndVars(opts)
+	manifest, vars, err := c.templateManifestAndVars(ctx, opts)
 	if err != nil {
 		return domain.DryRunPlan{}, err
 	}

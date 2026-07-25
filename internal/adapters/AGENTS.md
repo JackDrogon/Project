@@ -5,7 +5,7 @@ Integrations behind the app layer. One package per concern.
 ## PACKAGES
 
 - `buildinfo`: version metadata. `Tag` is injected via ldflags (`just build`); revision and dirty state come from `runtime/debug.BuildInfo`.
-- `gitexec`: thin git command wrapper; tests inject fake runners instead of shelling out.
+- `gitexec`: thin git command wrapper built on `exec.CommandContext`, so cancelling the context kills the child; tests inject fake runners instead of shelling out.
 - `protocoltoml`: TOML codecs for the three protocol files - user config (`config.go`), replay (`replay.go`), template manifest (`manifest.go`). Legacy JSON payloads are rejected explicitly.
 - `templatefs`: template tree traversal + materialization. `.tmpl` files render via `text/template` and drop the suffix; everything else copies as-is; invalid template syntax fails fast.
 - `templatesrc`: embedded templates grouped by language.

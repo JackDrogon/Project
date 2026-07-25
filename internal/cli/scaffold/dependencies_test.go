@@ -2,6 +2,7 @@ package scaffold
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"testing"
 	"testing/fstest"
@@ -39,7 +40,7 @@ func TestNewCommand_BuildsCreatorFromCommandOut(t *testing.T) {
 	deps := Dependencies{
 		NewCreator: func(w io.Writer) *appcreate.Creator {
 			got = w
-			return appcreate.NewCreatorWithDeps(fstest.MapFS{"go/go.mod.tmpl": {Data: []byte("module x\n")}}, w, func(string, ...string) error { return nil }, nil)
+			return appcreate.NewCreatorWithDeps(fstest.MapFS{"go/go.mod.tmpl": {Data: []byte("module x\n")}}, w, func(context.Context, string, ...string) error { return nil }, nil)
 		},
 		NewService: appcreate.NewService,
 	}

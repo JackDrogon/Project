@@ -34,7 +34,7 @@ func (c *scaffoldCommandBase) execute(
 		return err
 	}
 
-	return service.ExecuteScaffoldSpec(c.deps.newCreator(cmd.OutOrStdout()), spec)
+	return service.ExecuteScaffoldSpec(cmd.Context(), c.deps.newCreator(cmd.OutOrStdout()), spec)
 }
 
 func validateConfigReplayConflict(cmd *cobra.Command) error {

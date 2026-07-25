@@ -1,6 +1,8 @@
 package create
 
 import (
+	"context"
+
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	"github.com/JackDrogon/project/internal/adapters/templatefs"
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -14,13 +16,13 @@ func (c *Creator) validateModulePath(opts Options) error {
 	return domain.ValidateModulePath(defaultModulePath(opts))
 }
 
-func (c *Creator) validateTemplateInputs(opts Options) error {
-	_, _, err := c.templateManifestAndVars(opts)
+func (c *Creator) validateTemplateInputs(ctx context.Context, opts Options) error {
+	_, _, err := c.templateManifestAndVars(ctx, opts)
 	return err
 }
 
-func (c *Creator) copyTemplates(opts Options) error {
-	_, vars, err := c.templateManifestAndVars(opts)
+func (c *Creator) copyTemplates(ctx context.Context, opts Options) error {
+	_, vars, err := c.templateManifestAndVars(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -28,7 +30,7 @@ func (c *Creator) copyTemplates(opts Options) error {
 	return templatefs.Materialize(c.w, c.fsys, opts.Lang, opts.DestinationDir(), vars, c.resolveMode)
 }
 
-func (c *Creator) templateManifestAndVars(opts Options) (protocoltoml.Manifest, domain.TemplateVars, error) {
+func (c *Creator) templateManifestAndVars(ctx context.Context, opts Options) (protocoltoml.Manifest, domain.TemplateVars, error) {
 	manifest, found, err := protocoltoml.LoadManifest(c.fsys, opts.Lang)
 	if err != nil {
 		return protocoltoml.Manifest{}, domain.TemplateVars{}, err
@@ -37,7 +39,7 @@ func (c *Creator) templateManifestAndVars(opts Options) (protocoltoml.Manifest, 
 		manifest = protocoltoml.Manifest{Name: opts.Lang}
 	}
 
-	base := newDefaultTemplateVars(opts.ProjectName, opts.ModulePath)
+	base := newDefaultTemplateVars(ctx, opts.ProjectName, opts.ModulePath)
 	vars, err := domain.ResolveTemplateVars(manifest.DomainInputs(), opts, base)
 	if err != nil {
 		return protocoltoml.Manifest{}, domain.TemplateVars{}, err

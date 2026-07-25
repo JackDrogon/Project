@@ -27,7 +27,11 @@ func orNone(value string) string {
 func inspectionInputsOrNone(inputs []scaffold.ManifestInput) string {
 	parts := make([]string, 0, len(inputs))
 	for _, input := range inputs {
-		parts = append(parts, fmt.Sprintf("%s->%s", input.Name, input.TemplateVar))
+		part := fmt.Sprintf("%s->%s", input.Name, input.TemplateVar)
+		if input.Required {
+			part += " (required)"
+		}
+		parts = append(parts, part)
 	}
 	return joinOrNone(parts)
 }

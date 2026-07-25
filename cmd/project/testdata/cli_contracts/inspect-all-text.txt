@@ -1,7 +1,7 @@
 name: go
 description: Go starter
 manifest_version: 2
-inputs: module_path->ModulePath, go_version->GoVersion
+inputs: module_path->ModulePath (required), go_version->GoVersion (required)
 files: 7
 templates: 2
 variables: ModulePath, ProjectNameLower

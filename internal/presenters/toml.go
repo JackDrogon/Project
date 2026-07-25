@@ -43,6 +43,7 @@ type tomlInspection struct {
 type tomlManifestInput struct {
 	Name        string `toml:"name"`
 	TemplateVar string `toml:"template_var"`
+	Required    bool   `toml:"required"`
 }
 
 type tomlFileDetail struct {
@@ -104,7 +105,7 @@ func writeTOMLInspection(w io.Writer, inspection catalog.Inspection) error {
 		Files:           make([]tomlFileDetail, 0, len(inspection.Files)),
 	}
 	for _, input := range inspection.Inputs {
-		encoded.Inputs = append(encoded.Inputs, tomlManifestInput{Name: input.Name, TemplateVar: input.TemplateVar})
+		encoded.Inputs = append(encoded.Inputs, tomlManifestInput{Name: input.Name, TemplateVar: input.TemplateVar, Required: input.Required})
 	}
 	for _, file := range inspection.Files {
 		encoded.Files = append(encoded.Files, tomlFileDetail{Source: file.Source, Output: file.Output, IsTemplate: file.IsTemplate()})

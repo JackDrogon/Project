@@ -1,6 +1,6 @@
 go — Go starter
   manifest: v2 | mode: all | shown: 7 | files: 7 | templates: 2
-  inputs: module_path->ModulePath, go_version->GoVersion
+  inputs: module_path->ModulePath (required), go_version->GoVersion (required)
   vars: ModulePath, ProjectNameLower
   repo_assets: ci, dependabot, editorconfig, gitignore, typos
   repo_files:

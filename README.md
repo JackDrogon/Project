@@ -378,7 +378,7 @@ Only files ending in `.tmpl` are rendered, and the suffix is stripped (e.g., `go
 - `project list --table` renders the detailed summary as an aligned table.
 - `project list --sort name|governance|repo-files` orders the list; `--min-governance minimal|basic|standard|rich` and the repeatable `--has-repo-asset <asset>` filter it.
 - `project list --toml` prints machine-readable TOML output.
-- `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied.
+- `project inspect <lang>` shows per-file mappings (`source -> output`) and whether each file is rendered or copied. Declared inputs render as `key->TemplateVar`, with `(required)` appended for inputs the manifest marks required; `--toml` reports the same as a `required` boolean per input.
 - `project inspect <lang> --mode render|copy` filters files by render/copy behavior.
 - `project inspect <lang> --toml` prints structured output.
 - `--compact` condenses `list` and `inspect` output (also available as `compact` in the config file).

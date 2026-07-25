@@ -137,6 +137,75 @@ func TestPresenter_WriteInspection(t *testing.T) {
 	}
 }
 
+func TestPresenter_WriteInspectionMarksRequiredInputs(t *testing.T) {
+	inspection := catalog.Inspection{
+		Name:            "go",
+		ManifestVersion: 2,
+		Inputs: []scaffold.ManifestInput{
+			{Name: "module_path", TemplateVar: "ModulePath", Required: true},
+			{Name: "author", TemplateVar: "Author"},
+		},
+		Mode: catalog.InspectModeAll,
+	}
+
+	tests := []struct {
+		name string
+		spec OutputSpec
+		want string
+	}{
+		{
+			name: "text",
+			spec: OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()},
+			want: "inputs: module_path->ModulePath (required), author->Author\n",
+		},
+		{
+			name: "compact text",
+			spec: OutputSpec{Format: "text", Summary: DefaultSummaryViewSpec(), Inspection: InspectionViewSpec{TextLayout: TextLayoutCompact}},
+			want: "  inputs: module_path->ModulePath (required), author->Author\n",
+		},
+		{
+			name: "toml",
+			spec: OutputSpec{Format: "toml", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()},
+			want: "required = true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presenter, err := NewPresenter(tt.spec)
+			if err != nil {
+				t.Fatalf("NewPresenter() error = %v", err)
+			}
+
+			var buf bytes.Buffer
+			if err := presenter.WriteInspection(&buf, inspection); err != nil {
+				t.Fatalf("WriteInspection() error = %v", err)
+			}
+
+			if got := buf.String(); !strings.Contains(got, tt.want) {
+				t.Fatalf("WriteInspection() output = %q, want contains %q", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("toml keeps optional inputs false", func(t *testing.T) {
+		presenter, err := NewPresenter(OutputSpec{Format: "toml", Summary: DefaultSummaryViewSpec(), Inspection: DefaultInspectionViewSpec()})
+		if err != nil {
+			t.Fatalf("NewPresenter() error = %v", err)
+		}
+
+		var buf bytes.Buffer
+		if err := presenter.WriteInspection(&buf, inspection); err != nil {
+			t.Fatalf("WriteInspection() error = %v", err)
+		}
+
+		got := buf.String()
+		if strings.Count(got, "required = true") != 1 || strings.Count(got, "required = false") != 1 {
+			t.Fatalf("WriteInspection() output = %q, want one required input and one optional input", got)
+		}
+	})
+}
+
 func TestPresenter_WriteCompactTextOutputs(t *testing.T) {
 	summaries := []catalog.Summary{{
 		Name:            "go",

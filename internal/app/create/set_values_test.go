@@ -1,14 +1,16 @@
-package scaffold
+package create
 
 import (
 	"strings"
 	"testing"
-
-	appcreate "github.com/JackDrogon/project/internal/app/create"
-	"github.com/spf13/cobra"
 )
 
-func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *testing.T) {
+// The --set flag is wired through internal/cli/scaffold and exercised end to
+// end by the cmd/project integration tests; what is verified here is the
+// validation rule set itself, which lives in this package.
+func TestParseSetValues_RejectsMalformedDuplicateAndReservedKeys(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		setValues []string
@@ -23,14 +25,14 @@ func TestCreateCommandFlags_ParseSetRejectsMalformedDuplicateAndReservedKeys(t *
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flags := scaffoldCommandFlags{setValues: tt.setValues}
+			t.Parallel()
 
-			_, err := appcreate.NewService().ParseSetValues(flags.toAppFlags(&cobra.Command{}))
+			_, err := NewService().parseSetValues(Flags{SetValues: tt.setValues})
 			if err == nil {
-				t.Fatal("ParseSetValues() expected error, got nil")
+				t.Fatal("parseSetValues() expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ParseSetValues() error = %v, want contains %q", err, tt.wantErr)
+				t.Fatalf("parseSetValues() error = %v, want contains %q", err, tt.wantErr)
 			}
 		})
 	}

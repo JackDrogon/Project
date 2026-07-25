@@ -34,10 +34,10 @@ type Entry struct {
 	RawContents []byte
 }
 
-// RenderTemplate applies template variable substitution to the given content.
+// renderTemplate applies template variable substitution to the given content.
 // It uses Go's text/template engine with strict error handling for missing keys.
 // Returns the rendered content or an error if template execution fails.
-func RenderTemplate(content []byte, vars domain.TemplateVars) ([]byte, error) {
+func renderTemplate(content []byte, vars domain.TemplateVars) ([]byte, error) {
 	rendered, err := renderTemplateString(string(content), vars)
 	if err != nil {
 		return nil, err
@@ -72,10 +72,10 @@ func computeTemplateHash(content string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// RenderPathSegment renders a single path component (file or directory name) with template variables.
+// renderPathSegment renders a single path component (file or directory name) with template variables.
 // It validates that the result is a valid path segment without separators or special names.
 // Returns an error if rendering produces an invalid path component.
-func RenderPathSegment(name string, vars domain.TemplateVars) (string, error) {
+func renderPathSegment(name string, vars domain.TemplateVars) (string, error) {
 	rendered, err := renderTemplateString(name, vars)
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func WalkEntries(fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, v
 		}
 
 		srcPath := path.Join(srcDir, entry.Name())
-		destName, err := RenderPathSegment(strings.TrimSuffix(entry.Name(), TmplSuffix), vars)
+		destName, err := renderPathSegment(strings.TrimSuffix(entry.Name(), TmplSuffix), vars)
 		if err != nil {
 			return fmt.Errorf("failed to render template path %s: %w", srcPath, err)
 		}
@@ -152,7 +152,7 @@ func RenderEntry(entry Entry, vars domain.TemplateVars) ([]byte, error) {
 		return entry.RawContents, nil
 	}
 
-	rendered, err := RenderTemplate(entry.RawContents, vars)
+	rendered, err := renderTemplate(entry.RawContents, vars)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template %s: %w", entry.SourcePath, err)
 	}

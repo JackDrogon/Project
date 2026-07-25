@@ -143,7 +143,7 @@ func recordTemplateDetails(fsys fs.FS, lang, srcPath string, isTemplate bool, fi
 		return err
 	}
 
-	templateVars, err := ExtractTemplateVars(content)
+	templateVars, err := extractTemplateVars(content)
 	if err != nil {
 		return fmt.Errorf("failed to parse template %s: %w", srcPath, err)
 	}
@@ -153,7 +153,7 @@ func recordTemplateDetails(fsys fs.FS, lang, srcPath string, isTemplate bool, fi
 }
 
 func collectVarsFromTemplatePath(srcPath, relative string, vars map[string]struct{}) error {
-	pathVars, err := ExtractTemplateVars([]byte(relative))
+	pathVars, err := extractTemplateVars([]byte(relative))
 	if err != nil {
 		return fmt.Errorf("failed to parse template path %s: %w", srcPath, err)
 	}
@@ -168,10 +168,10 @@ func addTemplateVarNames(dest map[string]struct{}, names []string) {
 	}
 }
 
-// ExtractTemplateVars parses template content and extracts all variable names referenced
+// extractTemplateVars parses template content and extracts all variable names referenced
 // in the template syntax (e.g., {{.VariableName}}). It returns a sorted list of unique
 // variable names. Returns an error if the template syntax is invalid.
-func ExtractTemplateVars(content []byte) ([]string, error) {
+func extractTemplateVars(content []byte) ([]string, error) {
 	tmpl, err := template.New("template-vars").Parse(string(content))
 	if err != nil {
 		return nil, err

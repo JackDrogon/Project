@@ -27,31 +27,31 @@ func TestManifestV2_LoadAndValidate(t *testing.T) {
 }
 
 func TestManifestV2_RejectsLegacyJSON(t *testing.T) {
-	_, err := DecodeManifest([]byte(`{"schema_version":1,"name":"go"}`), "go/.project-template-manifest.toml", "go")
+	_, err := decodeManifest([]byte(`{"schema_version":1,"name":"go"}`), "go/.project-template-manifest.toml", "go")
 	if err == nil {
-		t.Fatal("DecodeManifest() expected error, got nil")
+		t.Fatal("decodeManifest() expected error, got nil")
 	}
 	if !strings.Contains(err.Error(), "legacy JSON") {
-		t.Fatalf("DecodeManifest() error = %v, want legacy JSON rejection", err)
+		t.Fatalf("decodeManifest() error = %v, want legacy JSON rejection", err)
 	}
 }
 
 func TestManifestV2_RejectsUnknownFieldsAndInvalidInputs(t *testing.T) {
 	t.Run("unknown field", func(t *testing.T) {
-		_, err := DecodeManifest([]byte("version = 2\nname = \"go\"\nunknown = true\n"), "go/.project-template-manifest.toml", "go")
+		_, err := decodeManifest([]byte("version = 2\nname = \"go\"\nunknown = true\n"), "go/.project-template-manifest.toml", "go")
 		if err == nil {
-			t.Fatal("DecodeManifest() expected error, got nil")
+			t.Fatal("decodeManifest() expected error, got nil")
 		}
 	})
 
 	t.Run("duplicate key", func(t *testing.T) {
 		content := []byte("version = 2\nname = \"go\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"Author\"\n")
-		_, err := DecodeManifest(content, "go/.project-template-manifest.toml", "go")
+		_, err := decodeManifest(content, "go/.project-template-manifest.toml", "go")
 		if err == nil {
-			t.Fatal("DecodeManifest() expected error, got nil")
+			t.Fatal("decodeManifest() expected error, got nil")
 		}
 		if !strings.Contains(err.Error(), "duplicate input key") {
-			t.Fatalf("DecodeManifest() error = %v, want duplicate input error", err)
+			t.Fatalf("decodeManifest() error = %v, want duplicate input error", err)
 		}
 	})
 }

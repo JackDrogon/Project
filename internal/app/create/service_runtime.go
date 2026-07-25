@@ -22,7 +22,7 @@ var reservedSetKeys = map[string]struct{}{
 	"dry_run":      {},
 }
 
-func (s *Service) ParseSetValues(flags Flags) (map[string]string, error) {
+func (s *Service) parseSetValues(flags Flags) (map[string]string, error) {
 	values := make(map[string]string, len(flags.SetValues))
 	for _, raw := range flags.SetValues {
 		key, value, ok := strings.Cut(raw, "=")
@@ -44,8 +44,8 @@ func (s *Service) ParseSetValues(flags Flags) (map[string]string, error) {
 	return values, nil
 }
 
-func (s *Service) RuntimeState(flags Flags, expected Command) (Runtime, error) {
-	templateInputValues, err := s.ParseSetValues(flags)
+func (s *Service) runtimeState(flags Flags, expected Command) (Runtime, error) {
+	templateInputValues, err := s.parseSetValues(flags)
 	if err != nil {
 		return Runtime{}, err
 	}

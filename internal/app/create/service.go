@@ -39,7 +39,7 @@ func (s *Service) BuildInitSpec(req InitRequest) (ScaffoldSpec, error) {
 }
 
 func (s *Service) buildNew(req NewRequest) (Options, ResolutionOrigins, error) {
-	runtime, err := s.RuntimeState(req.Flags, CommandNew)
+	runtime, err := s.runtimeState(req.Flags, CommandNew)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}
@@ -61,7 +61,7 @@ func (s *Service) buildNew(req NewRequest) (Options, ResolutionOrigins, error) {
 }
 
 func (s *Service) buildInit(req InitRequest) (Options, ResolutionOrigins, error) {
-	runtime, err := s.RuntimeState(req.Flags, CommandInit)
+	runtime, err := s.runtimeState(req.Flags, CommandInit)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}

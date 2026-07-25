@@ -44,15 +44,15 @@ func TestServiceListSummaries(t *testing.T) {
 	}
 	svc := NewService(fsys, nil)
 
-	got, err := svc.ListSummaries()
+	got, err := svc.listSummaries()
 	if err != nil {
-		t.Fatalf("ListSummaries() error = %v", err)
+		t.Fatalf("listSummaries() error = %v", err)
 	}
 	if len(got) != 3 {
-		t.Fatalf("ListSummaries() len = %d, want 3", len(got))
+		t.Fatalf("listSummaries() len = %d, want 3", len(got))
 	}
 	if !reflect.DeepEqual([]string{got[0].Name, got[1].Name, got[2].Name}, []string{"cpp", "go", "rust"}) {
-		t.Fatalf("ListSummaries() names = %#v, want sorted [cpp go rust]", got)
+		t.Fatalf("listSummaries() names = %#v, want sorted [cpp go rust]", got)
 	}
 }
 

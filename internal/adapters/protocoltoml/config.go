@@ -101,7 +101,7 @@ func DecodeConfig(content []byte, path string) (Config, error) {
 	}
 	cfg.Version = version
 
-	if err := ValidateConfig(cfg, path); err != nil {
+	if err := validateConfig(cfg, path); err != nil {
 		return Config{}, err
 	}
 
@@ -150,7 +150,7 @@ func extractConfigVersion(content []byte, path string) (int, []byte, error) {
 	return version, []byte(strings.Join(kept, "\n")), nil
 }
 
-func ValidateConfig(cfg Config, path string) error {
+func validateConfig(cfg Config, path string) error {
 	if cfg.Version != ConfigVersion {
 		return fmt.Errorf("config file %s has unsupported version %d", path, cfg.Version)
 	}

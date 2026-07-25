@@ -48,7 +48,7 @@ func ResolveTemplateVars(inputs []ManifestInput, req CreateRequest, base Templat
 			return TemplateVars{}, fmt.Errorf("template input %q is not declared by template", name)
 		}
 
-		if err := ApplyTemplateInputValue(&vars, input, value); err != nil {
+		if err := applyTemplateInputValue(&vars, input, value); err != nil {
 			return TemplateVars{}, err
 		}
 	}
@@ -111,7 +111,7 @@ func templateVarIsSet(vars TemplateVars, templateVar string) bool {
 	return ok && strings.TrimSpace(value) != ""
 }
 
-func ApplyTemplateInputValue(vars *TemplateVars, input ManifestInput, value string) error {
+func applyTemplateInputValue(vars *TemplateVars, input ManifestInput, value string) error {
 	switch input.TemplateVar {
 	case "ModulePath":
 		return fmt.Errorf("template input %q must be provided via module path options", input.Name)

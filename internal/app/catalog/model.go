@@ -92,7 +92,7 @@ func ParseInspectMode(mode string) (InspectMode, error) {
 	}
 }
 
-func KnownRepoAssets() []string {
+func knownRepoAssets() []string {
 	return defaultRepoAssets().KnownAssets()
 }
 

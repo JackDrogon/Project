@@ -48,11 +48,11 @@ func ReadReplay(path string) (Replay, error) {
 	if err != nil {
 		return Replay{}, fmt.Errorf("failed to read replay file %s: %w", path, err)
 	}
-	return DecodeReplay(content, path)
+	return decodeReplay(content, path)
 }
 
 func WriteReplay(path string, replay Replay) error {
-	content, err := MarshalReplay(path, replay)
+	content, err := marshalReplay(path, replay)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func WriteReplay(path string, replay Replay) error {
 	return nil
 }
 
-func DecodeReplay(content []byte, path string) (Replay, error) {
+func decodeReplay(content []byte, path string) (Replay, error) {
 	if err := rejectLegacyJSON(content, path); err != nil {
 		return Replay{}, err
 	}
@@ -73,16 +73,16 @@ func DecodeReplay(content []byte, path string) (Replay, error) {
 	if err := decoder.Decode(&replay); err != nil {
 		return Replay{}, fmt.Errorf("failed to decode replay file %s: %w", path, err)
 	}
-	if err := ValidateReplay(replay, path); err != nil {
+	if err := validateReplay(replay, path); err != nil {
 		return Replay{}, err
 	}
 
 	return replay, nil
 }
 
-func MarshalReplay(path string, replay Replay) ([]byte, error) {
+func marshalReplay(path string, replay Replay) ([]byte, error) {
 	normalized := NormalizeReplayForWrite(replay)
-	if err := ValidateReplay(normalized, path); err != nil {
+	if err := validateReplay(normalized, path); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +104,7 @@ func NormalizeReplayForWrite(replay Replay) Replay {
 	return replay
 }
 
-func ValidateReplay(replay Replay, path string) error {
+func validateReplay(replay Replay, path string) error {
 	if replay.Version != ReplayVersion {
 		return fmt.Errorf("replay file %s has unsupported version %d", path, replay.Version)
 	}

@@ -44,7 +44,7 @@ func (s *Service) ListLangs() ([]string, error) {
 	return langs, nil
 }
 
-func (s *Service) ListSummaries() ([]Summary, error) {
+func (s *Service) listSummaries() ([]Summary, error) {
 	return s.QuerySummaries(DefaultSummaryQuery())
 }
 

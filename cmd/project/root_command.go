@@ -2,18 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io"
-	"os"
 
 	appconfig "github.com/JackDrogon/project/internal/app/config"
-	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
-)
-
-var (
-	exitFunc               = os.Exit
-	stderrWriter io.Writer = os.Stderr
 )
 
 type rootCommandFlags struct {
@@ -22,15 +13,20 @@ type rootCommandFlags struct {
 }
 
 // newRootCmd builds the command tree with all subcommands registered explicitly.
-func newRootCmd(creator *appcreate.Creator) *cobra.Command {
-	deps := commandDependencies{creator: creator}
+//
+// Errors and usage are silenced on purpose: cobra prints the error to stderr
+// but the usage block to the *out* stream, so main renders both on stderr
+// exactly once instead.
+func newRootCmd(deps dependencies) *cobra.Command {
 	flags := rootCommandFlags{}
 	rootCmd := &cobra.Command{
-		Use:   "project",
-		Short: "project is a tool to create new project",
+		Use:           "project",
+		Short:         "project is a tool to create new project",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			loadCtx := appconfig.Context{ExplicitPath: flags.configPath}
-			service := newConfigService()
+			service := deps.newConfigService()
 			active, err := service.LoadActiveConfig(loadCtx)
 			if err != nil {
 				if !isConfigCommand(cmd) {
@@ -50,7 +46,7 @@ func newRootCmd(creator *appcreate.Creator) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.configPath, "config", "", "Path to CLI config file")
 	rootCmd.PersistentFlags().BoolVar(&flags.explainConfig, "explain-config", false, "Explain resolved config sources on stderr")
 
-	addRegisteredCommands(rootCmd, deps)
+	rootCmd.AddCommand(subcommands(deps)...)
 
 	return rootCmd
 }
@@ -68,15 +64,5 @@ func applyContextToCommandTree(cmd *cobra.Command, ctx context.Context) {
 	cmd.SetContext(ctx)
 	for _, subCmd := range cmd.Commands() {
 		applyContextToCommandTree(subCmd, ctx)
-	}
-}
-
-// Execute runs the root command.
-// If an error occurs during execution, it prints the error to stderr
-// and exits the program with status code 1.
-func Execute(creator *appcreate.Creator) {
-	if err := newRootCmd(creator).Execute(); err != nil {
-		_, _ = fmt.Fprintln(stderrWriter, err)
-		exitFunc(1)
 	}
 }

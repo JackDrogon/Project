@@ -69,3 +69,26 @@ func TestDependenciesRequireNewService(t *testing.T) {
 
 	_ = NewCommand(Dependencies{})
 }
+
+func TestCommand_RejectsPositionalArgs(t *testing.T) {
+	deps := Dependencies{NewService: func() *appversion.Service {
+		return appversion.NewService(stubVersionProvider{info: "test-tag"})
+	}}
+
+	var buf bytes.Buffer
+	cmd := NewCommand(deps)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"extra"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, want unknown-argument rejection")
+	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("Execute() error = %v, want unknown command error", err)
+	}
+	if strings.Contains(buf.String(), "test-tag") {
+		t.Fatalf("output = %q, want no version output for rejected args", buf.String())
+	}
+}

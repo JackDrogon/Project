@@ -10,7 +10,6 @@ import (
 
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
-	appversion "github.com/JackDrogon/project/internal/app/version"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +21,7 @@ func TestNewRootCmd(t *testing.T) {
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
 
 	// Basic smoke test: verify the command tree can be built without panicking
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	if cmd.Use != "project" {
 		t.Errorf("root command Use = %q, want %q", cmd.Use, "project")
 	}
@@ -44,7 +43,7 @@ func TestNewRootCmd(t *testing.T) {
 
 func TestNewRootCmd_RegistersPersistentConfigFlags(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 
 	configFlag := cmd.PersistentFlags().Lookup("config")
 	if configFlag == nil {
@@ -82,8 +81,9 @@ func TestNewRootCmd_RegistersPersistentConfigFlags(t *testing.T) {
 }
 
 func TestNewRootCmd_LoadsActiveConfigIntoCommandContext(t *testing.T) {
-	oldConfigService := newConfigService
-	newConfigService = func() *appconfig.Service {
+	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
+	deps := newTestDependencies(creator)
+	deps.newConfigService = func() *appconfig.Service {
 		return appconfig.NewServiceWithDeps(appconfig.Dependencies{
 			UserConfigDir: func() (string, error) { return "/tmp/config-home", nil },
 			Join: func(elem ...string) string {
@@ -94,12 +94,8 @@ func TestNewRootCmd_LoadsActiveConfigIntoCommandContext(t *testing.T) {
 			},
 		})
 	}
-	t.Cleanup(func() {
-		newConfigService = oldConfigService
-	})
 
-	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(deps)
 
 	var versionCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -133,7 +129,7 @@ func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
 
 	t.Run("config path prints explicit missing path", func(t *testing.T) {
 		var out bytes.Buffer
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newTestDependencies(creator))
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		missingPath := filepath.Join(t.TempDir(), "missing-config.toml")
@@ -149,7 +145,7 @@ func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
 
 	t.Run("config init creates explicit missing path", func(t *testing.T) {
 		var out bytes.Buffer
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newTestDependencies(creator))
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		configPath := filepath.Join(t.TempDir(), "nested", "config.toml")
@@ -173,7 +169,7 @@ func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
 
 	t.Run("config summary shows explicit missing path", func(t *testing.T) {
 		var out bytes.Buffer
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newTestDependencies(creator))
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		missingPath := filepath.Join(t.TempDir(), "missing-config.toml")
@@ -189,7 +185,7 @@ func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
 
 	t.Run("config validate reports malformed explicit config", func(t *testing.T) {
 		var out bytes.Buffer
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newTestDependencies(creator))
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
 		configPath := filepath.Join(t.TempDir(), "broken.toml")
@@ -210,7 +206,7 @@ func TestConfigSubcommands_AllowMissingExplicitConfigPath(t *testing.T) {
 
 func TestRootHelp_ListsPersistentConfigFlags(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -238,13 +234,6 @@ func TestRootHelp_ListsPersistentConfigFlags(t *testing.T) {
 }
 
 func TestVersionCmd_DiscoveredUserConfigAppliesVerboseDefault(t *testing.T) {
-	useVersionServiceFactoryWith(t, func() *appversion.Service {
-		return appversion.NewService(stubVersionProvider{
-			info:    "short-version",
-			verbose: "Tag:      short-version\nDirty:    false",
-		})
-	})
-
 	tempConfigHome := t.TempDir()
 	configDir := filepath.Join(tempConfigHome, "project")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -255,18 +244,12 @@ func TestVersionCmd_DiscoveredUserConfigAppliesVerboseDefault(t *testing.T) {
 		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
 	}
 
-	oldConfigService := newConfigService
-	newConfigService = func() *appconfig.Service {
-		return appconfig.NewServiceWithDeps(appconfig.Dependencies{
-			UserConfigDir: func() (string, error) { return tempConfigHome, nil },
-		})
-	}
-	t.Cleanup(func() {
-		newConfigService = oldConfigService
-	})
-
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	deps := newTestDependencies(creator)
+	deps.newVersionService = stubVersionServiceFactory()
+	deps.newConfigService = userConfigServiceFactory(tempConfigHome)
+
+	cmd := newRootCmd(deps)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stdout)
@@ -281,13 +264,6 @@ func TestVersionCmd_DiscoveredUserConfigAppliesVerboseDefault(t *testing.T) {
 }
 
 func TestVersionCmd_ExplicitConfigSwitchesProfile(t *testing.T) {
-	useVersionServiceFactoryWith(t, func() *appversion.Service {
-		return appversion.NewService(stubVersionProvider{
-			info:    "short-version",
-			verbose: "Tag:      short-version\nDirty:    false",
-		})
-	})
-
 	tempConfigHome := t.TempDir()
 	configDir := filepath.Join(tempConfigHome, "project")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -302,19 +278,15 @@ func TestVersionCmd_ExplicitConfigSwitchesProfile(t *testing.T) {
 		t.Fatalf("WriteFile(%q) error = %v", explicitConfigPath, err)
 	}
 
-	oldConfigService := newConfigService
-	newConfigService = func() *appconfig.Service {
-		return appconfig.NewServiceWithDeps(appconfig.Dependencies{
-			UserConfigDir: func() (string, error) { return tempConfigHome, nil },
-		})
+	newProfileDependencies := func() dependencies {
+		deps := newTestDependencies(appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}))
+		deps.newVersionService = stubVersionServiceFactory()
+		deps.newConfigService = userConfigServiceFactory(tempConfigHome)
+		return deps
 	}
-	t.Cleanup(func() {
-		newConfigService = oldConfigService
-	})
 
 	t.Run("discovered user config stays active by default", func(t *testing.T) {
-		creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newProfileDependencies())
 		var stdout bytes.Buffer
 		cmd.SetOut(&stdout)
 		cmd.SetErr(&stdout)
@@ -332,8 +304,7 @@ func TestVersionCmd_ExplicitConfigSwitchesProfile(t *testing.T) {
 	})
 
 	t.Run("explicit config path overrides discovered profile", func(t *testing.T) {
-		creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-		cmd := newRootCmd(creator)
+		cmd := newRootCmd(newProfileDependencies())
 		var stdout bytes.Buffer
 		cmd.SetOut(&stdout)
 		cmd.SetErr(&stdout)
@@ -349,8 +320,6 @@ func TestVersionCmd_ExplicitConfigSwitchesProfile(t *testing.T) {
 }
 
 func TestInspectCmd_DiscoveredUserConfigProvidesLangFallback(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
-
 	tempConfigHome := t.TempDir()
 	configDir := filepath.Join(tempConfigHome, "project")
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
@@ -361,18 +330,12 @@ func TestInspectCmd_DiscoveredUserConfigProvidesLangFallback(t *testing.T) {
 		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
 	}
 
-	oldConfigService := newConfigService
-	newConfigService = func() *appconfig.Service {
-		return appconfig.NewServiceWithDeps(appconfig.Dependencies{
-			UserConfigDir: func() (string, error) { return tempConfigHome, nil },
-		})
-	}
-	t.Cleanup(func() {
-		newConfigService = oldConfigService
-	})
-
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	deps := newTestDependencies(creator)
+	deps.newCatalogService = newCommandTestCatalogService
+	deps.newConfigService = userConfigServiceFactory(tempConfigHome)
+
+	cmd := newRootCmd(deps)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stdout)
@@ -393,7 +356,7 @@ func TestCompletionCmd_ExplicitConfigProvidesShellFallback(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stdout)

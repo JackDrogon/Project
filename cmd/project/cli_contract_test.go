@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -53,30 +52,6 @@ func normalizeVersionContractOutput(tag, got string) string {
 	return normalized + "\n"
 }
 
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-
-	oldStderr := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe() error = %v", err)
-	}
-	os.Stderr = w
-	t.Cleanup(func() {
-		os.Stderr = oldStderr
-	})
-
-	fn()
-	if err := w.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	data, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ReadAll() error = %v", err)
-	}
-	return string(data)
-}
-
 func newCLIContractDryRunCreator(out *bytes.Buffer) *appcreate.Creator {
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = false\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n\n[[inputs]]\nkey = \"year\"\ntemplate_var = \"Year\"\nrequired = false\n")},
@@ -104,7 +79,8 @@ func renderCLICommandTree(cmd *cobra.Command) string {
 
 func TestCLIContract_CommandTree(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	assertCLIContractGolden(t, "command-tree.txt", renderCLICommandTree(newRootCmd(creator)))
+	rootCmd := newRootCmd(newTestDependencies(creator))
+	assertCLIContractGolden(t, "command-tree.txt", renderCLICommandTree(rootCmd))
 }
 
 func TestCLIContract_NewDryRunText(t *testing.T) {
@@ -143,9 +119,8 @@ func TestCLIContract_InitDryRunText(t *testing.T) {
 }
 
 func TestCLIContract_ListText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 
@@ -157,9 +132,8 @@ func TestCLIContract_ListText(t *testing.T) {
 }
 
 func TestCLIContract_ListDetailText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail"})
@@ -172,9 +146,8 @@ func TestCLIContract_ListDetailText(t *testing.T) {
 }
 
 func TestCLIContract_ListDetailCompactText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail", "--compact"})
@@ -187,9 +160,8 @@ func TestCLIContract_ListDetailCompactText(t *testing.T) {
 }
 
 func TestCLIContract_ListDetailTableText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail", "--table"})
@@ -202,9 +174,8 @@ func TestCLIContract_ListDetailTableText(t *testing.T) {
 }
 
 func TestCLIContract_ListDetailGovernanceSortText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail", "--sort", "governance"})
@@ -217,9 +188,8 @@ func TestCLIContract_ListDetailGovernanceSortText(t *testing.T) {
 }
 
 func TestCLIContract_ListDetailRichFilterText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyList)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyList)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"--detail", "--min-governance", "rich"})
@@ -232,9 +202,8 @@ func TestCLIContract_ListDetailRichFilterText(t *testing.T) {
 }
 
 func TestCLIContract_InspectText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyInspect)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"go"})
@@ -247,9 +216,8 @@ func TestCLIContract_InspectText(t *testing.T) {
 }
 
 func TestCLIContract_InspectCompactText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyInspect)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"go", "--compact"})
@@ -262,9 +230,8 @@ func TestCLIContract_InspectCompactText(t *testing.T) {
 }
 
 func TestCLIContract_InspectRenderText(t *testing.T) {
-	useCatalogServiceFactory(t, newCommandTestCatalogService)
 	var buf bytes.Buffer
-	cmd := requireSubcommand(t, appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{}), commandKeyInspect)
+	cmd := requireSubcommandWithDeps(t, catalogTestDependencies(), commandKeyInspect)
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 	cmd.SetArgs([]string{"go", "--mode", "render"})
@@ -277,7 +244,7 @@ func TestCLIContract_InspectRenderText(t *testing.T) {
 }
 
 func TestCLIContract_VersionDefault(t *testing.T) {
-	useVersionServiceFactoryWith(t, func() *appversion.Service {
+	deps := versionTestDependencies(func() *appversion.Service {
 		return appversion.NewService(stubVersionProvider{
 			info:    "cli-contract-tag:abcdef0",
 			verbose: "Tag:      cli-contract-tag\nRevision: abcdef0\nDirty:    false",
@@ -285,7 +252,7 @@ func TestCLIContract_VersionDefault(t *testing.T) {
 	})
 
 	var buf bytes.Buffer
-	cmd := buildVersionCommand(commandDependencies{})
+	cmd := requireSubcommandWithDeps(t, deps, commandKeyVersion)
 	cmd.SetOut(&buf)
 
 	if err := cmd.Execute(); err != nil {
@@ -295,38 +262,17 @@ func TestCLIContract_VersionDefault(t *testing.T) {
 	assertCLIContractGolden(t, "version-default.txt", normalizeVersionContractOutput("cli-contract-tag", buf.String()))
 }
 
-func TestCLIContract_ExecuteExitPath(t *testing.T) {
-	oldArgs := os.Args
-	oldExit := exitFunc
-	oldStderr := stderrWriter
-	os.Args = []string{"project", "new"}
-	exitFunc = func(code int) {
-		panic(exitPanic{code: code})
-	}
-	t.Cleanup(func() {
-		os.Args = oldArgs
-		exitFunc = oldExit
-		stderrWriter = oldStderr
-	})
-
+func TestCLIContract_RunErrorOutput(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	var exitCode int
-	stderr := captureStderr(t, func() {
-		stderrWriter = os.Stderr
-		defer func() {
-			r := recover()
-			panicValue, ok := r.(exitPanic)
-			if !ok {
-				t.Fatalf("recover() = %#v, want exit panic", r)
-			}
-			exitCode = panicValue.code
-		}()
 
-		Execute(creator)
-	})
+	var stdout, stderr bytes.Buffer
+	exitCode := run(newTestDependencies(creator), []string{"new"}, &stdout, &stderr)
 
 	if exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)
 	}
-	assertCLIContractGolden(t, "execute-error.txt", stderr)
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want error and usage to stay on stderr", stdout.String())
+	}
+	assertCLIContractGolden(t, "execute-error.txt", stderr.String())
 }

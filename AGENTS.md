@@ -5,7 +5,7 @@ Go CLI scaffolding tool (`project`) built with Cobra. Module `github.com/JackDro
 ## STRUCTURE
 
 ```
-cmd/project/          # main, root command, ordered command registry, service factories, contract tests
+cmd/project/          # main, root command, static subcommand list, service factories, contract tests
 internal/cli/         # one package per command group: catalog, completion, config, scaffold, version
 internal/app/         # application services: catalog, config, create, version
 internal/scaffold/    # dependency-free domain: name validation, git modes, template vars
@@ -26,7 +26,7 @@ Layer details: [cmd/project/AGENTS.md](cmd/project/AGENTS.md), [internal/cli/AGE
 | Add/edit embedded templates | `internal/adapters/templatesrc/` (then `just generate`) |
 | Version output | `internal/adapters/buildinfo` + `internal/app/version` |
 | `list`/`inspect` output format | `internal/presenters` |
-| Command registration order | `cmd/project/command_registrations.go` |
+| Add/remove a top-level command | `cmd/project/commands.go` (+ `cmd/project/dependencies.go` for a new service) |
 
 ## CONVENTIONS (project-specific)
 
@@ -34,7 +34,7 @@ Layer details: [cmd/project/AGENTS.md](cmd/project/AGENTS.md), [internal/cli/AGE
 - Formatting is `gofumpt` (stricter than `go fmt`); run `just fmt` after Go edits.
 - `cmd/project/cli_contract_test.go` pins user-facing CLI strings verbatim - update it deliberately when output changes.
 - `--toml` is the only machine-readable output flag; there are no `--json`/`--yaml` flags.
-- Tests replace package-level `var` funcs (service factories, `exitFunc`) instead of using mocking frameworks; restore them via `t.Cleanup`.
+- Collaborators are injected, not global: tests build a `dependencies` value and override fields instead of using mocking frameworks.
 
 ## COMMANDS
 

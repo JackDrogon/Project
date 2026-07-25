@@ -128,7 +128,7 @@ func TestInitCmd_RejectsConfigAndReplayTogether(t *testing.T) {
 	})
 
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	cmd.SetArgs([]string{"--config", configPath, "init", "--replay", replayPath})
 
 	err := cmd.Execute()
@@ -153,7 +153,7 @@ func TestInitCmd_UsesConfigLangAndTargetDirWhenOmitted(t *testing.T) {
 	}
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	cmd.SetArgs([]string{"--config", configPath, "init"})
 
 	if err := cmd.Execute(); err != nil {
@@ -188,7 +188,7 @@ func TestInitCmd_ExplainConfigWritesOnlyToStderr(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	creator := appcreate.NewCreator(fsys, &stdout)
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	cmd.SetErr(&stderr)
 	cmd.SetArgs([]string{"--config", configPath, "--explain-config", "init", "--dry-run"})
 
@@ -336,7 +336,7 @@ func TestInitCmd_DryRunUsesResolvedConfigValues(t *testing.T) {
 
 	var out bytes.Buffer
 	creator := appcreate.NewCreator(fsys, &out)
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	cmd.SetArgs([]string{"--config", configPath, "init", "--dry-run"})
 
 	if err := cmd.Execute(); err != nil {
@@ -498,7 +498,7 @@ func TestInitCmd_WriteReplayIgnoresConfigMetadata(t *testing.T) {
 	replayPath := filepath.Join(t.TempDir(), "replay.toml")
 
 	creator := appcreate.NewCreator(fsys, &bytes.Buffer{})
-	cmd := newRootCmd(creator)
+	cmd := newRootCmd(newTestDependencies(creator))
 	cmd.SetArgs([]string{"--config", configPath, "init", "--write-replay", replayPath})
 
 	if err := cmd.Execute(); err != nil {

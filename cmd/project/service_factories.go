@@ -10,23 +10,23 @@ import (
 	appversion "github.com/JackDrogon/project/internal/app/version"
 )
 
-var newCatalogService = func() *appcatalog.Service {
+func newCatalogService() *appcatalog.Service {
 	source := templatesrc.New()
 	return appcatalog.NewService(source.FS(), nil)
 }
 
-var newCreateService = func() *appcreate.Service {
+func newCreateService() *appcreate.Service {
 	return appcreate.NewService()
 }
 
-var newConfigService = func() *appconfig.Service {
+func newConfigService() *appconfig.Service {
 	return appconfig.NewService()
 }
 
-var newVersionService = func() *appversion.Service {
+func newVersionService() *appversion.Service {
 	return appversion.NewService(buildinfo.New())
 }
 
-var newCompletionService = func() *appcompletion.Service {
+func newCompletionService() *appcompletion.Service {
 	return appcompletion.NewService()
 }

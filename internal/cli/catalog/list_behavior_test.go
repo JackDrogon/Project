@@ -218,3 +218,18 @@ func TestListCmd_PropagatesCatalogErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestListCmdRejectsPositionalArgs(t *testing.T) {
+	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"go"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Execute() error = nil, want unknown-argument rejection")
+	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("Execute() error = %v, want unknown command error", err)
+	}
+}

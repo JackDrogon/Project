@@ -8,17 +8,11 @@ import (
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
 	appconfig "github.com/JackDrogon/project/internal/app/config"
-	appversion "github.com/JackDrogon/project/internal/app/version"
 	"github.com/spf13/cobra"
 )
 
 func TestVersionCmd_ConfigVerboseDefaultAppliesAndFlagWins(t *testing.T) {
-	useVersionServiceFactoryWith(t, func() *appversion.Service {
-		return appversion.NewService(stubVersionProvider{
-			info:    "short-version",
-			verbose: "Tag:      short-version\nDirty:    false",
-		})
-	})
+	deps := versionTestDependencies(stubVersionServiceFactory())
 
 	verbose := true
 	active := appconfig.ActiveConfig{
@@ -33,7 +27,7 @@ func TestVersionCmd_ConfigVerboseDefaultAppliesAndFlagWins(t *testing.T) {
 
 	t.Run("config default applies", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(buildVersionCommand(commandDependencies{}), active)
+		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, deps, commandKeyVersion), active)
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"version"})
@@ -48,7 +42,7 @@ func TestVersionCmd_ConfigVerboseDefaultAppliesAndFlagWins(t *testing.T) {
 
 	t.Run("explicit flag wins", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(buildVersionCommand(commandDependencies{}), active)
+		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, deps, commandKeyVersion), active)
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"version", "--verbose=false"})
@@ -78,7 +72,7 @@ func TestCompletionCmd_ConfigShellDefaultAppliesAndArgWins(t *testing.T) {
 
 	t.Run("config shell default applies", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(buildCompletionCommand(commandDependencies{}), active)
+		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"completion"})
@@ -94,7 +88,7 @@ func TestCompletionCmd_ConfigShellDefaultAppliesAndArgWins(t *testing.T) {
 
 	t.Run("explicit arg wins", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(buildCompletionCommand(commandDependencies{}), active)
+		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"completion", "bash"})
@@ -122,7 +116,7 @@ func TestCompletionCmd_InvalidConfigShellFailsBeforeGeneration(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithConfig(buildCompletionCommand(commandDependencies{}), active)
+	root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"completion"})

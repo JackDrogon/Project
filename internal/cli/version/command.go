@@ -15,6 +15,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "show version",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
 			if appversion.ResolveVerbose(verbose, cmd.Flags().Changed("verbose"), active) {

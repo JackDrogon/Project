@@ -17,5 +17,3 @@ Flags:
 Global Flags:
       --config string    Path to CLI config file
       --explain-config   Explain resolved config sources on stderr
-
-accepts 1 arg(s), received 0

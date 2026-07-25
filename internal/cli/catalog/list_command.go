@@ -28,6 +28,7 @@ func (c *listCommand) buildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "list all supported languages",
+		Args:  cobra.NoArgs,
 		RunE:  c.run,
 	}
 

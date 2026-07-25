@@ -1,18 +1,24 @@
 package scaffold
 
-import appcreate "github.com/JackDrogon/project/internal/app/create"
+import (
+	"io"
+
+	appcreate "github.com/JackDrogon/project/internal/app/create"
+)
 
 type Dependencies struct {
-	Creator    *appcreate.Creator
+	// NewCreator builds the creator bound to the writer the command owns, so
+	// scaffold progress output follows the command's out stream.
+	NewCreator func(out io.Writer) *appcreate.Creator
 	NewService func() *appcreate.Service
 }
 
-func (d Dependencies) creator() *appcreate.Creator {
-	if d.Creator == nil {
-		panic("scaffold dependencies require Creator")
+func (d Dependencies) newCreator(out io.Writer) *appcreate.Creator {
+	if d.NewCreator == nil {
+		panic("scaffold dependencies require NewCreator")
 	}
 
-	return d.Creator
+	return d.NewCreator(out)
 }
 
 func (d Dependencies) newService() *appcreate.Service {

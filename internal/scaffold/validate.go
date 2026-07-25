@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,7 +16,7 @@ const maxProjectNameLen = 255
 
 func ValidateProjectName(name string) error {
 	if name == "" {
-		return fmt.Errorf("project name must not be empty")
+		return errors.New("project name must not be empty")
 	}
 	if len(name) > maxProjectNameLen {
 		return fmt.Errorf("project name must be at most %d characters, got %d", maxProjectNameLen, len(name))

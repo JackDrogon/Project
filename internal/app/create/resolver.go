@@ -2,7 +2,6 @@ package create
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"strings"
 
@@ -197,7 +196,7 @@ func resolveLang(flags Flags, changed Changed, runtime Runtime) (string, ValueOr
 	if value := activeConfigLang(runtime); value != "" {
 		return value, activeConfigValueOrigin(runtime), nil
 	}
-	return "", ValueOriginDefault, fmt.Errorf("required flag(s) \"lang\" not set")
+	return "", ValueOriginDefault, errors.New("required flag(s) \"lang\" not set")
 }
 
 func resolveSignoff(flags Flags, changed Changed, runtime Runtime) (bool, ValueOrigin) {

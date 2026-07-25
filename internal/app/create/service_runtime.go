@@ -1,6 +1,7 @@
 package create
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -57,7 +58,7 @@ func (s *Service) RuntimeState(flags Flags, expected Command) (Runtime, error) {
 	}
 
 	if flags.WriteReplayPath != "" && flags.DryRun {
-		return Runtime{}, fmt.Errorf("--write-replay cannot be combined with --dry-run")
+		return Runtime{}, errors.New("--write-replay cannot be combined with --dry-run")
 	}
 
 	if flags.ReplayPath == "" {

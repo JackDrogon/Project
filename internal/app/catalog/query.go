@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -37,7 +38,7 @@ func DefaultInspectionQuery(lang string) InspectionQuery {
 
 func (q InspectionQuery) Validate() error {
 	if q.Lang == "" {
-		return fmt.Errorf("inspection query requires a language")
+		return errors.New("inspection query requires a language")
 	}
 	_, err := ParseInspectMode(string(q.Mode))
 	return err

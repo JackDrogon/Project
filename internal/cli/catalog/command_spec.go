@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"errors"
 	"fmt"
 
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
@@ -40,13 +41,13 @@ type inspectCommandSpecBuilder struct {
 func (b listCommandSpecBuilder) Build() (listCommandSpec, error) {
 	if !b.detail {
 		if b.table {
-			return listCommandSpec{}, fmt.Errorf("--table requires --detail; plain list output only supports language names")
+			return listCommandSpec{}, errors.New("--table requires --detail; plain list output only supports language names")
 		}
 		if b.sortBy != defaultListSortBy {
 			return listCommandSpec{}, fmt.Errorf("--sort=%s requires --detail; plain list output only supports name order", b.sortBy)
 		}
 		if b.minGovernance != "" || len(b.requiredAssets) > 0 {
-			return listCommandSpec{}, fmt.Errorf("repo-level filters require --detail; plain list output only supports name order")
+			return listCommandSpec{}, errors.New("repo-level filters require --detail; plain list output only supports name order")
 		}
 		return listCommandSpec{detail: false, outputSpec: defaultCatalogOutputSpec(b.asTOML, b.compact)}, nil
 	}

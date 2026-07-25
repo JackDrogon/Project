@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -59,7 +60,7 @@ func textInspectionWriter(spec InspectionViewSpec) (func(io.Writer, catalog.Insp
 	case TextLayoutCompact:
 		return writeCompactTextInspection, nil
 	case TextLayoutTable:
-		return nil, fmt.Errorf("table output is only supported for summary text views")
+		return nil, errors.New("table output is only supported for summary text views")
 	default:
 		return nil, fmt.Errorf("unsupported inspection text layout: %s", spec.TextLayout)
 	}

@@ -1,7 +1,7 @@
 package catalog
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/JackDrogon/project/internal/presenters"
 )
@@ -25,10 +25,10 @@ func defaultCatalogOutputSpec(asTOML, compact bool) presenters.OutputSpec {
 
 func listTableOutputSpec(asTOML, compact bool) (presenters.OutputSpec, error) {
 	if asTOML {
-		return presenters.OutputSpec{}, fmt.Errorf("table output is only supported for text format")
+		return presenters.OutputSpec{}, errors.New("table output is only supported for text format")
 	}
 	if compact {
-		return presenters.OutputSpec{}, fmt.Errorf("--table cannot be combined with --compact")
+		return presenters.OutputSpec{}, errors.New("--table cannot be combined with --compact")
 	}
 	return presenters.OutputSpec{
 		Format:     outputFormatText,

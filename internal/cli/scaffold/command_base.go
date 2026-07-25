@@ -1,7 +1,7 @@
 package scaffold
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
 )
@@ -42,5 +42,5 @@ func validateConfigReplayConflict(cmd *cobra.Command) error {
 		return nil
 	}
 
-	return fmt.Errorf("--config and --replay cannot be combined")
+	return errors.New("--config and --replay cannot be combined")
 }

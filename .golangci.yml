@@ -1,0 +1,116 @@
+version: "2"
+
+# The default linter set (errcheck, govet, ineffassign, staticcheck, unused)
+# catches bugs but not idiom drift. The linters below are the ones that keep
+# the Go conventions this codebase already follows from eroding: exported
+# surface, context placement, parameter counts, and stdlib modernization.
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - errorlint
+    - gocritic
+    - goconst
+    - gosec
+    - misspell
+    - nakedret
+    - nilerr
+    - perfsprint
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+
+  settings:
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        # Conflicts with the explicit if/else chains used by the resolvers,
+        # where each branch documents a distinct precedence rule.
+        - ifElseChain
+        # The request/settings structs are passed by value on purpose: it is
+        # what keeps the resolvers pure functions and makes them testable
+        # without aliasing surprises. The largest is ScaffoldSpec at 392 bytes
+        # (Flags 176, Runtime 208, Options 96), and each is copied a handful of
+        # times per process run because the CLI resolves settings exactly once.
+        # Taking pointers to satisfy an 80-byte heuristic would trade nil-safety
+        # for an unmeasurable win on a cold path.
+        - hugeParam
+        - rangeValCopy
+
+    gosec:
+      excludes:
+        # Template destination paths are user-supplied by design: this is a
+        # scaffolding tool whose entire job is writing to a path the caller named.
+        - G304
+        - G306
+
+    nakedret:
+      max-func-lines: 5
+
+    perfsprint:
+      strconcat: false
+
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: unexported-return
+        - name: error-strings
+        - name: error-naming
+        - name: errorf
+        - name: indent-error-flow
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-naming
+        - name: confusing-naming
+        - name: bare-return
+        - name: argument-limit
+          arguments: [6]
+        - name: function-result-limit
+          arguments: [4]
+
+    unparam:
+      check-exported: false
+
+  exclusions:
+    generated: lax
+    rules:
+      # Test helper processes legitimately call os.Exit, and test tables
+      # legitimately repeat literals that goconst would rather see extracted.
+      - path: _test\.go
+        linters:
+          - goconst
+          - gosec
+          - unparam
+      # Generated permission metadata is a machine-written literal table.
+      - path: permissions_generated\.go
+        linters:
+          - revive
+          - gocritic
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

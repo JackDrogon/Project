@@ -74,7 +74,7 @@ func (c *Creator) writeCreateStart(opts Options) {
 }
 
 func (c *Creator) previewCreate(opts Options) error {
-	if err := c.preflightDestDir(opts); err != nil {
+	if err := c.checkDestDir(opts); err != nil {
 		return err
 	}
 

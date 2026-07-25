@@ -22,7 +22,7 @@ func (c *newCommand) buildCommand() *cobra.Command {
 	}
 
 	c.bindSharedFlags(cmd)
-	cmd.Flags().BoolVar(&c.force, "force", false, "Remove existing project directory before scaffolding")
+	cmd.Flags().BoolVar(&c.force, "force", false, "Allow scaffolding into an existing empty directory (never deletes)")
 	return cmd
 }
 

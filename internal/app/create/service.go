@@ -173,7 +173,7 @@ func (s *Service) executeDryRunSpec(creator *Creator, spec ScaffoldSpec) error {
 
 	creator.writeCreateStart(spec.Options)
 
-	if err := creator.preflightDestDir(spec.Options); err != nil {
+	if err := creator.checkDestDir(spec.Options); err != nil {
 		return err
 	}
 

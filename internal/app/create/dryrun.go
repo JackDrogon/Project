@@ -12,7 +12,7 @@ import (
 // BuildDryRunPlan assumes opts already passed validateCreateOptions; both
 // production callers (Creator.Create and Service.executeDryRunSpec) validate first.
 func (c *Creator) BuildDryRunPlan(opts Options) (domain.DryRunPlan, error) {
-	if err := c.preflightDestDir(opts); err != nil {
+	if err := c.checkDestDir(opts); err != nil {
 		return domain.DryRunPlan{}, err
 	}
 

@@ -240,7 +240,7 @@ Like `new`, `init` supports `--module`, `--git`, `--dry-run`, `--replay`, `--wri
 | `--explain-config` | | Explain resolved config sources on stderr |
 | `--lang` | `-l` | Programming language (required unless provided via config or `--replay`) |
 | `--module` | `-m` | Module path, e.g., `github.com/user/project` (defaults to project name, or to the positional Go module path when you pass one directly) |
-| `--force` | | `new` only: remove and recreate an existing project directory |
+| `--force` | | `new` only: scaffold into an existing **empty** directory; never deletes files |
 | `--git` | | Git workflow: `none`, `init-only`, `init+commit` |
 | `--signoff` | | Add `Signed-off-by` trailer to the initial commit |
 | `--dry-run` | `-n` | Preview files without creating them |
@@ -254,6 +254,9 @@ Notes:
 - `--config` and `--replay` are mutually exclusive and cannot be combined
 - `--write-replay` cannot be combined with `--dry-run`
 - `--signoff` is only valid when the git workflow creates an initial commit
+- Scaffolding never removes existing files. A destination that already exists and is
+  not empty is always rejected — including when `--force` comes from a replay file —
+  so clearing it stays an explicit action you take yourself
 - `--no-git` is deprecated; prefer `--git none`
 - `--explain-config` output is written to stderr only
 

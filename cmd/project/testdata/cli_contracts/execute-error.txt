@@ -4,7 +4,7 @@ Usage:
 
 Flags:
   -n, --dry-run               Preview files without creating them
-      --force                 Remove existing project directory before scaffolding
+      --force                 Allow scaffolding into an existing empty directory (never deletes)
       --git string            Git workflow: none, init-only, init+commit (default: init+commit)
   -h, --help                  help for new
   -l, --lang string           Programming language for the project

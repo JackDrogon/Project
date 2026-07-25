@@ -51,3 +51,4 @@ go test ./internal/app/create -run '^TestServiceBuildNewOptions_UsesReplayWhenAr
 - Any template file add/remove/chmod under `internal/adapters/templatesrc/` requires `just generate`; CI fails if `permissions_generated.go` is stale.
 - CI (`.github/workflows/ci.yml`): `test`, `lint`, `spellcheck` jobs; Go version is read from `go.mod`.
 - Run the narrowest relevant tests first, then `just test`; prefer `just pre-commit` before finishing risky changes.
+- Scaffolding never deletes files: a non-empty destination is always rejected, and `--force` only permits an existing *empty* directory.

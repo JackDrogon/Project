@@ -1,9 +1,11 @@
 package catalog
 
 import (
+	"cmp"
+	"errors"
 	"fmt"
 	"slices"
-	"sort"
+	"strings"
 
 	appconfig "github.com/JackDrogon/project/internal/app/config"
 )
@@ -37,7 +39,7 @@ func DefaultInspectionQuery(lang string) InspectionQuery {
 
 func (q InspectionQuery) Validate() error {
 	if q.Lang == "" {
-		return fmt.Errorf("inspection query requires a language")
+		return errors.New("inspection query requires a language")
 	}
 	_, err := ParseInspectMode(string(q.Mode))
 	return err
@@ -73,10 +75,10 @@ func (q SummaryQuery) Apply(summaries []Summary) ([]Summary, error) {
 }
 
 func (q SummaryQuery) filter(summaries []Summary) []Summary {
-	minRank := GovernanceRank(q.MinGovernance)
+	minRank := governanceRank(q.MinGovernance)
 	filtered := make([]Summary, 0, len(summaries))
 	for _, summary := range summaries {
-		if GovernanceRank(summary.GovernanceTier) < minRank {
+		if governanceRank(summary.GovernanceTier) < minRank {
 			continue
 		}
 		if !summaryHasAllRepoAssets(summary, q.RequiredAssets) {
@@ -88,34 +90,25 @@ func (q SummaryQuery) filter(summaries []Summary) []Summary {
 }
 
 func (q SummaryQuery) sort(summaries []Summary) {
+	// Governance and repo-file counts sort descending, names ascending. cmp.Or
+	// returns the first non-zero comparison, so each case reads as its
+	// tie-breaking chain.
+	byName := func(a, b Summary) int { return strings.Compare(a.Name, b.Name) }
+	byGovernance := func(a, b Summary) int {
+		return cmp.Compare(governanceRank(b.GovernanceTier), governanceRank(a.GovernanceTier))
+	}
+	byRepoFiles := func(a, b Summary) int { return cmp.Compare(b.RepoFileCount, a.RepoFileCount) }
+
 	switch q.normalizedSort() {
 	case SummarySortName:
-		sort.Slice(summaries, func(i, j int) bool {
-			return summaries[i].Name < summaries[j].Name
-		})
+		slices.SortFunc(summaries, byName)
 	case SummarySortGovernance:
-		sort.Slice(summaries, func(i, j int) bool {
-			left := GovernanceRank(summaries[i].GovernanceTier)
-			right := GovernanceRank(summaries[j].GovernanceTier)
-			if left != right {
-				return left > right
-			}
-			if summaries[i].RepoFileCount != summaries[j].RepoFileCount {
-				return summaries[i].RepoFileCount > summaries[j].RepoFileCount
-			}
-			return summaries[i].Name < summaries[j].Name
+		slices.SortFunc(summaries, func(a, b Summary) int {
+			return cmp.Or(byGovernance(a, b), byRepoFiles(a, b), byName(a, b))
 		})
 	case SummarySortRepoFiles:
-		sort.Slice(summaries, func(i, j int) bool {
-			if summaries[i].RepoFileCount != summaries[j].RepoFileCount {
-				return summaries[i].RepoFileCount > summaries[j].RepoFileCount
-			}
-			left := GovernanceRank(summaries[i].GovernanceTier)
-			right := GovernanceRank(summaries[j].GovernanceTier)
-			if left != right {
-				return left > right
-			}
-			return summaries[i].Name < summaries[j].Name
+		slices.SortFunc(summaries, func(a, b Summary) int {
+			return cmp.Or(byRepoFiles(a, b), byGovernance(a, b), byName(a, b))
 		})
 	}
 }
@@ -133,7 +126,7 @@ func (q SummaryQuery) validateGovernance() error {
 	if q.MinGovernance == "" {
 		return nil
 	}
-	if GovernanceRank(q.MinGovernance) == 0 {
+	if governanceRank(q.MinGovernance) == 0 {
 		return fmt.Errorf("invalid --min-governance %q: must be one of minimal, basic, standard, rich", q.MinGovernance)
 	}
 	return nil
@@ -141,7 +134,7 @@ func (q SummaryQuery) validateGovernance() error {
 
 func (q SummaryQuery) validateAssets() error {
 	for _, asset := range q.RequiredAssets {
-		if !IsKnownRepoAsset(asset) {
+		if !isKnownRepoAsset(asset) {
 			return fmt.Errorf("invalid --has-repo-asset %q: must match a known repo asset", asset)
 		}
 	}

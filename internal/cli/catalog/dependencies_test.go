@@ -3,6 +3,8 @@ package catalog
 import "testing"
 
 func TestDependenciesRequireNewService(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		recovered := recover()
 		if recovered == nil {

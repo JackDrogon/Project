@@ -10,6 +10,8 @@ import (
 )
 
 func TestServiceBuildNewSpec(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	spec, err := svc.BuildNewSpec(NewRequest{
 		Flags:   Flags{Lang: "go", GitMode: "none"},
@@ -26,6 +28,8 @@ func TestServiceBuildNewSpec(t *testing.T) {
 }
 
 func TestServiceBuildInitSpec(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	spec, err := svc.BuildInitSpec(InitRequest{
 		Flags:   Flags{Lang: "go", GitMode: "none"},
@@ -45,6 +49,8 @@ func TestServiceBuildInitSpec(t *testing.T) {
 }
 
 func TestServiceExecuteScaffoldSpec(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	var out bytes.Buffer
 	creator := NewCreator(fstest.MapFS{
@@ -67,6 +73,8 @@ func TestServiceExecuteScaffoldSpec(t *testing.T) {
 }
 
 func TestServiceExecuteScaffoldSpec_PropagatesCreateError(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	creator := NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	spec := ScaffoldSpec{Command: CommandNew, Flags: Flags{}, Options: Options{Lang: "missing", ProjectName: "demo", TargetDir: "demo", GitMode: scaffold.GitModeNone}}

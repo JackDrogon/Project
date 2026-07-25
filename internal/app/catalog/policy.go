@@ -2,15 +2,11 @@ package catalog
 
 import (
 	"slices"
-	"sort"
 )
 
-// Test seams following the repo convention: tests swap these package-level
-// vars and restore them via t.Cleanup.
-var (
-	activeRepoAssets = defaultRepoAssets()
-	governanceTier   = defaultGovernanceTier
-)
+// governanceTierFunc scores an inspection into a governance tier. Service holds
+// one so tests can substitute a scoring rule without swapping a global.
+type governanceTierFunc func(Inspection) string
 
 type repoAssetRegistry struct {
 	pathsByAsset map[string]string
@@ -46,7 +42,7 @@ func (r repoAssetRegistry) KnownAssets() []string {
 	for asset := range r.pathsByAsset {
 		assets = append(assets, asset)
 	}
-	sort.Strings(assets)
+	slices.Sort(assets)
 	return assets
 }
 
@@ -76,7 +72,7 @@ func (r repoAssetRegistry) AssetsForFiles(files []InspectionFile) []string {
 		seen[asset] = struct{}{}
 		assets = append(assets, asset)
 	}
-	sort.Strings(assets)
+	slices.Sort(assets)
 	return assets
 }
 

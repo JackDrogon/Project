@@ -134,7 +134,7 @@ type targetOrigins struct {
 }
 
 type Service struct {
-	settingsResolver   ScaffoldSettingsResolver
-	newTargetResolver  NewTargetResolver
-	initTargetResolver InitTargetResolver
+	settingsResolver   scaffoldSettingsResolver
+	newTargetResolver  newTargetResolver
+	initTargetResolver initTargetResolver
 }

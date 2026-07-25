@@ -11,6 +11,8 @@ import (
 )
 
 func TestDependenciesRequireNewCreator(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		recovered := recover()
 		if recovered == nil {
@@ -22,6 +24,8 @@ func TestDependenciesRequireNewCreator(t *testing.T) {
 }
 
 func TestDependenciesRequireNewService(t *testing.T) {
+	t.Parallel()
+
 	defer func() {
 		recovered := recover()
 		if recovered == nil {
@@ -35,6 +39,8 @@ func TestDependenciesRequireNewService(t *testing.T) {
 // The command owns its output stream: the creator must be built against it
 // rather than against a writer captured at wiring time.
 func TestNewCommand_BuildsCreatorFromCommandOut(t *testing.T) {
+	t.Parallel()
+
 	var got io.Writer
 	var out bytes.Buffer
 	deps := Dependencies{

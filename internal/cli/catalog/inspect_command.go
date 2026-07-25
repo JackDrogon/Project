@@ -2,7 +2,6 @@ package catalog
 
 import (
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -64,7 +63,7 @@ func (c *inspectCommand) resolveSettings(cmd *cobra.Command, args []string) appc
 		lang = args[0]
 	}
 
-	active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
+	active := c.deps.activeConfig()
 	flags := cmd.Flags()
 
 	return appcatalog.ResolveInspectSettings(

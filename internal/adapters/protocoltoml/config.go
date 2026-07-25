@@ -36,7 +36,7 @@ type Config struct {
 }
 
 var (
-	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*(?:#.*)?$`)
+	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*(\d+)\s*(?:#.*)?$`)
 	configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*(?:#.*)?$`)
 )
 
@@ -101,16 +101,15 @@ func DecodeConfig(content []byte, path string) (Config, error) {
 	}
 	cfg.Version = version
 
-	if err := ValidateConfig(cfg, path); err != nil {
+	if err := validateConfig(cfg, path); err != nil {
 		return Config{}, err
 	}
 
 	return cfg, nil
 }
 
-func extractConfigVersion(content []byte, path string) (int, []byte, error) {
+func extractConfigVersion(content []byte, path string) (version int, remaining []byte, err error) {
 	lines := strings.Split(string(content), "\n")
-	version := 0
 	seen := false
 	inTopLevel := true
 	kept := make([]string, 0, len(lines))
@@ -150,7 +149,7 @@ func extractConfigVersion(content []byte, path string) (int, []byte, error) {
 	return version, []byte(strings.Join(kept, "\n")), nil
 }
 
-func ValidateConfig(cfg Config, path string) error {
+func validateConfig(cfg Config, path string) error {
 	if cfg.Version != ConfigVersion {
 		return fmt.Errorf("config file %s has unsupported version %d", path, cfg.Version)
 	}

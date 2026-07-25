@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
+	"slices"
+
+	"golang.org/x/sync/errgroup"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
 )
@@ -17,20 +19,22 @@ const (
 	defaultDirMode fs.FileMode = 0o755
 	// defaultFileMode is the standard permission for regular files (rw-r--r--).
 	defaultFileMode fs.FileMode = 0o644
-	// tempFileMode is the initial permission for files during creation (rw-rw-rw-).
-	tempFileMode fs.FileMode = 0o666
-	// tempDirMode is the permission for parent directories during creation (rwxrwxrwx).
-	tempDirMode fs.FileMode = 0o777
+	// tempFileMode is the permission a file is created with, before
+	// applyMaterializedMode sets its final mode. It is deliberately not 0o666:
+	// creating world-writable and narrowing afterwards leaves a window where a
+	// file in a shared directory is writable by anyone, and umask is not a
+	// guarantee - a caller running with umask 0 got exactly that file.
+	tempFileMode fs.FileMode = 0o644
+	// tempDirMode is the permission for parent directories created on demand.
+	// The owner-write bit is all that is needed to populate them; the final
+	// pass in Materialize tightens the directories it walked.
+	tempDirMode fs.FileMode = 0o755
 	// ownerWriteMask ensures directory owner has write permission (rwx------).
 	ownerWriteMask fs.FileMode = 0o700
 	// maxConcurrentWrites limits parallel file write operations.
 	maxConcurrentWrites = 8
-)
-
-var (
-	osMkdirAll  = os.MkdirAll
-	osWriteFile = os.WriteFile
-	osChmod     = os.Chmod
+	// goosWindows matches runtime.GOOS on Windows, which has no POSIX modes.
+	goosWindows = "windows"
 )
 
 type ModeResolver func(sourcePath string, isDir bool) (fs.FileMode, bool)
@@ -53,7 +57,7 @@ func Preview(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Templa
 }
 
 func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, resolveMode ModeResolver) error {
-	if err := osMkdirAll(destDir, defaultDirMode); err != nil {
+	if err := os.MkdirAll(destDir, defaultDirMode); err != nil {
 		return err
 	}
 
@@ -81,7 +85,7 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 	for _, entry := range dirs {
 		_, _ = fmt.Fprintf(w, "  create %s/\n", entry.Destination)
 		mode := resolvedMode(entry, true, resolveMode)
-		if err := osMkdirAll(entry.Destination, ensureWritableDirMode(mode)); err != nil {
+		if err := os.MkdirAll(entry.Destination, ensureWritableDirMode(mode)); err != nil {
 			return err
 		}
 		pendingDirModes = append(pendingDirModes, pendingDirMode{path: entry.Destination, mode: mode})
@@ -91,8 +95,10 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 		return err
 	}
 
-	for i := len(pendingDirModes) - 1; i >= 0; i-- {
-		if err := applyMaterializedMode(pendingDirModes[i].path, pendingDirModes[i].mode); err != nil {
+	// Deepest first: tightening a parent's mode before its children are written
+	// would make the children unwritable.
+	for _, dir := range slices.Backward(pendingDirModes) {
+		if err := applyMaterializedMode(dir.path, dir.mode); err != nil {
 			return err
 		}
 	}
@@ -100,43 +106,45 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 	return nil
 }
 
+// materializeFilesConcurrently writes the rendered templates in parallel but
+// reports them in walk order.
+//
+// Reporting used to happen inside each goroutine under a mutex, which made the
+// "create <path>" listing come out in completion order - so two identical runs
+// produced different output, defeating diffable logs and stable golden tests.
+// Writes stay concurrent; only the reporting is serialized, and files that were
+// written before an error are still listed so a failed run says what it left
+// behind (scaffolding never deletes, so the caller has to clean up by hand).
 func materializeFilesConcurrently(w io.Writer, fsys fs.FS, files []Entry, vars domain.TemplateVars, resolveMode ModeResolver) error {
 	if len(files) == 0 {
 		return nil
 	}
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	sem := make(chan struct{}, maxConcurrentWrites)
-	errCh := make(chan error, len(files))
+	// Each goroutine writes its own index, so no synchronization is needed.
+	written := make([]bool, len(files))
 
-	for _, file := range files {
-		wg.Add(1)
-		go func(entry Entry) {
-			defer wg.Done()
+	var group errgroup.Group
+	group.SetLimit(maxConcurrentWrites)
 
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			if err := materializeFile(fsys, entry, vars, resolveMode); err != nil {
-				errCh <- err
-				return
+	for i, file := range files {
+		group.Go(func() error {
+			if err := materializeFile(fsys, file, vars, resolveMode); err != nil {
+				return err
 			}
-
-			mu.Lock()
-			_, _ = fmt.Fprintf(w, "  create %s\n", entry.Destination)
-			mu.Unlock()
-		}(file)
+			written[i] = true
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errCh)
+	err := group.Wait()
 
-	if err := <-errCh; err != nil {
-		return err
+	for i, file := range files {
+		if written[i] {
+			_, _ = fmt.Fprintf(w, "  create %s\n", file.Destination)
+		}
 	}
 
-	return nil
+	return err
 }
 
 func materializeFile(fsys fs.FS, entry Entry, vars domain.TemplateVars, resolveMode ModeResolver) error {
@@ -150,11 +158,11 @@ func materializeFile(fsys fs.FS, entry Entry, vars domain.TemplateVars, resolveM
 		return err
 	}
 
-	if err := osMkdirAll(filepath.Dir(entry.Destination), tempDirMode); err != nil {
+	if err := os.MkdirAll(filepath.Dir(entry.Destination), tempDirMode); err != nil {
 		return err
 	}
 
-	if err := osWriteFile(entry.Destination, rendered, tempFileMode); err != nil {
+	if err := os.WriteFile(entry.Destination, rendered, tempFileMode); err != nil {
 		return err
 	}
 
@@ -177,8 +185,10 @@ func applyMaterializedMode(path string, mode fs.FileMode) error {
 	if mode.Perm() == 0 {
 		return nil
 	}
-	if err := osChmod(path, mode.Perm()); err != nil {
-		if runtime.GOOS == "windows" {
+	if err := os.Chmod(path, mode.Perm()); err != nil {
+		// Windows has no POSIX permission bits, so chmod failing there is
+		// expected rather than a scaffolding failure.
+		if runtime.GOOS == goosWindows {
 			return nil
 		}
 		return err

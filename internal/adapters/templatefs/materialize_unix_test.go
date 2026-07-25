@@ -15,6 +15,8 @@ import (
 )
 
 func TestMaterialize_CorrectsForUmaskOnPOSIX(t *testing.T) {
+	t.Parallel()
+
 	oldUmask := syscall.Umask(0o077)
 	defer syscall.Umask(oldUmask)
 

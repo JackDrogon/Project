@@ -6,7 +6,7 @@ import (
 )
 
 type scaffoldCommandSpecBuilder interface {
-	Build(*appcreate.Service, *cobra.Command, []string) (appcreate.ScaffoldSpec, error)
+	Build(service *appcreate.Service, cmd *cobra.Command, deps Dependencies, args []string) (appcreate.ScaffoldSpec, error)
 }
 
 type newScaffoldCommandSpecBuilder struct {
@@ -18,12 +18,12 @@ type initScaffoldCommandSpecBuilder struct {
 	flags *scaffoldCommandFlags
 }
 
-func (b newScaffoldCommandSpecBuilder) Build(service *appcreate.Service, cmd *cobra.Command, args []string) (appcreate.ScaffoldSpec, error) {
-	return service.BuildNewSpec(b.flags.newRequest(cmd, valueOrFalse(b.force), args))
+func (b newScaffoldCommandSpecBuilder) Build(service *appcreate.Service, cmd *cobra.Command, deps Dependencies, args []string) (appcreate.ScaffoldSpec, error) {
+	return service.BuildNewSpec(b.flags.newRequest(cmd, deps, valueOrFalse(b.force), args))
 }
 
-func (b initScaffoldCommandSpecBuilder) Build(service *appcreate.Service, cmd *cobra.Command, args []string) (appcreate.ScaffoldSpec, error) {
-	return service.BuildInitSpec(b.flags.initRequest(cmd, args))
+func (b initScaffoldCommandSpecBuilder) Build(service *appcreate.Service, cmd *cobra.Command, deps Dependencies, args []string) (appcreate.ScaffoldSpec, error) {
+	return service.BuildInitSpec(b.flags.initRequest(cmd, deps, args))
 }
 
 func valueOrFalse(v *bool) bool {

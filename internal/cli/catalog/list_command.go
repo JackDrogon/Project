@@ -2,7 +2,6 @@ package catalog
 
 import (
 	appcatalog "github.com/JackDrogon/project/internal/app/catalog"
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 	"github.com/JackDrogon/project/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +82,7 @@ func (c *listCommand) run(cmd *cobra.Command, args []string) error {
 }
 
 func (c *listCommand) resolveSettings(cmd *cobra.Command) appcatalog.ListSettings {
-	active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
+	active := c.deps.activeConfig()
 	flags := cmd.Flags()
 
 	return appcatalog.ResolveListSettings(

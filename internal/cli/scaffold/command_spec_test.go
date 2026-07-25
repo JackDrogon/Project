@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
+	t.Parallel()
+
 	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := NewNewCommand(newTestDependencies(creator))
@@ -20,7 +22,7 @@ func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
 	flags := scaffoldCommandFlags{lang: "go", gitMode: "none"}
 	force := false
 	builder := newScaffoldCommandSpecBuilder{flags: &flags, force: &force}
-	spec, err := builder.Build(service, cmd, []string{"demo"})
+	spec, err := builder.Build(service, cmd, newTestDependencies(creator), []string{"demo"})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
@@ -30,6 +32,8 @@ func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
 }
 
 func TestInitScaffoldCommandSpecBuilder(t *testing.T) {
+	t.Parallel()
+
 	service := appcreate.NewService()
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	cmd := NewInitCommand(newTestDependencies(creator))
@@ -39,7 +43,7 @@ func TestInitScaffoldCommandSpecBuilder(t *testing.T) {
 
 	flags := scaffoldCommandFlags{lang: "go", gitMode: "none"}
 	builder := initScaffoldCommandSpecBuilder{flags: &flags}
-	spec, err := builder.Build(service, cmd, []string{"nested/demo"})
+	spec, err := builder.Build(service, cmd, newTestDependencies(creator), []string{"nested/demo"})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}

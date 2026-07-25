@@ -10,6 +10,8 @@ import (
 )
 
 func TestCreatorCreate_HandsGitTheCallerContext(t *testing.T) {
+	t.Parallel()
+
 	type gitCall struct {
 		ctx  context.Context
 		args []string
@@ -50,6 +52,8 @@ func TestCreatorCreate_HandsGitTheCallerContext(t *testing.T) {
 // A cancelled `go env` must degrade to the built-in version rather than
 // leaving GoVersion empty or failing the scaffold.
 func TestDetectGoVersion_FallsBackWhenContextIsCanceled(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 

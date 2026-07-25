@@ -31,6 +31,8 @@ func newProtocolTestCreator(t *testing.T, manifest string) *Creator {
 }
 
 func TestCheckLang_SeparatesMissingTemplateFromReadFailure(t *testing.T) {
+	t.Parallel()
+
 	opts := Options{Lang: "go", ProjectName: "demo", GitMode: domain.GitModeNone}
 
 	t.Run("missing template is a user error", func(t *testing.T) {
@@ -69,6 +71,8 @@ func TestCheckLang_SeparatesMissingTemplateFromReadFailure(t *testing.T) {
 }
 
 func TestValidateCreateOptions_EnforcesManifestRequiredInputs(t *testing.T) {
+	t.Parallel()
+
 	const manifest = "version = 2\nname = \"go\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = true\n\n[[inputs]]\nkey = \"author\"\ntemplate_var = \"Author\"\nrequired = false\n"
 
 	base := Options{

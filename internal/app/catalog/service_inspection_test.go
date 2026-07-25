@@ -9,6 +9,8 @@ import (
 )
 
 func TestServiceInspect(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = true\n")},
 		"go/.editorconfig":                          {Data: []byte("root = true\n")},
@@ -44,6 +46,8 @@ func TestServiceInspect(t *testing.T) {
 }
 
 func TestServiceInspect_Errors(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService(fstest.MapFS{}, nil)
 
 	t.Run("unsupported language", func(t *testing.T) {
@@ -72,6 +76,8 @@ func TestServiceInspect_Errors(t *testing.T) {
 }
 
 func TestServiceQueryInspection(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("version = 2\nname = \"go\"\ndescription = \"Go starter\"\n\n[[inputs]]\nkey = \"module_path\"\ntemplate_var = \"ModulePath\"\nrequired = true\n\n[[inputs]]\nkey = \"go_version\"\ntemplate_var = \"GoVersion\"\nrequired = true\n")},
 		"go/.gitignore":                             {Data: []byte("bin/\n")},

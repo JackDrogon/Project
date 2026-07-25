@@ -2,7 +2,6 @@ package create
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"strings"
 
@@ -13,16 +12,21 @@ import (
 // reports the same error whether the arg check fails in cobra or here.
 var errMissingProjectNameArg = errors.New("accepts 1 arg(s), received 0")
 
-type ScaffoldSettingsResolver interface {
-	Resolve(Flags, Changed, Runtime) (resolvedScaffoldSettings, error)
+// The resolvers take the request struct whole rather than its fields spread
+// out. The previous NewTargetResolver signature was
+// Resolve(Flags, Runtime, Changed, bool, string, bool, resolvedScaffoldSettings)
+// - seven positional parameters with an unnamed bool, string, bool in the
+// middle, so transposing force and hasArg still compiled.
+type scaffoldSettingsResolver interface {
+	Resolve(flags Flags, changed Changed, runtime Runtime) (resolvedScaffoldSettings, error)
 }
 
-type NewTargetResolver interface {
-	Resolve(Flags, Runtime, Changed, bool, string, bool, resolvedScaffoldSettings) (targetResolution, error)
+type newTargetResolver interface {
+	Resolve(req NewRequest, runtime Runtime, settings resolvedScaffoldSettings) (targetResolution, error)
 }
 
-type InitTargetResolver interface {
-	Resolve(Runtime, string, bool, resolvedScaffoldSettings) (targetResolution, error)
+type initTargetResolver interface {
+	Resolve(req InitRequest, runtime Runtime, settings resolvedScaffoldSettings) (targetResolution, error)
 }
 
 type (
@@ -31,9 +35,9 @@ type (
 	defaultInitTargetResolver       struct{}
 )
 
-func newScaffoldSettingsResolver() ScaffoldSettingsResolver { return defaultScaffoldSettingsResolver{} }
-func newNewTargetResolver() NewTargetResolver               { return defaultNewTargetResolver{} }
-func newInitTargetResolver() InitTargetResolver             { return defaultInitTargetResolver{} }
+func newScaffoldSettingsResolver() scaffoldSettingsResolver { return defaultScaffoldSettingsResolver{} }
+func newNewTargetResolver() newTargetResolver               { return defaultNewTargetResolver{} }
+func newInitTargetResolver() initTargetResolver             { return defaultInitTargetResolver{} }
 
 func (defaultScaffoldSettingsResolver) Resolve(flags Flags, changed Changed, runtime Runtime) (resolvedScaffoldSettings, error) {
 	lang, langOrigin, err := resolveLang(flags, changed, runtime)
@@ -63,8 +67,10 @@ func (defaultScaffoldSettingsResolver) Resolve(flags Flags, changed Changed, run
 	}, nil
 }
 
-func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Changed, force bool, arg string, hasArg bool, settings resolvedScaffoldSettings) (targetResolution, error) {
-	resolvedForce := force
+func (defaultNewTargetResolver) Resolve(req NewRequest, runtime Runtime, settings resolvedScaffoldSettings) (targetResolution, error) {
+	flags, changed, arg, hasArg := req.Flags, req.Changed, req.Arg, req.HasArg
+
+	resolvedForce := req.Force
 	if !changed.Force && runtime.HasReplay {
 		resolvedForce = runtime.Replay.Options.Force
 	}
@@ -130,13 +136,17 @@ func (defaultNewTargetResolver) Resolve(flags Flags, runtime Runtime, changed Ch
 	}, nil
 }
 
-func (defaultInitTargetResolver) Resolve(runtime Runtime, arg string, hasArg bool, settings resolvedScaffoldSettings) (targetResolution, error) {
+func (defaultInitTargetResolver) Resolve(req InitRequest, runtime Runtime, settings resolvedScaffoldSettings) (targetResolution, error) {
+	arg, hasArg := req.Arg, req.HasArg
+
 	targetDir := "."
-	projectName := ""
 	// `init` derives the project name FROM the target dir, so both origins key
 	// off the same source (arg, replay, or config target_dir).
 	nameOrigin := ValueOriginDefault
-	var err error
+	var (
+		projectName string
+		err         error
+	)
 
 	if hasArg {
 		nameOrigin = ValueOriginArg
@@ -197,7 +207,7 @@ func resolveLang(flags Flags, changed Changed, runtime Runtime) (string, ValueOr
 	if value := activeConfigLang(runtime); value != "" {
 		return value, activeConfigValueOrigin(runtime), nil
 	}
-	return "", ValueOriginDefault, fmt.Errorf("required flag(s) \"lang\" not set")
+	return "", ValueOriginDefault, errors.New("required flag(s) \"lang\" not set")
 }
 
 func resolveSignoff(flags Flags, changed Changed, runtime Runtime) (bool, ValueOrigin) {
@@ -346,7 +356,7 @@ func activeConfigGitMode(runtime Runtime) string {
 	return ""
 }
 
-func activeConfigSignoff(runtime Runtime) (bool, bool) {
+func activeConfigSignoff(runtime Runtime) (signoff, ok bool) {
 	switch runtime.Command {
 	case CommandNew:
 		if section := activeConfigNewSection(runtime); section != nil && section.Signoff != nil {

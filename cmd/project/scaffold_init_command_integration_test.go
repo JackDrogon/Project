@@ -548,31 +548,6 @@ func TestInitCmd_WriteReplayIgnoresConfigMetadata(t *testing.T) {
 	}
 }
 
-func TestProjectNameFromTargetDirFailsWhenCWDIsMissing(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd() error = %v", err)
-	}
-	tmp := t.TempDir()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("Chdir(%q) error = %v", tmp, err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(cwd)
-	})
-	if err := os.RemoveAll(tmp); err != nil {
-		t.Fatalf("RemoveAll(%q) error = %v", tmp, err)
-	}
-
-	_, err = appcreate.ProjectNameFromTargetDir(".")
-	if err == nil {
-		t.Fatal("projectNameFromTargetDir() expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "failed to resolve target directory") {
-		t.Fatalf("projectNameFromTargetDir() error = %v, want resolution error", err)
-	}
-}
-
 func TestInitCmd_ReportsProjectNameResolutionError(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {

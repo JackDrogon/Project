@@ -53,7 +53,7 @@ func LoadManifest(fsys fs.FS, lang string) (Manifest, bool, error) {
 		return Manifest{}, false, fmt.Errorf("failed to read template manifest %s: %w", manifestPath, err)
 	}
 
-	manifest, err := DecodeManifest(content, manifestPath, lang)
+	manifest, err := decodeManifest(content, manifestPath, lang)
 	if err != nil {
 		return Manifest{}, false, err
 	}
@@ -61,7 +61,7 @@ func LoadManifest(fsys fs.FS, lang string) (Manifest, bool, error) {
 	return manifest, true, nil
 }
 
-func DecodeManifest(content []byte, manifestPath, lang string) (Manifest, error) {
+func decodeManifest(content []byte, manifestPath, lang string) (Manifest, error) {
 	if path.Base(manifestPath) != ManifestFilename {
 		return Manifest{}, fmt.Errorf("template manifest %s must use reserved filename %s", manifestPath, ManifestFilename)
 	}
@@ -75,14 +75,14 @@ func DecodeManifest(content []byte, manifestPath, lang string) (Manifest, error)
 	if err := decoder.Decode(&manifest); err != nil {
 		return Manifest{}, fmt.Errorf("failed to decode template manifest %s: %w", manifestPath, err)
 	}
-	if err := ValidateManifest(manifest, manifestPath, lang); err != nil {
+	if err := validateManifest(manifest, manifestPath, lang); err != nil {
 		return Manifest{}, err
 	}
 
 	return manifest, nil
 }
 
-func ValidateManifest(manifest Manifest, manifestPath, lang string) error {
+func validateManifest(manifest Manifest, manifestPath, lang string) error {
 	if manifest.Version != ManifestVersion {
 		return fmt.Errorf("template manifest %s has unsupported version %d", manifestPath, manifest.Version)
 	}
@@ -105,10 +105,10 @@ func ValidateManifest(manifest Manifest, manifestPath, lang string) error {
 	return nil
 }
 
-func rejectLegacyJSON(content []byte, path string) error {
+func rejectLegacyJSON(content []byte, sourcePath string) error {
 	trimmed := strings.TrimSpace(string(content))
 	if strings.HasPrefix(trimmed, "{") {
-		return fmt.Errorf("%s contains legacy JSON; only TOML is supported", path)
+		return fmt.Errorf("%s contains legacy JSON; only TOML is supported", sourcePath)
 	}
 	return nil
 }

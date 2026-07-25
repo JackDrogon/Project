@@ -11,6 +11,8 @@ import (
 )
 
 func TestCollectDetails(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/.project-template-manifest.toml":        {Data: []byte("{}")},
 		"go/.gitignore":                             {Data: []byte("bin/\n")},
@@ -57,6 +59,8 @@ func TestCollectDetails(t *testing.T) {
 }
 
 func TestCollectDetails_RejectsInvalidTemplate(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		"go/bad.txt.tmpl": {Data: []byte("{{.ProjectName")},
 	}

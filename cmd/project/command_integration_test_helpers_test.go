@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/JackDrogon/project/internal/adapters/protocoltoml"
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +32,15 @@ func requireSubcommand(t *testing.T, creator *appcreate.Creator, key commandKey)
 func requireSubcommandWithDeps(t *testing.T, deps dependencies, key commandKey) *cobra.Command {
 	t.Helper()
 
-	for _, cmd := range subcommands(deps) {
+	return requireSubcommandWithConfig(t, deps, &appconfig.Resolved{}, key)
+}
+
+// requireSubcommandWithConfig is requireSubcommandWithDeps for tests that need
+// the subcommand to see the config the root command would have resolved.
+func requireSubcommandWithConfig(t *testing.T, deps dependencies, config *appconfig.Resolved, key commandKey) *cobra.Command {
+	t.Helper()
+
+	for _, cmd := range subcommands(deps, config) {
 		if cmd.Name() == string(key) {
 			return cmd
 		}

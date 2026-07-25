@@ -9,10 +9,8 @@ import (
 	"strings"
 )
 
-func LookupMode(path string) (fs.FileMode, bool) {
-	return lookupMode(templateModeMetadata, path)
-}
-
+// lookupMode takes the metadata table as a parameter so tests can drive it with
+// a table of their own; ModeForPath binds it to the generated one.
 func lookupMode(metadata map[string]fs.FileMode, sourcePath string) (fs.FileMode, bool) {
 	normalized := normalizeSourcePath(sourcePath)
 	mode, ok := metadata[normalized]

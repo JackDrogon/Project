@@ -9,6 +9,8 @@ import (
 )
 
 func TestServiceListLangs(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService(fstest.MapFS{
 		"go/.project-template-manifest.toml":   {Data: []byte("version = 2\nname = \"go\"\n")},
 		"cpp/.project-template-manifest.toml":  {Data: []byte("version = 2\nname = \"cpp\"\n")},
@@ -25,6 +27,8 @@ func TestServiceListLangs(t *testing.T) {
 }
 
 func TestServiceListLangs_PropagatesReadErrors(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService(failingFS{err: errors.New("boom")}, nil)
 	_, err := svc.ListLangs()
 	if err == nil {

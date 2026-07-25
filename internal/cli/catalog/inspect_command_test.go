@@ -7,6 +7,8 @@ import (
 )
 
 func TestInspectCmdOutputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -60,6 +62,8 @@ func TestInspectCmdOutputs(t *testing.T) {
 }
 
 func TestInspectCmd_ConfigDefaultsSupplyLangAndMode(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [inspect]
@@ -69,10 +73,9 @@ mode = "render"
 `
 
 	var buf bytes.Buffer
-	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewInspectCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -91,6 +94,8 @@ mode = "render"
 }
 
 func TestInspectCmd_PositionalLangOverridesConfig(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [inspect]
@@ -98,10 +103,9 @@ lang = "rust"
 `
 
 	var buf bytes.Buffer
-	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewInspectCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 	cmd.SetArgs([]string{"go"})
 
 	if err := cmd.Execute(); err != nil {
@@ -115,6 +119,8 @@ lang = "rust"
 }
 
 func TestInspectCmd_MissingLangStillFailsWithoutArgOrConfig(t *testing.T) {
+	t.Parallel()
+
 	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
 
 	err := cmd.Execute()

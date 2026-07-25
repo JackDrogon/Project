@@ -1,6 +1,7 @@
 package scaffold
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,7 +16,7 @@ const maxProjectNameLen = 255
 
 func ValidateProjectName(name string) error {
 	if name == "" {
-		return fmt.Errorf("project name must not be empty")
+		return errors.New("project name must not be empty")
 	}
 	if len(name) > maxProjectNameLen {
 		return fmt.Errorf("project name must be at most %d characters, got %d", maxProjectNameLen, len(name))
@@ -40,7 +41,7 @@ func ValidateModulePath(modulePath string) error {
 		return fmt.Errorf("module path %q is invalid: must contain only [A-Za-z0-9._~/-]", modulePath)
 	}
 
-	for _, segment := range strings.Split(modulePath, "/") {
+	for segment := range strings.SplitSeq(modulePath, "/") {
 		if segment == "." || segment == ".." {
 			return fmt.Errorf("module path %q is invalid: must not contain '.' or '..' path segments", modulePath)
 		}

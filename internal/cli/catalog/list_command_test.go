@@ -7,6 +7,8 @@ import (
 )
 
 func TestSelectedOutputFormat(t *testing.T) {
+	t.Parallel()
+
 	if got := selectedOutputFormat(false); got != outputFormatText {
 		t.Fatalf("selectedOutputFormat(false) = %q, want %q", got, outputFormatText)
 	}
@@ -16,6 +18,8 @@ func TestSelectedOutputFormat(t *testing.T) {
 }
 
 func TestListCmdOutputs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -62,6 +66,8 @@ func TestListCmdOutputs(t *testing.T) {
 }
 
 func TestListCmd_ConfigDefaultsApplyToDetailAndFormat(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]
@@ -73,10 +79,9 @@ required_assets = ["ci"]
 `
 
 	var buf bytes.Buffer
-	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewListCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -111,6 +116,8 @@ required_assets = ["ci"]
 }
 
 func TestListCmd_FlagsOverrideConfigDefaults(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]
@@ -124,10 +131,9 @@ required_assets = ["security"]
 `
 
 	var buf bytes.Buffer
-	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewListCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 	cmd.SetArgs([]string{"--detail", "--toml=false", "--compact=false", "--table=false", "--sort", "name", "--min-governance", "minimal", "--has-repo-asset", "ci"})
 
 	if err := cmd.Execute(); err != nil {
@@ -147,6 +153,8 @@ required_assets = ["security"]
 }
 
 func TestListCmd_InvalidConfigCombinationStillFailsValidation(t *testing.T) {
+	t.Parallel()
+
 	config := `version = 1
 
 [list]
@@ -154,8 +162,7 @@ detail = false
 table = true
 `
 
-	cmd := NewListCommand(newTestDependencies(newCommandTestCatalogService))
-	cmd.SetContext(withActiveConfigContext(t, config))
+	cmd := NewListCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 
 	err := cmd.Execute()
 	if err == nil {

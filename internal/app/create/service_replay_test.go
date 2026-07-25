@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	if svc == nil {
 		t.Fatal("NewService() = nil")
@@ -16,6 +18,8 @@ func TestNewService(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -34,11 +38,11 @@ func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 		},
 	})
 
-	opts, err := svc.BuildNewOptions(NewRequest{
+	opts, _, err := svc.buildNew(NewRequest{
 		Flags: Flags{ReplayPath: replayPath, SetValues: []string{"author=from-cli"}},
 	})
 	if err != nil {
-		t.Fatalf("BuildNewOptions() error = %v", err)
+		t.Fatalf("buildNew() error = %v", err)
 	}
 
 	if opts.Lang != "cpp" || opts.ProjectName != "replayed-demo" || opts.TargetDir != "replayed-demo" {
@@ -59,6 +63,8 @@ func TestServiceBuildNewOptions_UsesReplayWhenArgOmitted(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -77,7 +83,7 @@ func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 		},
 	})
 
-	opts, err := svc.BuildNewOptions(NewRequest{
+	opts, _, err := svc.buildNew(NewRequest{
 		Flags: Flags{
 			Lang:       "go",
 			Module:     "example.com/from-cli",
@@ -92,7 +98,7 @@ func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 		HasArg:  true,
 	})
 	if err != nil {
-		t.Fatalf("BuildNewOptions() error = %v", err)
+		t.Fatalf("buildNew() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "cli-demo" || opts.TargetDir != "cli-demo" {
@@ -110,9 +116,11 @@ func TestServiceBuildNewOptions_ExplicitOverridesBeatReplay(t *testing.T) {
 }
 
 func TestServiceBuildNewOptions_ConfigDefaultsApplyWhenFlagsAndArgAreOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 
-	opts, err := svc.BuildNewOptions(NewRequest{
+	opts, _, err := svc.buildNew(NewRequest{
 		Flags: Flags{ActiveConfig: activeConfigForCreateServiceTest(protocoltoml.Config{
 			Version: protocoltoml.ConfigVersion,
 			New: &protocoltoml.ConfigNewSection{
@@ -129,7 +137,7 @@ func TestServiceBuildNewOptions_ConfigDefaultsApplyWhenFlagsAndArgAreOmitted(t *
 		})},
 	})
 	if err != nil {
-		t.Fatalf("BuildNewOptions() error = %v", err)
+		t.Fatalf("buildNew() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "demo" || opts.TargetDir != "demo" {
@@ -150,9 +158,11 @@ func TestServiceBuildNewOptions_ConfigDefaultsApplyWhenFlagsAndArgAreOmitted(t *
 }
 
 func TestServiceBuildNewOptions_ExplicitCLIBeatsConfig(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 
-	opts, err := svc.BuildNewOptions(NewRequest{
+	opts, _, err := svc.buildNew(NewRequest{
 		Flags: Flags{
 			Lang:      "go",
 			Module:    "example.com/from-cli",
@@ -175,7 +185,7 @@ func TestServiceBuildNewOptions_ExplicitCLIBeatsConfig(t *testing.T) {
 		HasArg:  true,
 	})
 	if err != nil {
-		t.Fatalf("BuildNewOptions() error = %v", err)
+		t.Fatalf("buildNew() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "cli-demo" || opts.TargetDir != "cli-demo" {
@@ -193,6 +203,8 @@ func TestServiceBuildNewOptions_ExplicitCLIBeatsConfig(t *testing.T) {
 }
 
 func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	replayPath := writeReplayForCreateServiceTest(t, protocoltoml.Replay{
 		Version:  protocoltoml.ReplayVersion,
@@ -211,7 +223,7 @@ func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *test
 	})
 
 	targetDir := filepath.Join("nested", "demo")
-	opts, err := svc.BuildInitOptions(InitRequest{
+	opts, _, err := svc.buildInit(InitRequest{
 		Flags: Flags{
 			Lang:       "go",
 			Module:     "example.com/from-cli",
@@ -225,7 +237,7 @@ func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *test
 		HasArg:  true,
 	})
 	if err != nil {
-		t.Fatalf("BuildInitOptions() error = %v", err)
+		t.Fatalf("buildInit() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "demo" || opts.TargetDir != targetDir {
@@ -243,10 +255,12 @@ func TestServiceBuildInitOptions_ExplicitOverridesReplayTargetAndOptions(t *test
 }
 
 func TestServiceBuildInitOptions_ConfigTargetAppliesWhenArgIsOmitted(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	targetDir := filepath.Join("nested", "demo")
 
-	opts, err := svc.BuildInitOptions(InitRequest{
+	opts, _, err := svc.buildInit(InitRequest{
 		Flags: Flags{ActiveConfig: activeConfigForCreateServiceTest(protocoltoml.Config{
 			Version: protocoltoml.ConfigVersion,
 			Init: &protocoltoml.ConfigInitSection{
@@ -259,7 +273,7 @@ func TestServiceBuildInitOptions_ConfigTargetAppliesWhenArgIsOmitted(t *testing.
 		})},
 	})
 	if err != nil {
-		t.Fatalf("BuildInitOptions() error = %v", err)
+		t.Fatalf("buildInit() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "demo" || opts.TargetDir != targetDir {
@@ -277,10 +291,12 @@ func TestServiceBuildInitOptions_ConfigTargetAppliesWhenArgIsOmitted(t *testing.
 }
 
 func TestServiceBuildInitOptions_ExplicitCLIBeatsConfig(t *testing.T) {
+	t.Parallel()
+
 	svc := NewService()
 	targetDir := filepath.Join("nested", "demo")
 
-	opts, err := svc.BuildInitOptions(InitRequest{
+	opts, _, err := svc.buildInit(InitRequest{
 		Flags: Flags{
 			Lang:      "go",
 			Module:    "example.com/from-cli",
@@ -303,7 +319,7 @@ func TestServiceBuildInitOptions_ExplicitCLIBeatsConfig(t *testing.T) {
 		HasArg:  true,
 	})
 	if err != nil {
-		t.Fatalf("BuildInitOptions() error = %v", err)
+		t.Fatalf("buildInit() error = %v", err)
 	}
 
 	if opts.Lang != "go" || opts.ProjectName != "demo" || opts.TargetDir != targetDir {

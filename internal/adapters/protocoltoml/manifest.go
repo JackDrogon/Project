@@ -38,7 +38,7 @@ type ManifestInput struct {
 func (m Manifest) DomainInputs() []domain.ManifestInput {
 	result := make([]domain.ManifestInput, 0, len(m.Inputs))
 	for _, input := range m.Inputs {
-		result = append(result, domain.ManifestInput{Name: input.Key, TemplateVar: input.TemplateVar})
+		result = append(result, domain.ManifestInput{Name: input.Key, TemplateVar: input.TemplateVar, Required: input.Required})
 	}
 	return result
 }

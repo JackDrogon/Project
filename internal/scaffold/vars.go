@@ -21,16 +21,17 @@ func NewTemplateVars(projectName, modulePath, goVersion, author string, year int
 	}
 }
 
+// ManifestInput is one input a template declares. Required means the bound
+// template variable must hold a value by the time rendering starts, no matter
+// whether it came from --set, a replay, the config file, or a computed default.
 type ManifestInput struct {
 	Name        string
 	TemplateVar string
+	Required    bool
 }
 
 func ResolveTemplateVars(inputs []ManifestInput, req CreateRequest, base TemplateVars) (TemplateVars, error) {
 	vars := base
-	if len(req.TemplateInputValues) == 0 {
-		return vars, nil
-	}
 
 	declaredInputs := make(map[string]ManifestInput, len(inputs))
 	for _, input := range inputs {
@@ -52,7 +53,62 @@ func ResolveTemplateVars(inputs []ManifestInput, req CreateRequest, base Templat
 		}
 	}
 
+	if err := validateRequiredInputs(inputs, vars); err != nil {
+		return TemplateVars{}, err
+	}
+
 	return vars, nil
+}
+
+// validateRequiredInputs walks the declared inputs in manifest order so the
+// reported failure never depends on map iteration order.
+func validateRequiredInputs(inputs []ManifestInput, vars TemplateVars) error {
+	for _, input := range inputs {
+		if !input.Required {
+			continue
+		}
+
+		if _, ok := TemplateVarValue(vars, input.TemplateVar); !ok {
+			return fmt.Errorf("template input %q has unsupported template_var %q", input.Name, input.TemplateVar)
+		}
+		if !templateVarIsSet(vars, input.TemplateVar) {
+			return fmt.Errorf("template input %q is required by the template but resolved to an empty value", input.Name)
+		}
+	}
+
+	return nil
+}
+
+// TemplateVarValue renders one template variable as the string a template
+// would see. The second result reports whether the name is a known variable.
+func TemplateVarValue(vars TemplateVars, templateVar string) (string, bool) {
+	switch templateVar {
+	case "ProjectName":
+		return vars.ProjectName, true
+	case "ProjectNameLower":
+		return vars.ProjectNameLower, true
+	case "ModulePath":
+		return vars.ModulePath, true
+	case "GoVersion":
+		return vars.GoVersion, true
+	case "Author":
+		return vars.Author, true
+	case "Year":
+		return strconv.Itoa(vars.Year), true
+	default:
+		return "", false
+	}
+}
+
+// templateVarIsSet reports whether the variable carries a usable value. Year is
+// numeric, so its zero value means "unset" rather than the literal "0".
+func templateVarIsSet(vars TemplateVars, templateVar string) bool {
+	if templateVar == "Year" {
+		return vars.Year != 0
+	}
+
+	value, ok := TemplateVarValue(vars, templateVar)
+	return ok && strings.TrimSpace(value) != ""
 }
 
 func ApplyTemplateInputValue(vars *TemplateVars, input ManifestInput, value string) error {

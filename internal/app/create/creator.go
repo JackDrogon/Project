@@ -2,6 +2,7 @@ package create
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -106,9 +107,19 @@ func (c *Creator) materializeCreate(ctx context.Context, opts Options) error {
 	return c.maybeInitGitRepo(ctx, opts)
 }
 
+// checkLang distinguishes "this template does not exist" from "the template
+// tree could not be read". Only the former is a user error; collapsing both
+// into "unsupported language" hid real I/O failures behind a wrong message.
 func (c *Creator) checkLang(opts Options) error {
-	if _, err := fs.ReadDir(c.fsys, opts.Lang); err != nil {
+	if !fs.ValidPath(opts.Lang) {
 		return fmt.Errorf("unsupported language: %s", opts.Lang)
+	}
+
+	if _, err := fs.ReadDir(c.fsys, opts.Lang); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("unsupported language: %s", opts.Lang)
+		}
+		return fmt.Errorf("failed to read template %q: %w", opts.Lang, err)
 	}
 	return nil
 }

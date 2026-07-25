@@ -327,6 +327,11 @@ template_var = "GoVersion"
 required = true
 ```
 
+**Contract Rules:**
+- `template_var` must name one of `ModulePath`, `GoVersion`, `Author`, `Year`.
+- `required = true` means the bound template variable must hold a value once everything is resolved - `--set`, replay, config, or a computed default all count. Scaffolding fails before writing any file if a required input resolves to an empty value (for example `--set go_version=`).
+- `required = false` (the default) lets the variable render empty.
+
 ### Replay File (`.project-replay.toml`)
 
 Using `--write-replay` produces a TOML file containing the final resolved configuration. This file enables consistent project recreation and can be used with `--replay`.

@@ -76,18 +76,8 @@ func resolveDryRunInputs(inputs []domain.ManifestInput, vars domain.TemplateVars
 }
 
 func resolveDryRunInputValue(templateVar string, vars domain.TemplateVars) string {
-	switch templateVar {
-	case "ModulePath":
-		return vars.ModulePath
-	case "GoVersion":
-		return vars.GoVersion
-	case "Author":
-		return vars.Author
-	case "Year":
-		return fmt.Sprintf("%d", vars.Year)
-	default:
-		return ""
-	}
+	value, _ := domain.TemplateVarValue(vars, templateVar)
+	return value
 }
 
 func writeDryRunPlan(w io.Writer, plan domain.DryRunPlan, opts Options) error {

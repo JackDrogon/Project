@@ -10,10 +10,10 @@ import (
 )
 
 func NewService() *Service {
-	return NewServiceWithDeps(DefaultDependencies())
+	return newServiceWithDeps(defaultDependencies())
 }
 
-func NewServiceWithDeps(deps Dependencies) *Service {
+func newServiceWithDeps(deps dependencies) *Service {
 	deps = deps.withDefaults()
 	return &Service{
 		settingsResolver:   deps.SettingsResolver,
@@ -22,30 +22,12 @@ func NewServiceWithDeps(deps Dependencies) *Service {
 	}
 }
 
-func (s *Service) BuildNewOptions(req NewRequest) (Options, error) {
-	options, _, err := s.buildNew(req)
-	if err != nil {
-		return Options{}, err
-	}
-
-	return options, nil
-}
-
 func (s *Service) BuildNewSpec(req NewRequest) (ScaffoldSpec, error) {
 	options, origins, err := s.buildNew(req)
 	if err != nil {
 		return ScaffoldSpec{}, err
 	}
 	return ScaffoldSpec{Command: CommandNew, Flags: req.Flags, Options: options, Origins: origins}, nil
-}
-
-func (s *Service) BuildInitOptions(req InitRequest) (Options, error) {
-	options, _, err := s.buildInit(req)
-	if err != nil {
-		return Options{}, err
-	}
-
-	return options, nil
 }
 
 func (s *Service) BuildInitSpec(req InitRequest) (ScaffoldSpec, error) {
@@ -65,11 +47,11 @@ func (s *Service) buildNew(req NewRequest) (Options, ResolutionOrigins, error) {
 		return Options{}, ResolutionOrigins{}, err
 	}
 
-	settings, err := s.ResolveScaffoldSettings(req.Flags, req.Changed, runtime)
+	settings, err := s.settingsResolver.Resolve(req.Flags, req.Changed, runtime)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}
-	target, err := s.ResolveNewTarget(req.Flags, runtime, req.Changed, req.Force, req.Arg, req.HasArg, settings)
+	target, err := s.newTargetResolver.Resolve(req, runtime, settings)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}
@@ -84,21 +66,17 @@ func (s *Service) buildInit(req InitRequest) (Options, ResolutionOrigins, error)
 		return Options{}, ResolutionOrigins{}, err
 	}
 
-	settings, err := s.ResolveScaffoldSettings(req.Flags, req.Changed, runtime)
+	settings, err := s.settingsResolver.Resolve(req.Flags, req.Changed, runtime)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}
-	target, err := s.ResolveInitTarget(runtime, req.Arg, req.HasArg, settings)
+	target, err := s.initTargetResolver.Resolve(req, runtime, settings)
 	if err != nil {
 		return Options{}, ResolutionOrigins{}, err
 	}
 
 	options := settings.Options(req.Flags, target)
 	return options, scaffoldResolutionOrigins(settings, target), nil
-}
-
-func (s *Service) ResolveScaffoldSettings(flags Flags, changed Changed, runtime Runtime) (resolvedScaffoldSettings, error) {
-	return s.settingsResolver.Resolve(flags, changed, runtime)
 }
 
 func (s resolvedScaffoldSettings) Options(flags Flags, target targetResolution) Options {
@@ -118,15 +96,7 @@ func (s resolvedScaffoldSettings) Options(flags Flags, target targetResolution) 
 	return options
 }
 
-func (s *Service) ResolveNewTarget(flags Flags, runtime Runtime, changed Changed, force bool, arg string, hasArg bool, settings resolvedScaffoldSettings) (targetResolution, error) {
-	return s.newTargetResolver.Resolve(flags, runtime, changed, force, arg, hasArg, settings)
-}
-
-func (s *Service) ResolveInitTarget(runtime Runtime, arg string, hasArg bool, settings resolvedScaffoldSettings) (targetResolution, error) {
-	return s.initTargetResolver.Resolve(runtime, arg, hasArg, settings)
-}
-
-func (s *Service) ScaffoldAndMaybeWriteReplay(ctx context.Context, creator *Creator, flags Flags, command Command, opts Options) error {
+func (s *Service) scaffoldAndMaybeWriteReplay(ctx context.Context, creator *Creator, flags Flags, command Command, opts Options) error {
 	if err := creator.Create(ctx, opts); err != nil {
 		return err
 	}
@@ -164,7 +134,7 @@ func (s *Service) ExecuteScaffoldSpec(ctx context.Context, creator *Creator, spe
 		return s.executeDryRunSpec(ctx, creator, spec)
 	}
 
-	return s.ScaffoldAndMaybeWriteReplay(ctx, creator, spec.Flags, spec.Command, spec.Options)
+	return s.scaffoldAndMaybeWriteReplay(ctx, creator, spec.Flags, spec.Command, spec.Options)
 }
 
 func (s *Service) executeDryRunSpec(ctx context.Context, creator *Creator, spec ScaffoldSpec) error {

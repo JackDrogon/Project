@@ -3,7 +3,7 @@ package create
 import "testing"
 
 func TestServiceWithDeps_UsesInjectedResolvers(t *testing.T) {
-	deps := Dependencies{
+	deps := dependencies{
 		SettingsResolver: stubSettingsResolver{settings: resolvedScaffoldSettings{
 			Lang: "cpp", ModulePath: "example.com/custom", GitMode: "none",
 			TemplateInputValues: map[string]string{"author": "custom"},
@@ -11,7 +11,7 @@ func TestServiceWithDeps_UsesInjectedResolvers(t *testing.T) {
 		NewTargetResolver:  stubNewTargetResolver{target: targetResolution{ProjectName: "custom-new", TargetDir: "custom-new", ModulePath: "example.com/custom-new", Force: true}},
 		InitTargetResolver: stubInitTargetResolver{target: targetResolution{ProjectName: "custom-init", TargetDir: "workspace", ModulePath: "example.com/custom-init", AllowExistingEmptyDir: true}},
 	}
-	svc := NewServiceWithDeps(deps)
+	svc := newServiceWithDeps(deps)
 
 	newSpec, err := svc.BuildNewSpec(NewRequest{Flags: Flags{}, Changed: Changed{}, Arg: "ignored", HasArg: true})
 	if err != nil {

@@ -1,21 +1,25 @@
 package create
 
-type Dependencies struct {
-	SettingsResolver   ScaffoldSettingsResolver
-	NewTargetResolver  NewTargetResolver
-	InitTargetResolver InitTargetResolver
+// dependencies carries the collaborators a Service resolves through. It stays
+// unexported because every injection site is inside this package: production
+// builds go through NewService, and the tests build a value and override the
+// fields they care about.
+type dependencies struct {
+	SettingsResolver   scaffoldSettingsResolver
+	NewTargetResolver  newTargetResolver
+	InitTargetResolver initTargetResolver
 }
 
-func DefaultDependencies() Dependencies {
-	return Dependencies{
+func defaultDependencies() dependencies {
+	return dependencies{
 		SettingsResolver:   newScaffoldSettingsResolver(),
 		NewTargetResolver:  newNewTargetResolver(),
 		InitTargetResolver: newInitTargetResolver(),
 	}
 }
 
-func (d Dependencies) withDefaults() Dependencies {
-	defaults := DefaultDependencies()
+func (d dependencies) withDefaults() dependencies {
+	defaults := defaultDependencies()
 	if d.SettingsResolver == nil {
 		d.SettingsResolver = defaults.SettingsResolver
 	}

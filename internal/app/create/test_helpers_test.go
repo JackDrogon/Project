@@ -16,13 +16,13 @@ func (r stubSettingsResolver) Resolve(Flags, Changed, Runtime) (resolvedScaffold
 
 type stubNewTargetResolver struct{ target targetResolution }
 
-func (r stubNewTargetResolver) Resolve(Flags, Runtime, Changed, bool, string, bool, resolvedScaffoldSettings) (targetResolution, error) {
+func (r stubNewTargetResolver) Resolve(NewRequest, Runtime, resolvedScaffoldSettings) (targetResolution, error) {
 	return r.target, nil
 }
 
 type stubInitTargetResolver struct{ target targetResolution }
 
-func (r stubInitTargetResolver) Resolve(Runtime, string, bool, resolvedScaffoldSettings) (targetResolution, error) {
+func (r stubInitTargetResolver) Resolve(InitRequest, Runtime, resolvedScaffoldSettings) (targetResolution, error) {
 	return r.target, nil
 }
 

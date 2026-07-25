@@ -19,22 +19,22 @@ const (
 	defaultDirMode fs.FileMode = 0o755
 	// defaultFileMode is the standard permission for regular files (rw-r--r--).
 	defaultFileMode fs.FileMode = 0o644
-	// tempFileMode is the initial permission for files during creation (rw-rw-rw-).
-	tempFileMode fs.FileMode = 0o666
-	// tempDirMode is the permission for parent directories during creation (rwxrwxrwx).
-	tempDirMode fs.FileMode = 0o777
+	// tempFileMode is the permission a file is created with, before
+	// applyMaterializedMode sets its final mode. It is deliberately not 0o666:
+	// creating world-writable and narrowing afterwards leaves a window where a
+	// file in a shared directory is writable by anyone, and umask is not a
+	// guarantee - a caller running with umask 0 got exactly that file.
+	tempFileMode fs.FileMode = 0o644
+	// tempDirMode is the permission for parent directories created on demand.
+	// The owner-write bit is all that is needed to populate them; the final
+	// pass in Materialize tightens the directories it walked.
+	tempDirMode fs.FileMode = 0o755
 	// ownerWriteMask ensures directory owner has write permission (rwx------).
 	ownerWriteMask fs.FileMode = 0o700
 	// maxConcurrentWrites limits parallel file write operations.
 	maxConcurrentWrites = 8
 	// goosWindows matches runtime.GOOS on Windows, which has no POSIX modes.
 	goosWindows = "windows"
-)
-
-var (
-	osMkdirAll  = os.MkdirAll
-	osWriteFile = os.WriteFile
-	osChmod     = os.Chmod
 )
 
 type ModeResolver func(sourcePath string, isDir bool) (fs.FileMode, bool)
@@ -57,7 +57,7 @@ func Preview(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Templa
 }
 
 func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.TemplateVars, resolveMode ModeResolver) error {
-	if err := osMkdirAll(destDir, defaultDirMode); err != nil {
+	if err := os.MkdirAll(destDir, defaultDirMode); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func Materialize(w io.Writer, fsys fs.FS, srcDir, destDir string, vars domain.Te
 	for _, entry := range dirs {
 		_, _ = fmt.Fprintf(w, "  create %s/\n", entry.Destination)
 		mode := resolvedMode(entry, true, resolveMode)
-		if err := osMkdirAll(entry.Destination, ensureWritableDirMode(mode)); err != nil {
+		if err := os.MkdirAll(entry.Destination, ensureWritableDirMode(mode)); err != nil {
 			return err
 		}
 		pendingDirModes = append(pendingDirModes, pendingDirMode{path: entry.Destination, mode: mode})
@@ -158,11 +158,11 @@ func materializeFile(fsys fs.FS, entry Entry, vars domain.TemplateVars, resolveM
 		return err
 	}
 
-	if err := osMkdirAll(filepath.Dir(entry.Destination), tempDirMode); err != nil {
+	if err := os.MkdirAll(filepath.Dir(entry.Destination), tempDirMode); err != nil {
 		return err
 	}
 
-	if err := osWriteFile(entry.Destination, rendered, tempFileMode); err != nil {
+	if err := os.WriteFile(entry.Destination, rendered, tempFileMode); err != nil {
 		return err
 	}
 
@@ -185,7 +185,7 @@ func applyMaterializedMode(path string, mode fs.FileMode) error {
 	if mode.Perm() == 0 {
 		return nil
 	}
-	if err := osChmod(path, mode.Perm()); err != nil {
+	if err := os.Chmod(path, mode.Perm()); err != nil {
 		// Windows has no POSIX permission bits, so chmod failing there is
 		// expected rather than a scaffolding failure.
 		if runtime.GOOS == goosWindows {

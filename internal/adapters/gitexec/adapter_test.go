@@ -25,13 +25,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	oldExecCommand := execCommand
-	execCommand = fakeExecCommand
-	t.Cleanup(func() {
-		execCommand = oldExecCommand
-	})
-
-	adapter := New()
+	adapter := newWithCommand(fakeExecCommand)
 
 	t.Run("success", func(t *testing.T) {
 		dir := t.TempDir()

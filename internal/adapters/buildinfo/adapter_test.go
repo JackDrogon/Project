@@ -6,80 +6,111 @@ import (
 	"testing"
 )
 
-func stubBuildInfo(t *testing.T, info *debug.BuildInfo, ok bool) {
-	t.Helper()
-	old := readBuildInfo
-	readBuildInfo = func() (*debug.BuildInfo, bool) {
+// stubbedAdapter builds an adapter over a fixed tag and build info. Nothing
+// global is swapped, so every test in this file can run in parallel.
+func stubbedAdapter(tag string, info *debug.BuildInfo, ok bool) *Adapter {
+	return newWithBuildInfo(tag, func() (*debug.BuildInfo, bool) {
 		return info, ok
-	}
-	t.Cleanup(func() {
-		readBuildInfo = old
 	})
 }
 
 func TestNew(t *testing.T) {
+	t.Parallel()
+
 	adapter := New()
 	if adapter == nil {
 		t.Fatal("New() = nil")
 	}
+	if adapter.tag != Tag {
+		t.Fatalf("New().tag = %q, want %q", adapter.tag, Tag)
+	}
 }
 
 func TestInfo(t *testing.T) {
-	oldTag := Tag
-	Tag = "v1.2.3"
-	t.Cleanup(func() {
-		Tag = oldTag
-	})
+	t.Parallel()
 
-	adapter := New()
+	tests := []struct {
+		name string
+		info *debug.BuildInfo
+		ok   bool
+		want string
+	}{
+		{
+			name: "without build info",
+			ok:   false,
+			want: "v1.2.3",
+		},
+		{
+			name: "with revision and dirty flag",
+			info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+				{Key: "vcs.revision", Value: "1234567890abcdef"},
+				{Key: "vcs.modified", Value: "true"},
+			}},
+			ok:   true,
+			want: "v1.2.3:1234567-dirty",
+		},
+		{
+			name: "clean revision omits dirty suffix",
+			info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+				{Key: "vcs.revision", Value: "abcdef0123"},
+				{Key: "vcs.modified", Value: "false"},
+			}},
+			ok:   true,
+			want: "v1.2.3:abcdef0",
+		},
+	}
 
-	t.Run("without build info", func(t *testing.T) {
-		stubBuildInfo(t, nil, false)
-		if got := adapter.Info(); got != "v1.2.3" {
-			t.Fatalf("Info() = %q, want %q", got, "v1.2.3")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("with revision and dirty flag", func(t *testing.T) {
-		stubBuildInfo(t, &debug.BuildInfo{Settings: []debug.BuildSetting{
-			{Key: "vcs.revision", Value: "1234567890abcdef"},
-			{Key: "vcs.modified", Value: "true"},
-		}}, true)
-
-		if got := adapter.Info(); got != "v1.2.3:1234567-dirty" {
-			t.Fatalf("Info() = %q, want %q", got, "v1.2.3:1234567-dirty")
-		}
-	})
+			if got := stubbedAdapter("v1.2.3", tt.info, tt.ok).Info(); got != tt.want {
+				t.Fatalf("Info() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestVerbose(t *testing.T) {
-	oldTag := Tag
-	Tag = "v9.9.9"
-	t.Cleanup(func() {
-		Tag = oldTag
-	})
+	t.Parallel()
 
-	adapter := New()
+	tests := []struct {
+		name        string
+		info        *debug.BuildInfo
+		wantContain []string
+		wantAbsent  []string
+	}{
+		{
+			name:        "without revision",
+			info:        &debug.BuildInfo{Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "false"}}},
+			wantContain: []string{"Tag:      v9.9.9", "Dirty:    false"},
+			wantAbsent:  []string{"Revision:"},
+		},
+		{
+			name: "with revision",
+			info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+				{Key: "vcs.revision", Value: "abcdef0"},
+				{Key: "vcs.modified", Value: "true"},
+			}},
+			wantContain: []string{"Tag:      v9.9.9", "Revision: abcdef0", "Dirty:    true"},
+		},
+	}
 
-	t.Run("without revision", func(t *testing.T) {
-		stubBuildInfo(t, &debug.BuildInfo{Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "false"}}}, true)
-		got := adapter.Verbose()
-		if strings.Contains(got, "Revision:") {
-			t.Fatalf("Verbose() = %q, want no revision line", got)
-		}
-		if !strings.Contains(got, "Tag:      v9.9.9") || !strings.Contains(got, "Dirty:    false") {
-			t.Fatalf("Verbose() = %q, want tag and dirty lines", got)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("with revision", func(t *testing.T) {
-		stubBuildInfo(t, &debug.BuildInfo{Settings: []debug.BuildSetting{
-			{Key: "vcs.revision", Value: "abcdef0"},
-			{Key: "vcs.modified", Value: "true"},
-		}}, true)
-		got := adapter.Verbose()
-		if !strings.Contains(got, "Revision: abcdef0") || !strings.Contains(got, "Dirty:    true") {
-			t.Fatalf("Verbose() = %q, want revision and dirty lines", got)
-		}
-	})
+			got := stubbedAdapter("v9.9.9", tt.info, true).Verbose()
+			for _, want := range tt.wantContain {
+				if !strings.Contains(got, want) {
+					t.Errorf("Verbose() = %q, want contains %q", got, want)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				if strings.Contains(got, absent) {
+					t.Errorf("Verbose() = %q, want no %q", got, absent)
+				}
+			}
+		})
+	}
 }

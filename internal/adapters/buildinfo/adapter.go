@@ -10,21 +10,40 @@ const (
 	shortRevisionLength = 7
 )
 
-var readBuildInfo = debug.ReadBuildInfo
-
+// Tag is the release tag, injected at link time with
+// -X .../buildinfo.Tag=$(git describe). It has to be a package-level variable
+// for -X to reach it, but it is written once by the linker and only read here:
+// New snapshots it, so nothing mutates it at run time.
 var Tag = "dev"
 
-type Adapter struct{}
+// readBuildInfoFunc is debug.ReadBuildInfo, held as a field rather than a
+// package variable so tests stub it per-adapter instead of swapping a global.
+type readBuildInfoFunc func() (*debug.BuildInfo, bool)
+
+type Adapter struct {
+	tag           string
+	readBuildInfo readBuildInfoFunc
+}
 
 func New() *Adapter {
-	return &Adapter{}
+	return &Adapter{tag: Tag, readBuildInfo: debug.ReadBuildInfo}
+}
+
+// newWithBuildInfo builds an adapter around a fixed tag and a substitute
+// build-info reader.
+func newWithBuildInfo(tag string, read readBuildInfoFunc) *Adapter {
+	if read == nil {
+		read = debug.ReadBuildInfo
+	}
+
+	return &Adapter{tag: tag, readBuildInfo: read}
 }
 
 func (a *Adapter) Info() string {
-	revision, modified := vcsInfo()
+	revision, modified := a.vcsInfo()
 
 	var b strings.Builder
-	b.WriteString(Tag)
+	b.WriteString(a.tag)
 	if revision != "" {
 		b.WriteString(":")
 		b.WriteString(revision)
@@ -36,8 +55,8 @@ func (a *Adapter) Info() string {
 }
 
 func (a *Adapter) Verbose() string {
-	revision, modified := vcsInfo()
-	lines := []string{fmt.Sprintf("Tag:      %s", Tag)}
+	revision, modified := a.vcsInfo()
+	lines := []string{fmt.Sprintf("Tag:      %s", a.tag)}
 	if revision != "" {
 		lines = append(lines, fmt.Sprintf("Revision: %s", revision))
 	}
@@ -45,8 +64,8 @@ func (a *Adapter) Verbose() string {
 	return strings.Join(lines, "\n")
 }
 
-func vcsInfo() (revision string, modified bool) {
-	info, ok := readBuildInfo()
+func (a *Adapter) vcsInfo() (revision string, modified bool) {
+	info, ok := a.readBuildInfo()
 	if !ok {
 		return "", false
 	}

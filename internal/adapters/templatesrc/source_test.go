@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 )
 
@@ -37,37 +37,42 @@ func TestModeForPath_CoversAllTemplatePaths(t *testing.T) {
 		t.Fatalf("WalkDir() error = %v", err)
 	}
 	if len(missing) != 0 {
-		sort.Strings(missing)
+		slices.Sort(missing)
 		t.Fatalf("mode metadata missing paths: %v", missing)
 	}
 }
 
 func TestModeForPath_KnownModes(t *testing.T) {
+	t.Parallel()
+
+	// Every expectation below is derivable from git's mode for the path:
+	// directories and executables are 0o755, everything else 0o644. Before
+	// canonicalization these were umask fossils (0o664, 0o775, and one 0o764).
 	tests := map[string]fs.FileMode{
-		"cpp/.github/workflows/ci.yml":             0o664,
-		"cpp/CONTRIBUTING.md.tmpl":                 0o664,
-		"cpp/typos.toml":                           0o664,
+		"cpp/.github/workflows/ci.yml":             0o644,
+		"cpp/CONTRIBUTING.md.tmpl":                 0o644,
+		"cpp/typos.toml":                           0o644,
 		"cpp/dev-tools/apply-format":               0o755,
 		"cpp/dev-tools/git-pre-commit-format":      0o755,
-		"go/.github/dependabot.yml":                0o664,
-		"go/.goreleaser.yml.tmpl":                  0o664,
-		"go/.project-template-manifest.toml":       0o664,
-		"go/typos.toml":                            0o664,
-		"go/cmd/{{.ProjectNameLower}}":             0o775,
-		"go/internal/version/version_test.go.tmpl": 0o664,
-		"rust/.project-template-manifest.toml":     0o664,
-		"rust/dprint.json":                         0o664,
-		"rust/Cargo.toml.tmpl":                     0o664,
-		"rust/justfile.tmpl":                       0o764,
-		"rust/typos.toml":                          0o664,
-		"rust/src":                                 0o775,
+		"go/.github/dependabot.yml":                0o644,
+		"go/.goreleaser.yml.tmpl":                  0o644,
+		"go/.project-template-manifest.toml":       0o644,
+		"go/typos.toml":                            0o644,
+		"go/cmd/{{.ProjectNameLower}}":             0o755,
+		"go/internal/version/version_test.go.tmpl": 0o644,
+		"rust/.project-template-manifest.toml":     0o644,
+		"rust/dprint.json":                         0o644,
+		"rust/Cargo.toml.tmpl":                     0o644,
+		"rust/justfile.tmpl":                       0o755,
+		"rust/typos.toml":                          0o644,
+		"rust/src":                                 0o755,
 	}
 
 	for path, want := range tests {
 		if got, ok := ModeForPath(path); !ok {
-			t.Fatalf("ModeForPath(%q) missing metadata", path)
+			t.Errorf("ModeForPath(%q) missing metadata", path)
 		} else if got != want {
-			t.Fatalf("ModeForPath(%q) = %o, want %o", path, got, want)
+			t.Errorf("ModeForPath(%q) = %o, want %o", path, got, want)
 		}
 	}
 }
@@ -125,28 +130,31 @@ func TestPermissionsGeneratedUpToDate(t *testing.T) {
 	var mismatches []string
 	walkedPaths := make(map[string]struct{})
 	for _, dir := range templateDirs {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			if info.IsDir() && isEmptyDir(path) {
+			if entry.IsDir() && isEmptyDir(path) {
 				return nil
+			}
+			info, err := entry.Info()
+			if err != nil {
+				return err
 			}
 			normalizedPath := filepath.ToSlash(path)
 			walkedPaths[normalizedPath] = struct{}{}
-			actualMode := info.Mode().Perm()
 			generatedMode, ok := templateModeMetadata[normalizedPath]
 			if !ok {
 				mismatches = append(mismatches, normalizedPath+" (missing in metadata)")
 				return nil
 			}
-			if actualMode != generatedMode {
+			if canonicalMode(info) != generatedMode {
 				mismatches = append(mismatches, normalizedPath)
 			}
 			return nil
 		})
 		if err != nil {
-			t.Fatalf("Walk(%q) error = %v", dir, err)
+			t.Fatalf("WalkDir(%q) error = %v", dir, err)
 		}
 	}
 
@@ -158,8 +166,35 @@ func TestPermissionsGeneratedUpToDate(t *testing.T) {
 	}
 
 	if len(mismatches) > 0 {
-		sort.Strings(mismatches)
+		slices.Sort(mismatches)
 		t.Fatalf("permissions_generated.go is stale, run: go generate ./internal/adapters/templatesrc/\nmismatched paths: %v", mismatches)
+	}
+}
+
+// canonicalMode mirrors the rule in gen/gen_permissions.go. The two copies are
+// deliberate: importing this package from the generator would mean `go generate`
+// could not run whenever permissions_generated.go is missing or malformed, which
+// is exactly when it needs to run. TestGeneratedModesAreCanonical guards the drift.
+func canonicalMode(info fs.FileInfo) fs.FileMode {
+	const ownerExecutable = 0o100
+
+	if info.IsDir() || info.Mode().Perm()&ownerExecutable != 0 {
+		return 0o755
+	}
+
+	return 0o644
+}
+
+// TestGeneratedModesAreCanonical pins the property that made the table
+// reproducible: every recorded mode is one of the two values git can represent.
+// Any 0o664/0o775/0o764 entry means a umask leaked into `go generate` again.
+func TestGeneratedModesAreCanonical(t *testing.T) {
+	t.Parallel()
+
+	for sourcePath, mode := range templateModeMetadata {
+		if mode != 0o644 && mode != 0o755 {
+			t.Errorf("templateModeMetadata[%q] = 0o%03o, want 0o644 or 0o755", sourcePath, mode)
+		}
 	}
 }
 

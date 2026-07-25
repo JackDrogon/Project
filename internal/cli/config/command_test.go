@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +16,7 @@ func TestConfigCmd_ShowsActiveConfigSummary(t *testing.T) {
 	active := loadActiveConfigForTest(t, "version = 1\n\n[new]\n\n[version]\nverbose = true\n")
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), active, appconfig.Context{})
+	root := newSingleCommandRoot(&appconfig.Resolved{Active: active})
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config"})
@@ -49,7 +48,7 @@ func TestConfigCmd_ShowsHintWhenNoConfigIsActive(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), appconfig.ActiveConfig{Source: appconfig.SourceNone}, appconfig.Context{})
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{}, nil))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config"})
@@ -79,15 +78,7 @@ func TestConfigCmd_ShowsResolvedExplicitMissingPathAndLoadError(t *testing.T) {
 	loadErr := os.ErrNotExist
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(
-		NewCommand(Dependencies{NewService: appconfig.NewService}),
-		appconfig.ActiveConfig{Source: appconfig.SourceNone},
-		appconfig.Context{ExplicitPath: explicitPath},
-	)
-	root.SetContext(appconfig.WithLoadError(root.Context(), loadErr))
-	for _, sub := range root.Commands() {
-		sub.SetContext(root.Context())
-	}
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{ExplicitPath: explicitPath}, loadErr))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config"})
@@ -116,7 +107,7 @@ func TestConfigPathCmd_PrintsResolvedPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), appconfig.ActiveConfig{Source: appconfig.SourceNone}, appconfig.Context{})
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{}, nil))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config", "path"})
@@ -138,7 +129,7 @@ func TestConfigInitCmd_CreatesSeedConfigFile(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), appconfig.ActiveConfig{Source: appconfig.SourceNone}, appconfig.Context{})
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{}, nil))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config", "init"})
@@ -164,11 +155,7 @@ func TestConfigInitCmd_UsesExplicitConfigPathEvenWhenMissing(t *testing.T) {
 	explicitPath := filepath.Join(t.TempDir(), "nested", "custom.toml")
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(
-		NewCommand(Dependencies{NewService: appconfig.NewService}),
-		appconfig.ActiveConfig{Source: appconfig.SourceNone},
-		appconfig.Context{ExplicitPath: explicitPath},
-	)
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{ExplicitPath: explicitPath}, nil))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config", "init"})
@@ -190,7 +177,7 @@ func TestConfigValidateCmd_SucceedsForLoadedConfig(t *testing.T) {
 	active := loadActiveConfigForTest(t, "version = 1\n")
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), active, appconfig.Context{ExplicitPath: active.Path})
+	root := newSingleCommandRoot(&appconfig.Resolved{Active: active, Options: appconfig.LoadOptions{ExplicitPath: active.Path}})
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"config", "validate"})
@@ -209,7 +196,7 @@ func TestConfigValidateCmd_FailsWhenConfigDoesNotExist(t *testing.T) {
 	t.Setenv("HOME", tempHome)
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 
-	root := newSingleCommandRootWithContext(NewCommand(Dependencies{NewService: appconfig.NewService}), appconfig.ActiveConfig{Source: appconfig.SourceNone}, appconfig.Context{})
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{}, nil))
 	root.SetArgs([]string{"config", "validate"})
 
 	err := root.Execute()
@@ -226,15 +213,7 @@ func TestConfigValidateCmd_FailsWithLoadError(t *testing.T) {
 	explicitPath := filepath.Join(t.TempDir(), "broken.toml")
 	loadErr := fmt.Errorf("failed to decode config file %s: broken field", explicitPath)
 
-	root := newSingleCommandRootWithContext(
-		NewCommand(Dependencies{NewService: appconfig.NewService}),
-		appconfig.ActiveConfig{Source: appconfig.SourceNone},
-		appconfig.Context{ExplicitPath: explicitPath},
-	)
-	root.SetContext(appconfig.WithLoadError(root.Context(), loadErr))
-	for _, sub := range root.Commands() {
-		sub.SetContext(root.Context())
-	}
+	root := newSingleCommandRoot(noConfigResolved(appconfig.LoadOptions{ExplicitPath: explicitPath}, loadErr))
 	root.SetArgs([]string{"config", "validate"})
 
 	err := root.Execute()
@@ -246,13 +225,20 @@ func TestConfigValidateCmd_FailsWithLoadError(t *testing.T) {
 	}
 }
 
-func newSingleCommandRootWithContext(command *cobra.Command, active appconfig.ActiveConfig, loadCtx appconfig.Context) *cobra.Command {
-	ctx := appconfig.WithLoadContext(appconfig.WithActiveConfig(context.Background(), active), loadCtx)
+// newSingleCommandRoot mounts the config command under a bare root, carrying
+// the config state the real root command would have resolved for it.
+func newSingleCommandRoot(resolved *appconfig.Resolved) *cobra.Command {
 	root := &cobra.Command{Use: "project"}
-	root.SetContext(ctx)
-	command.SetContext(ctx)
-	root.AddCommand(command)
+	root.AddCommand(NewCommand(Dependencies{NewService: appconfig.NewService, Config: resolved}))
 	return root
+}
+
+func noConfigResolved(options appconfig.LoadOptions, loadErr error) *appconfig.Resolved {
+	return &appconfig.Resolved{
+		Active:  appconfig.ActiveConfig{Source: appconfig.SourceNone},
+		Options: options,
+		LoadErr: loadErr,
+	}
 }
 
 // loadActiveConfigForTest loads a TOML config document through the app
@@ -265,7 +251,7 @@ func loadActiveConfigForTest(t *testing.T, content string) appconfig.ActiveConfi
 		t.Fatalf("WriteFile(%q) error = %v", path, err)
 	}
 
-	active, err := appconfig.NewService().LoadActiveConfig(appconfig.Context{ExplicitPath: path})
+	active, err := appconfig.NewService().LoadActiveConfig(appconfig.LoadOptions{ExplicitPath: path})
 	if err != nil {
 		t.Fatalf("LoadActiveConfig() error = %v", err)
 	}

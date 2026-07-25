@@ -21,7 +21,7 @@ func mergeReplayInputs(replay protocoltoml.Replay, templateInputValues map[strin
 }
 
 func buildReplay(command Command, opts Options) (protocoltoml.Replay, error) {
-	resolvedGitMode, err := domain.ResolveGitMode(domain.CreateRequest{NoGit: opts.NoGit, GitMode: domain.GitMode(opts.GitMode)})
+	resolvedGitMode, err := domain.ResolveGitMode(domain.CreateRequest{NoGit: opts.NoGit, GitMode: opts.GitMode})
 	if err != nil {
 		return protocoltoml.Replay{}, fmt.Errorf("failed to resolve replay after project creation: %w", err)
 	}
@@ -37,7 +37,7 @@ func buildReplay(command Command, opts Options) (protocoltoml.Replay, error) {
 			TargetDir:  opts.DestinationDir(),
 			ModulePath: opts.ModulePath,
 		},
-		Git:     protocoltoml.ReplayGit{Mode: domain.GitMode(resolvedGitMode), Signoff: opts.Signoff},
+		Git:     protocoltoml.ReplayGit{Mode: resolvedGitMode, Signoff: opts.Signoff},
 		Options: protocoltoml.ReplayOptions{Force: opts.Force},
 		Inputs:  inputs,
 	}, nil

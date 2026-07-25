@@ -3,7 +3,6 @@ package version
 import (
 	"fmt"
 
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appversion "github.com/JackDrogon/project/internal/app/version"
 	"github.com/spf13/cobra"
 )
@@ -17,8 +16,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Short: "show version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
-			if appversion.ResolveVerbose(verbose, cmd.Flags().Changed("verbose"), active) {
+			if appversion.ResolveVerbose(verbose, cmd.Flags().Changed("verbose"), deps.activeConfig()) {
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), service.Verbose())
 				return err
 			}

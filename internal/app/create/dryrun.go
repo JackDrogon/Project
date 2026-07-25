@@ -102,7 +102,7 @@ func writeDryRunPlanWithOrigins(w io.Writer, plan domain.DryRunPlan, opts Option
 	}
 
 	for _, input := range plan.ResolvedInputs {
-		if includeModulePath && input.TemplateVar == "ModulePath" {
+		if includeModulePath && input.TemplateVar == domain.TemplateVarModulePath {
 			continue
 		}
 		_, _ = fmt.Fprintf(w, "  %s: %s\n", input.Name, input.Value)
@@ -133,7 +133,7 @@ type dryRunPlanOverride struct {
 }
 
 func dryRunPlanModulePath(plan domain.DryRunPlan, opts Options) (string, bool) {
-	if value, ok := dryRunPlanResolvedInputValue(plan, "ModulePath"); ok {
+	if value, ok := dryRunPlanResolvedInputValue(plan, domain.TemplateVarModulePath); ok {
 		return value, true
 	}
 	if opts.Lang == langGo {
@@ -159,7 +159,7 @@ func dryRunPlanOverrides(plan domain.DryRunPlan, opts Options, mode domain.GitMo
 		overrides = append(overrides, dryRunPlanOverride{name: "module_path", value: modulePath})
 	}
 	for _, input := range plan.ResolvedInputs {
-		if input.TemplateVar == "ModulePath" {
+		if input.TemplateVar == domain.TemplateVarModulePath {
 			continue
 		}
 

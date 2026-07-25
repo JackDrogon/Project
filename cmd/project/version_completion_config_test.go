@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 
@@ -27,7 +26,7 @@ func TestVersionCmd_ConfigVerboseDefaultAppliesAndFlagWins(t *testing.T) {
 
 	t.Run("config default applies", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, deps, commandKeyVersion), active)
+		root := newSingleCommandRoot(requireSubcommandWithConfig(t, deps, &appconfig.Resolved{Active: active}, commandKeyVersion))
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"version"})
@@ -42,7 +41,7 @@ func TestVersionCmd_ConfigVerboseDefaultAppliesAndFlagWins(t *testing.T) {
 
 	t.Run("explicit flag wins", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, deps, commandKeyVersion), active)
+		root := newSingleCommandRoot(requireSubcommandWithConfig(t, deps, &appconfig.Resolved{Active: active}, commandKeyVersion))
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"version", "--verbose=false"})
@@ -72,7 +71,7 @@ func TestCompletionCmd_ConfigShellDefaultAppliesAndArgWins(t *testing.T) {
 
 	t.Run("config shell default applies", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
+		root := newSingleCommandRoot(requireSubcommandWithConfig(t, newDependencies(), &appconfig.Resolved{Active: active}, commandKeyCompletion))
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"completion"})
@@ -88,7 +87,7 @@ func TestCompletionCmd_ConfigShellDefaultAppliesAndArgWins(t *testing.T) {
 
 	t.Run("explicit arg wins", func(t *testing.T) {
 		var buf bytes.Buffer
-		root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
+		root := newSingleCommandRoot(requireSubcommandWithConfig(t, newDependencies(), &appconfig.Resolved{Active: active}, commandKeyCompletion))
 		root.SetOut(&buf)
 		root.SetErr(&buf)
 		root.SetArgs([]string{"completion", "bash"})
@@ -116,7 +115,7 @@ func TestCompletionCmd_InvalidConfigShellFailsBeforeGeneration(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	root := newSingleCommandRootWithConfig(requireSubcommandWithDeps(t, newDependencies(), commandKeyCompletion), active)
+	root := newSingleCommandRoot(requireSubcommandWithConfig(t, newDependencies(), &appconfig.Resolved{Active: active}, commandKeyCompletion))
 	root.SetOut(&buf)
 	root.SetErr(&buf)
 	root.SetArgs([]string{"completion"})
@@ -133,11 +132,10 @@ func TestCompletionCmd_InvalidConfigShellFailsBeforeGeneration(t *testing.T) {
 	}
 }
 
-func newSingleCommandRootWithConfig(command *cobra.Command, active appconfig.ActiveConfig) *cobra.Command {
-	ctx := appconfig.WithActiveConfig(context.Background(), active)
+// newSingleCommandRoot mounts one subcommand under a bare root. The config it
+// should see is baked into the subcommand's dependencies by the caller.
+func newSingleCommandRoot(command *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "project"}
-	root.SetContext(ctx)
-	command.SetContext(ctx)
 	root.AddCommand(command)
 	return root
 }

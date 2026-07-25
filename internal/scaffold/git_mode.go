@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-var goMajorVersionSuffix = regexp.MustCompile(`^v[2-9][0-9]*$`)
+var goMajorVersionSuffix = regexp.MustCompile(`^v[2-9]\d*$`)
 
 func ResolveGitMode(req CreateRequest) (GitMode, error) {
 	if req.NoGit {

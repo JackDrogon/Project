@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	appconfig "github.com/JackDrogon/project/internal/app/config"
@@ -10,6 +11,10 @@ import (
 
 type Dependencies struct {
 	NewService func() *appconfig.Service
+	// Config is filled in by the root command before any subcommand runs.
+	// A nil Config means "no config file", which is what tests that do not
+	// exercise config resolution want.
+	Config *appconfig.Resolved
 }
 
 func (d Dependencies) newService() *appconfig.Service {
@@ -20,6 +25,14 @@ func (d Dependencies) newService() *appconfig.Service {
 	return d.NewService()
 }
 
+func (d Dependencies) resolved() appconfig.Resolved {
+	if d.Config == nil {
+		return appconfig.Resolved{}
+	}
+
+	return *d.Config
+}
+
 func NewCommand(deps Dependencies) *cobra.Command {
 	service := deps.newService()
 
@@ -28,30 +41,27 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Short: "Show active config summary",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
-			loadCtx, _ := appconfig.LoadContextFromContext(cmd.Context())
-			resolvedPath, err := service.ResolvePath(loadCtx)
+			config := deps.resolved()
+			resolvedPath, err := service.ResolvePath(config.Options)
 			if err != nil {
 				return err
 			}
-			loadErr := appconfig.LoadErrorFromContext(cmd.Context())
-			_, err = fmt.Fprint(cmd.OutOrStdout(), renderConfigSummary(active, resolvedPath, loadErr))
+			_, err = fmt.Fprint(cmd.OutOrStdout(), renderConfigSummary(config.Active, resolvedPath, config.LoadErr))
 			return err
 		},
 	}
 
-	cmd.AddCommand(newPathCommand(service), newInitCommand(service), newValidateCommand(service))
+	cmd.AddCommand(newPathCommand(service, deps), newInitCommand(service, deps), newValidateCommand(service, deps))
 	return cmd
 }
 
-func newPathCommand(service *appconfig.Service) *cobra.Command {
+func newPathCommand(service *appconfig.Service, deps Dependencies) *cobra.Command {
 	return &cobra.Command{
 		Use:   "path",
 		Short: "Show resolved config path",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			loadCtx, _ := appconfig.LoadContextFromContext(cmd.Context())
-			path, err := service.ResolvePath(loadCtx)
+			path, err := service.ResolvePath(deps.resolved().Options)
 			if err != nil {
 				return err
 			}
@@ -61,14 +71,13 @@ func newPathCommand(service *appconfig.Service) *cobra.Command {
 	}
 }
 
-func newInitCommand(service *appconfig.Service) *cobra.Command {
+func newInitCommand(service *appconfig.Service, deps Dependencies) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Create a seed config file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			loadCtx, _ := appconfig.LoadContextFromContext(cmd.Context())
-			path, err := service.InitConfig(loadCtx)
+			path, err := service.InitConfig(deps.resolved().Options)
 			if err != nil {
 				return err
 			}
@@ -78,25 +87,23 @@ func newInitCommand(service *appconfig.Service) *cobra.Command {
 	}
 }
 
-func newValidateCommand(service *appconfig.Service) *cobra.Command {
+func newValidateCommand(service *appconfig.Service, deps Dependencies) *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate",
 		Short: "Validate the resolved config file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			loadCtx, _ := appconfig.LoadContextFromContext(cmd.Context())
-			path, err := service.ResolvePath(loadCtx)
+			config := deps.resolved()
+			path, err := service.ResolvePath(config.Options)
 			if err != nil {
 				return err
 			}
 
-			loadErr := appconfig.LoadErrorFromContext(cmd.Context())
-			if loadErr != nil {
-				return fmt.Errorf("config validation failed for %q: %w", path, loadErr)
+			if config.LoadErr != nil {
+				return fmt.Errorf("config validation failed for %q: %w", path, config.LoadErr)
 			}
 
-			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
-			if active.Config == nil {
+			if config.Active.Config == nil {
 				return fmt.Errorf("config file %q does not exist", path)
 			}
 
@@ -147,7 +154,7 @@ func configVersion(active appconfig.ActiveConfig) string {
 	if active.Config == nil {
 		return "(none)"
 	}
-	return fmt.Sprintf("%d", active.Config.Version)
+	return strconv.Itoa(active.Config.Version)
 }
 
 func configSections(active appconfig.ActiveConfig) []string {

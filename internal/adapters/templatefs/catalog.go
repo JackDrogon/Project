@@ -3,8 +3,9 @@ package templatefs
 import (
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
-	"sort"
+	"slices"
 	"strings"
 	"text/template"
 	"text/template/parse"
@@ -50,27 +51,24 @@ func CollectDetails(fsys fs.FS, lang string, manifest Manifest) (Details, error)
 		return Details{}, fmt.Errorf("unsupported language: %s", lang)
 	}
 
-	var files []FileDetail
-	vars := map[string]struct{}{}
+	acc := newDetailsAccumulator()
 	fileCount := 0
-	templateCount := 0
 
 	if err := walkTemplateFiles(fsys, lang, func(srcPath string, isTemplate bool) error {
 		fileCount++
-		return recordTemplateDetails(fsys, lang, srcPath, isTemplate, &files, vars, &templateCount)
+		return acc.record(fsys, lang, srcPath, isTemplate)
 	}); err != nil {
 		return Details{}, err
 	}
 
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Output < files[j].Output
+	files := acc.files
+	templateCount := acc.templateCount
+
+	slices.SortFunc(files, func(a, b FileDetail) int {
+		return strings.Compare(a.Output, b.Output)
 	})
 
-	variableList := make([]string, 0, len(vars))
-	for name := range vars {
-		variableList = append(variableList, name)
-	}
-	sort.Strings(variableList)
+	variableList := slices.Sorted(maps.Keys(acc.vars))
 
 	inputNames := make([]string, 0, len(manifest.Inputs))
 	for _, input := range manifest.Inputs {
@@ -121,15 +119,28 @@ func walkTemplateFiles(fsys fs.FS, dir string, visit func(srcPath string, isTemp
 	return nil
 }
 
-func recordTemplateDetails(fsys fs.FS, lang, srcPath string, isTemplate bool, files *[]FileDetail, vars map[string]struct{}, templateCount *int) error {
+// detailsAccumulator gathers what a template walk discovers. It exists so the
+// walk callback can be a method with four parameters instead of a function with
+// seven, three of which were out-parameters (*[]FileDetail, the vars map, *int).
+type detailsAccumulator struct {
+	files         []FileDetail
+	vars          map[string]struct{}
+	templateCount int
+}
+
+func newDetailsAccumulator() *detailsAccumulator {
+	return &detailsAccumulator{vars: map[string]struct{}{}}
+}
+
+func (a *detailsAccumulator) record(fsys fs.FS, lang, srcPath string, isTemplate bool) error {
 	relative := strings.TrimPrefix(srcPath, lang+"/")
-	*files = append(*files, FileDetail{
+	a.files = append(a.files, FileDetail{
 		Source:     relative,
 		Output:     strings.TrimSuffix(relative, TmplSuffix),
 		IsTemplate: isTemplate,
 	})
 
-	if err := collectVarsFromTemplatePath(srcPath, relative, vars); err != nil {
+	if err := collectVarsFromTemplatePath(srcPath, relative, a.vars); err != nil {
 		return err
 	}
 
@@ -137,7 +148,7 @@ func recordTemplateDetails(fsys fs.FS, lang, srcPath string, isTemplate bool, fi
 		return nil
 	}
 
-	*templateCount++
+	a.templateCount++
 	content, err := fs.ReadFile(fsys, srcPath)
 	if err != nil {
 		return err
@@ -148,7 +159,7 @@ func recordTemplateDetails(fsys fs.FS, lang, srcPath string, isTemplate bool, fi
 		return fmt.Errorf("failed to parse template %s: %w", srcPath, err)
 	}
 
-	addTemplateVarNames(vars, templateVars)
+	addTemplateVarNames(a.vars, templateVars)
 	return nil
 }
 
@@ -182,13 +193,7 @@ func extractTemplateVars(content []byte) ([]string, error) {
 		collectTemplateVars(tmpl.Root, vars)
 	}
 
-	result := make([]string, 0, len(vars))
-	for name := range vars {
-		result = append(result, name)
-	}
-	sort.Strings(result)
-
-	return result, nil
+	return slices.Sorted(maps.Keys(vars)), nil
 }
 
 func collectTemplateVars(node parse.Node, vars map[string]struct{}) {

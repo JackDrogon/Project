@@ -20,7 +20,7 @@ func TestNewScaffoldCommandSpecBuilder(t *testing.T) {
 	flags := scaffoldCommandFlags{lang: "go", gitMode: "none"}
 	force := false
 	builder := newScaffoldCommandSpecBuilder{flags: &flags, force: &force}
-	spec, err := builder.Build(service, cmd, []string{"demo"})
+	spec, err := builder.Build(service, cmd, newTestDependencies(creator), []string{"demo"})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
@@ -39,7 +39,7 @@ func TestInitScaffoldCommandSpecBuilder(t *testing.T) {
 
 	flags := scaffoldCommandFlags{lang: "go", gitMode: "none"}
 	builder := initScaffoldCommandSpecBuilder{flags: &flags}
-	spec, err := builder.Build(service, cmd, []string{"nested/demo"})
+	spec, err := builder.Build(service, cmd, newTestDependencies(creator), []string{"nested/demo"})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}

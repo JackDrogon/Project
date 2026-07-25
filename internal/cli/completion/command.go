@@ -8,6 +8,10 @@ import (
 
 type Dependencies struct {
 	NewService func() *appcompletion.Service
+	// Config is filled in by the root command before any subcommand runs.
+	// A nil Config means "no config file", which is what tests that do not
+	// exercise config resolution want.
+	Config *appconfig.Resolved
 }
 
 func (d Dependencies) newService() *appcompletion.Service {
@@ -16,6 +20,14 @@ func (d Dependencies) newService() *appcompletion.Service {
 	}
 
 	return d.NewService()
+}
+
+func (d Dependencies) activeConfig() appconfig.ActiveConfig {
+	if d.Config == nil {
+		return appconfig.ActiveConfig{}
+	}
+
+	return d.Config.Active
 }
 
 func NewCommand(deps Dependencies) *cobra.Command {
@@ -33,9 +45,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			if len(args) > 0 {
 				arg = args[0]
 			}
-			active, _ := appconfig.ActiveConfigFromContext(cmd.Context())
-
-			shell := service.ResolveShell(arg, len(args) > 0, active)
+			shell := service.ResolveShell(arg, len(args) > 0, deps.activeConfig())
 			if shell == "" {
 				return cobra.ExactArgs(1)(cmd, args)
 			}

@@ -1,7 +1,6 @@
 package scaffold
 
 import (
-	appconfig "github.com/JackDrogon/project/internal/app/config"
 	appcreate "github.com/JackDrogon/project/internal/app/create"
 	"github.com/spf13/cobra"
 )
@@ -31,15 +30,6 @@ func bindScaffoldCommandFlags(cmd *cobra.Command, flags *scaffoldCommandFlags) {
 	_ = cmd.Flags().MarkDeprecated("no-git", "use --git none instead")
 }
 
-func activeConfigFromCommand(cmd *cobra.Command) appconfig.ActiveConfig {
-	active, ok := appconfig.ActiveConfigFromContext(cmd.Context())
-	if !ok {
-		return appconfig.ActiveConfig{}
-	}
-
-	return active
-}
-
 func explainConfigFromCommand(cmd *cobra.Command) bool {
 	flag := cmd.Flags().Lookup("explain-config")
 	if flag == nil {
@@ -54,7 +44,7 @@ func explainConfigFromCommand(cmd *cobra.Command) bool {
 	return enabled
 }
 
-func (flags scaffoldCommandFlags) toAppFlags(cmd *cobra.Command) appcreate.Flags {
+func (flags scaffoldCommandFlags) toAppFlags(cmd *cobra.Command, deps Dependencies) appcreate.Flags {
 	return appcreate.Flags{
 		Lang:            flags.lang,
 		Module:          flags.module,
@@ -67,7 +57,7 @@ func (flags scaffoldCommandFlags) toAppFlags(cmd *cobra.Command) appcreate.Flags
 		SetValues:       flags.setValues,
 		ExplainConfig:   explainConfigFromCommand(cmd),
 		Stderr:          cmd.ErrOrStderr(),
-		ActiveConfig:    activeConfigFromCommand(cmd),
+		ActiveConfig:    deps.activeConfig(),
 	}
 }
 
@@ -82,7 +72,7 @@ func (flags scaffoldCommandFlags) changed(cmd *cobra.Command, force bool) appcre
 	}
 }
 
-func (flags scaffoldCommandFlags) newRequest(cmd *cobra.Command, force bool, args []string) appcreate.NewRequest {
+func (flags scaffoldCommandFlags) newRequest(cmd *cobra.Command, deps Dependencies, force bool, args []string) appcreate.NewRequest {
 	arg := ""
 	hasArg := len(args) == 1
 	if hasArg {
@@ -90,7 +80,7 @@ func (flags scaffoldCommandFlags) newRequest(cmd *cobra.Command, force bool, arg
 	}
 
 	return appcreate.NewRequest{
-		Flags:   flags.toAppFlags(cmd),
+		Flags:   flags.toAppFlags(cmd, deps),
 		Changed: flags.changed(cmd, cmd.Flags().Changed("force")),
 		Force:   force,
 		Arg:     arg,
@@ -98,7 +88,7 @@ func (flags scaffoldCommandFlags) newRequest(cmd *cobra.Command, force bool, arg
 	}
 }
 
-func (flags scaffoldCommandFlags) initRequest(cmd *cobra.Command, args []string) appcreate.InitRequest {
+func (flags scaffoldCommandFlags) initRequest(cmd *cobra.Command, deps Dependencies, args []string) appcreate.InitRequest {
 	arg := ""
 	hasArg := len(args) == 1
 	if hasArg {
@@ -106,7 +96,7 @@ func (flags scaffoldCommandFlags) initRequest(cmd *cobra.Command, args []string)
 	}
 
 	return appcreate.InitRequest{
-		Flags:   flags.toAppFlags(cmd),
+		Flags:   flags.toAppFlags(cmd, deps),
 		Changed: flags.changed(cmd, false),
 		Arg:     arg,
 		HasArg:  hasArg,

@@ -105,10 +105,10 @@ func validateManifest(manifest Manifest, manifestPath, lang string) error {
 	return nil
 }
 
-func rejectLegacyJSON(content []byte, path string) error {
+func rejectLegacyJSON(content []byte, sourcePath string) error {
 	trimmed := strings.TrimSpace(string(content))
 	if strings.HasPrefix(trimmed, "{") {
-		return fmt.Errorf("%s contains legacy JSON; only TOML is supported", path)
+		return fmt.Errorf("%s contains legacy JSON; only TOML is supported", sourcePath)
 	}
 	return nil
 }

@@ -3,7 +3,7 @@ package catalog
 import (
 	"fmt"
 	"io/fs"
-	"sort"
+	"slices"
 
 	"golang.org/x/sync/errgroup"
 
@@ -40,7 +40,7 @@ func (s *Service) ListLangs() ([]string, error) {
 			langs = append(langs, entry.Name())
 		}
 	}
-	sort.Strings(langs)
+	slices.Sort(langs)
 	return langs, nil
 }
 

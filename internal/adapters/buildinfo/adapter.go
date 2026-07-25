@@ -61,5 +61,5 @@ func vcsInfo() (revision string, modified bool) {
 			modified = s.Value == "true"
 		}
 	}
-	return
+	return revision, modified
 }

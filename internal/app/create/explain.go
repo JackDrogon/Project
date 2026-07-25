@@ -3,6 +3,7 @@ package create
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	domain "github.com/JackDrogon/project/internal/scaffold"
@@ -25,7 +26,7 @@ func buildScaffoldExplainReport(ctx context.Context, creator *Creator, spec Scaf
 	writeExplainField(&b, "target_dir", spec.Options.DestinationDir(), spec.Origins.TargetDir)
 	writeExplainField(&b, "module", spec.Options.ModulePath, spec.Origins.Module)
 	writeExplainField(&b, "git_mode", string(spec.Options.GitMode), spec.Origins.GitMode)
-	writeExplainField(&b, "signoff", fmt.Sprintf("%t", spec.Options.Signoff), spec.Origins.Signoff)
+	writeExplainField(&b, "signoff", strconv.FormatBool(spec.Options.Signoff), spec.Origins.Signoff)
 	b.WriteString("  template inputs:\n")
 
 	inputs := resolveDryRunInputs(manifest.DomainInputs(), vars)
@@ -61,7 +62,7 @@ func writeExplainField(b *strings.Builder, name, value string, origin ValueOrigi
 }
 
 func explainInputOrigin(origins ResolutionOrigins, input domain.DryRunResolvedInput) ValueOrigin {
-	if input.TemplateVar == "ModulePath" {
+	if input.TemplateVar == domain.TemplateVarModulePath {
 		return normalizeOrigin(origins.Module)
 	}
 	if origin, ok := origins.TemplateInputs[input.Name]; ok {

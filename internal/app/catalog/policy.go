@@ -2,7 +2,6 @@ package catalog
 
 import (
 	"slices"
-	"sort"
 )
 
 // Test seams following the repo convention: tests swap these package-level
@@ -46,7 +45,7 @@ func (r repoAssetRegistry) KnownAssets() []string {
 	for asset := range r.pathsByAsset {
 		assets = append(assets, asset)
 	}
-	sort.Strings(assets)
+	slices.Sort(assets)
 	return assets
 }
 
@@ -76,7 +75,7 @@ func (r repoAssetRegistry) AssetsForFiles(files []InspectionFile) []string {
 		seen[asset] = struct{}{}
 		assets = append(assets, asset)
 	}
-	sort.Strings(assets)
+	slices.Sort(assets)
 	return assets
 }
 

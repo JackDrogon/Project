@@ -27,6 +27,8 @@ const (
 	ownerWriteMask fs.FileMode = 0o700
 	// maxConcurrentWrites limits parallel file write operations.
 	maxConcurrentWrites = 8
+	// goosWindows matches runtime.GOOS on Windows, which has no POSIX modes.
+	goosWindows = "windows"
 )
 
 var (
@@ -184,7 +186,9 @@ func applyMaterializedMode(path string, mode fs.FileMode) error {
 		return nil
 	}
 	if err := osChmod(path, mode.Perm()); err != nil {
-		if runtime.GOOS == "windows" {
+		// Windows has no POSIX permission bits, so chmod failing there is
+		// expected rather than a scaffolding failure.
+		if runtime.GOOS == goosWindows {
 			return nil
 		}
 		return err

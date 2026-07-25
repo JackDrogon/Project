@@ -45,7 +45,7 @@ func TestLoadActiveConfig_UsesUserConfigDirWhenDefaultFileExists(t *testing.T) {
 		},
 	})
 
-	active, err := svc.LoadActiveConfig(Context{})
+	active, err := svc.LoadActiveConfig(LoadOptions{})
 	if err != nil {
 		t.Fatalf("LoadActiveConfig() error = %v", err)
 	}
@@ -96,7 +96,7 @@ func TestLoadActiveConfig_ExplicitPathShortCircuitsUserConfig(t *testing.T) {
 		},
 	})
 
-	active, err := svc.LoadActiveConfig(Context{ExplicitPath: explicitPath})
+	active, err := svc.LoadActiveConfig(LoadOptions{ExplicitPath: explicitPath})
 	if err != nil {
 		t.Fatalf("LoadActiveConfig() error = %v", err)
 	}
@@ -128,7 +128,7 @@ func TestLoadActiveConfig_MissingExplicitPathFailsAndMissingDefaultIsNoop(t *tes
 			},
 		})
 
-		_, err := svc.LoadActiveConfig(Context{ExplicitPath: explicitPath})
+		_, err := svc.LoadActiveConfig(LoadOptions{ExplicitPath: explicitPath})
 		if err == nil {
 			t.Fatal("LoadActiveConfig() error = nil, want missing explicit path error")
 		}
@@ -158,7 +158,7 @@ func TestLoadActiveConfig_MissingExplicitPathFailsAndMissingDefaultIsNoop(t *tes
 			},
 		})
 
-		active, err := svc.LoadActiveConfig(Context{})
+		active, err := svc.LoadActiveConfig(LoadOptions{})
 		if err != nil {
 			t.Fatalf("LoadActiveConfig() error = %v", err)
 		}
@@ -187,7 +187,7 @@ func TestResolvePath_UsesExplicitOrDefaultPath(t *testing.T) {
 			},
 		})
 
-		path, err := svc.ResolvePath(Context{ExplicitPath: "/tmp/custom.toml"})
+		path, err := svc.ResolvePath(LoadOptions{ExplicitPath: "/tmp/custom.toml"})
 		if err != nil {
 			t.Fatalf("ResolvePath() error = %v", err)
 		}
@@ -206,7 +206,7 @@ func TestResolvePath_UsesExplicitOrDefaultPath(t *testing.T) {
 			},
 		})
 
-		path, err := svc.ResolvePath(Context{})
+		path, err := svc.ResolvePath(LoadOptions{})
 		if err != nil {
 			t.Fatalf("ResolvePath() error = %v", err)
 		}
@@ -246,7 +246,7 @@ func TestInitConfig_CreatesSeedFileAndRejectsExistingTarget(t *testing.T) {
 			},
 		})
 
-		path, err := svc.InitConfig(Context{})
+		path, err := svc.InitConfig(LoadOptions{})
 		if err != nil {
 			t.Fatalf("InitConfig() error = %v", err)
 		}
@@ -272,7 +272,7 @@ func TestInitConfig_CreatesSeedFileAndRejectsExistingTarget(t *testing.T) {
 			Stat:     func(name string) (os.FileInfo, error) { return fakeFileInfo{name: filepath.Base(name)}, nil },
 		})
 
-		_, err := svc.InitConfig(Context{ExplicitPath: "/tmp/config.toml"})
+		_, err := svc.InitConfig(LoadOptions{ExplicitPath: "/tmp/config.toml"})
 		if err == nil {
 			t.Fatal("InitConfig() error = nil, want existing file error")
 		}

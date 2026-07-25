@@ -80,7 +80,13 @@ func TestNewRootCmd_RegistersPersistentConfigFlags(t *testing.T) {
 	}
 }
 
-func TestNewRootCmd_LoadsActiveConfigIntoCommandContext(t *testing.T) {
+// TestNewRootCmd_ResolvesActiveConfigForSubcommands asserts the effect rather
+// than the plumbing: the loaded config sets [version] verbose = true, so
+// verbose output proves the config the root command resolved reached the
+// subcommand. The previous version of this test read the value back out of
+// versionCmd.Context(), which only worked while config travelled as a context
+// value.
+func TestNewRootCmd_ResolvesActiveConfigForSubcommands(t *testing.T) {
 	creator := appcreate.NewCreator(fstest.MapFS{}, &bytes.Buffer{})
 	deps := newTestDependencies(creator)
 	deps.newConfigService = func() *appconfig.Service {
@@ -95,32 +101,18 @@ func TestNewRootCmd_LoadsActiveConfigIntoCommandContext(t *testing.T) {
 		})
 	}
 
+	var buf bytes.Buffer
 	cmd := newRootCmd(deps)
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{string(commandKeyVersion)})
 
-	var versionCmd *cobra.Command
-	for _, subCmd := range cmd.Commands() {
-		if subCmd.Name() == string(commandKeyVersion) {
-			versionCmd = subCmd
-			break
-		}
-	}
-	if versionCmd == nil {
-		t.Fatalf("root command missing %q subcommand", commandKeyVersion)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute() error = %v", err)
 	}
 
-	if err := cmd.PersistentPreRunE(versionCmd, nil); err != nil {
-		t.Fatalf("PersistentPreRunE() error = %v", err)
-	}
-
-	active, ok := appconfig.ActiveConfigFromContext(versionCmd.Context())
-	if !ok {
-		t.Fatal("ActiveConfigFromContext(versionCmd.Context()) ok = false, want true")
-	}
-	if active.Source != appconfig.SourceUserConfig {
-		t.Fatalf("active.Source = %q, want %q", active.Source, appconfig.SourceUserConfig)
-	}
-	if active.Path != "/tmp/config-home/project/config.toml" {
-		t.Fatalf("active.Path = %q, want %q", active.Path, "/tmp/config-home/project/config.toml")
+	if !strings.Contains(buf.String(), "Tag:") {
+		t.Fatalf("output = %q, want verbose version output from the resolved config", buf.String())
 	}
 }
 

@@ -6,6 +6,21 @@ import (
 	"strings"
 )
 
+// Template variable names, as they appear in a manifest's template_var field.
+// These are the contract between a template's manifest and TemplateVars, so
+// they belong to the domain rather than to whichever caller spells them out.
+const (
+	TemplateVarProjectName = "ProjectName"
+	TemplateVarModulePath  = "ModulePath"
+	TemplateVarGoVersion   = "GoVersion"
+	TemplateVarAuthor      = "Author"
+	TemplateVarYear        = "Year"
+
+	// templateVarProjectNameLower is derived from ProjectName rather than
+	// supplied by a manifest, so it is not part of the input vocabulary.
+	templateVarProjectNameLower = "ProjectNameLower"
+)
+
 func NewTemplateVars(projectName, modulePath, goVersion, author string, year int) TemplateVars {
 	if modulePath == "" {
 		modulePath = projectName
@@ -83,17 +98,17 @@ func validateRequiredInputs(inputs []ManifestInput, vars TemplateVars) error {
 // would see. The second result reports whether the name is a known variable.
 func TemplateVarValue(vars TemplateVars, templateVar string) (string, bool) {
 	switch templateVar {
-	case "ProjectName":
+	case TemplateVarProjectName:
 		return vars.ProjectName, true
-	case "ProjectNameLower":
+	case templateVarProjectNameLower:
 		return vars.ProjectNameLower, true
-	case "ModulePath":
+	case TemplateVarModulePath:
 		return vars.ModulePath, true
-	case "GoVersion":
+	case TemplateVarGoVersion:
 		return vars.GoVersion, true
-	case "Author":
+	case TemplateVarAuthor:
 		return vars.Author, true
-	case "Year":
+	case TemplateVarYear:
 		return strconv.Itoa(vars.Year), true
 	default:
 		return "", false
@@ -103,7 +118,7 @@ func TemplateVarValue(vars TemplateVars, templateVar string) (string, bool) {
 // templateVarIsSet reports whether the variable carries a usable value. Year is
 // numeric, so its zero value means "unset" rather than the literal "0".
 func templateVarIsSet(vars TemplateVars, templateVar string) bool {
-	if templateVar == "Year" {
+	if templateVar == TemplateVarYear {
 		return vars.Year != 0
 	}
 
@@ -113,13 +128,13 @@ func templateVarIsSet(vars TemplateVars, templateVar string) bool {
 
 func applyTemplateInputValue(vars *TemplateVars, input ManifestInput, value string) error {
 	switch input.TemplateVar {
-	case "ModulePath":
+	case TemplateVarModulePath:
 		return fmt.Errorf("template input %q must be provided via module path options", input.Name)
-	case "GoVersion":
+	case TemplateVarGoVersion:
 		vars.GoVersion = value
-	case "Author":
+	case TemplateVarAuthor:
 		vars.Author = value
-	case "Year":
+	case TemplateVarYear:
 		year, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("template input %q must be a valid year: %w", input.Name, err)

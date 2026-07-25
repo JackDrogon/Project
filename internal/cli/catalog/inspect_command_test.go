@@ -69,10 +69,9 @@ mode = "render"
 `
 
 	var buf bytes.Buffer
-	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewInspectCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute() error = %v", err)
@@ -98,10 +97,9 @@ lang = "rust"
 `
 
 	var buf bytes.Buffer
-	cmd := NewInspectCommand(newTestDependencies(newCommandTestCatalogService))
+	cmd := NewInspectCommand(newTestDependenciesWithTOML(t, newCommandTestCatalogService, config))
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	cmd.SetContext(withActiveConfigContext(t, config))
 	cmd.SetArgs([]string{"go"})
 
 	if err := cmd.Execute(); err != nil {

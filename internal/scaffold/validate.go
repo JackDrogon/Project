@@ -41,7 +41,7 @@ func ValidateModulePath(modulePath string) error {
 		return fmt.Errorf("module path %q is invalid: must contain only [A-Za-z0-9._~/-]", modulePath)
 	}
 
-	for _, segment := range strings.Split(modulePath, "/") {
+	for segment := range strings.SplitSeq(modulePath, "/") {
 		if segment == "." || segment == ".." {
 			return fmt.Errorf("module path %q is invalid: must not contain '.' or '..' path segments", modulePath)
 		}

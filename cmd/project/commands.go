@@ -1,6 +1,7 @@
 package main
 
 import (
+	appconfig "github.com/JackDrogon/project/internal/app/config"
 	catalogcli "github.com/JackDrogon/project/internal/cli/catalog"
 	completioncli "github.com/JackDrogon/project/internal/cli/completion"
 	configcli "github.com/JackDrogon/project/internal/cli/config"
@@ -26,17 +27,17 @@ const (
 // subcommands builds the top-level commands. Adding a command means adding one
 // line here: there is no registry, no init(), and no ordering table. Cobra
 // sorts commands for help output, so this order is declaration order only.
-func subcommands(deps dependencies) []*cobra.Command {
-	scaffoldDeps := scaffoldcli.Dependencies{NewCreator: deps.newCreator, NewService: deps.newCreateService}
-	catalogDeps := catalogcli.Dependencies{NewService: deps.newCatalogService}
+func subcommands(deps dependencies, config *appconfig.Resolved) []*cobra.Command {
+	scaffoldDeps := scaffoldcli.Dependencies{NewCreator: deps.newCreator, NewService: deps.newCreateService, Config: config}
+	catalogDeps := catalogcli.Dependencies{NewService: deps.newCatalogService, Config: config}
 
 	return []*cobra.Command{
 		scaffoldcli.NewNewCommand(scaffoldDeps),
 		scaffoldcli.NewInitCommand(scaffoldDeps),
 		catalogcli.NewListCommand(catalogDeps),
 		catalogcli.NewInspectCommand(catalogDeps),
-		configcli.NewCommand(configcli.Dependencies{NewService: deps.newConfigService}),
-		versioncli.NewCommand(versioncli.Dependencies{NewService: deps.newVersionService}),
-		completioncli.NewCommand(completioncli.Dependencies{NewService: deps.newCompletionService}),
+		configcli.NewCommand(configcli.Dependencies{NewService: deps.newConfigService, Config: config}),
+		versioncli.NewCommand(versioncli.Dependencies{NewService: deps.newVersionService, Config: config}),
+		completioncli.NewCommand(completioncli.Dependencies{NewService: deps.newCompletionService, Config: config}),
 	}
 }

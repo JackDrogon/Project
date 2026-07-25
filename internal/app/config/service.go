@@ -73,16 +73,16 @@ func (d Dependencies) withDefaults() Dependencies {
 	return d
 }
 
-func (s *Service) ResolvePath(ctx Context) (string, error) {
-	if ctx.ExplicitPath != "" {
-		return ctx.ExplicitPath, nil
+func (s *Service) ResolvePath(opts LoadOptions) (string, error) {
+	if opts.ExplicitPath != "" {
+		return opts.ExplicitPath, nil
 	}
 
 	return s.defaultConfigPath()
 }
 
-func (s *Service) InitConfig(ctx Context) (string, error) {
-	path, err := s.ResolvePath(ctx)
+func (s *Service) InitConfig(opts LoadOptions) (string, error) {
+	path, err := s.ResolvePath(opts)
 	if err != nil {
 		return "", err
 	}
@@ -105,9 +105,9 @@ func (s *Service) InitConfig(ctx Context) (string, error) {
 	return path, nil
 }
 
-func (s *Service) LoadActiveConfig(ctx Context) (ActiveConfig, error) {
-	if ctx.ExplicitPath != "" {
-		return s.loadFromPath(SourceExplicit, ctx.ExplicitPath)
+func (s *Service) LoadActiveConfig(opts LoadOptions) (ActiveConfig, error) {
+	if opts.ExplicitPath != "" {
+		return s.loadFromPath(SourceExplicit, opts.ExplicitPath)
 	}
 
 	defaultPath, err := s.defaultConfigPath()

@@ -92,16 +92,8 @@ func ParseInspectMode(mode string) (InspectMode, error) {
 	}
 }
 
-func knownRepoAssets() []string {
-	return defaultRepoAssets().KnownAssets()
-}
-
-func IsKnownRepoAsset(asset string) bool {
+func isKnownRepoAsset(asset string) bool {
 	return defaultRepoAssets().HasAsset(asset)
-}
-
-func GovernanceRank(tier string) int {
-	return governanceRank(tier)
 }
 
 func filesByGroup(files []InspectionFile, group FileGroup) []InspectionFile {

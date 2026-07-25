@@ -1,9 +1,13 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	appconfig "github.com/JackDrogon/project/internal/app/config"
+)
 
 func TestSubcommands_HasExpectedKeys(t *testing.T) {
-	commands := subcommands(newDependencies())
+	commands := subcommands(newDependencies(), &appconfig.Resolved{})
 	got := make([]commandKey, 0, len(commands))
 	for _, cmd := range commands {
 		got = append(got, commandKey(cmd.Name()))
@@ -31,7 +35,7 @@ func TestSubcommands_HasExpectedKeys(t *testing.T) {
 }
 
 func TestSubcommands_AreParentless(t *testing.T) {
-	for _, cmd := range subcommands(newDependencies()) {
+	for _, cmd := range subcommands(newDependencies(), &appconfig.Resolved{}) {
 		if cmd.HasParent() {
 			t.Fatalf("subcommand %q already has a parent; newRootCmd owns attachment", cmd.Name())
 		}

@@ -29,7 +29,7 @@ func (c *scaffoldCommandBase) execute(
 	}
 
 	service := c.deps.newService()
-	spec, err := builder.Build(service, cmd, args)
+	spec, err := builder.Build(service, cmd, c.deps, args)
 	if err != nil {
 		return err
 	}

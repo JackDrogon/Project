@@ -16,6 +16,7 @@ func (s *Source) FS() fs.FS {
 	return s.fs
 }
 
+// ModeForPath reports the recorded permission bits for a template source path.
 func ModeForPath(sourcePath string) (fs.FileMode, bool) {
-	return LookupMode(sourcePath)
+	return lookupMode(templateModeMetadata, sourcePath)
 }

@@ -36,7 +36,7 @@ type Config struct {
 }
 
 var (
-	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*([0-9]+)\s*(?:#.*)?$`)
+	configVersionPattern = regexp.MustCompile(`^\s*version\s*=\s*(\d+)\s*(?:#.*)?$`)
 	configSectionPattern = regexp.MustCompile(`^\s*\[{1,2}[^\]]+\]{1,2}\s*(?:#.*)?$`)
 )
 
@@ -108,9 +108,8 @@ func DecodeConfig(content []byte, path string) (Config, error) {
 	return cfg, nil
 }
 
-func extractConfigVersion(content []byte, path string) (int, []byte, error) {
+func extractConfigVersion(content []byte, path string) (version int, remaining []byte, err error) {
 	lines := strings.Split(string(content), "\n")
-	version := 0
 	seen := false
 	inTopLevel := true
 	kept := make([]string, 0, len(lines))

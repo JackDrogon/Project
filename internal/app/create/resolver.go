@@ -140,11 +140,13 @@ func (defaultInitTargetResolver) Resolve(req InitRequest, runtime Runtime, setti
 	arg, hasArg := req.Arg, req.HasArg
 
 	targetDir := "."
-	projectName := ""
 	// `init` derives the project name FROM the target dir, so both origins key
 	// off the same source (arg, replay, or config target_dir).
 	nameOrigin := ValueOriginDefault
-	var err error
+	var (
+		projectName string
+		err         error
+	)
 
 	if hasArg {
 		nameOrigin = ValueOriginArg
@@ -354,7 +356,7 @@ func activeConfigGitMode(runtime Runtime) string {
 	return ""
 }
 
-func activeConfigSignoff(runtime Runtime) (bool, bool) {
+func activeConfigSignoff(runtime Runtime) (signoff, ok bool) {
 	switch runtime.Command {
 	case CommandNew:
 		if section := activeConfigNewSection(runtime); section != nil && section.Signoff != nil {
